@@ -5,7 +5,11 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug } from "@/services/membership";
 import { SignOutButton } from "@/app/workspaces/sign-out-button";
 
-import { Hotkeys } from "./hotkeys";
+// Глобальные хоткеи временно отключены — мешали ввод пробела в полях
+// (см. требование пользователя 2026-05-23). Чтобы вернуть, импортируй и
+// смонтируй <Hotkeys wsSlug={wsSlug} /> ниже + переписать обработчик так,
+// чтобы он не срабатывал внутри Radix Dialog (`closest('[role="dialog"]')`).
+// import { Hotkeys } from "./hotkeys";
 
 export default async function WorkspaceLayout({
   children,
@@ -48,7 +52,7 @@ export default async function WorkspaceLayout({
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <Hotkeys wsSlug={wsSlug} />
+      {/* <Hotkeys wsSlug={wsSlug} /> — см. комментарий выше */}
     </div>
   );
 }
