@@ -131,6 +131,15 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
             {column.name}
           </button>
         )}
+        {!editing && (
+          <span
+            className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground"
+            aria-label={`Задач в колонке: ${tasks.length}`}
+            title={`Задач: ${tasks.length}`}
+          >
+            {tasks.length}
+          </span>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
