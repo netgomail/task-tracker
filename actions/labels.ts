@@ -9,6 +9,7 @@ import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as labels from "@/services/labels";
 import * as activity from "@/services/activity";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { notifyBoard } from "@/lib/realtime";
 
 export type ActionResult =
   | { ok: true }
@@ -112,6 +113,7 @@ export async function attachLabelAction(
     payload: { labelId },
   });
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }
 
@@ -134,5 +136,6 @@ export async function detachLabelAction(
     payload: { labelId },
   });
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }

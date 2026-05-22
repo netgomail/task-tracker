@@ -391,9 +391,9 @@ tasks_fts          -- виртуальная FTS5 таблица (title, descrip
 - [x] prefers-reduced-motion отключает анимации/transitions глобально.
 
 ### Этап 8. Подготовка к будущему (½ дня)
-- [ ] Скелет realtime (`/api/stream/[boardId]` через SSE, отправляет только «invalidate boardId»).
-- [ ] Скелет интеграций: таблица `integrations` + страница «Интеграции» с заглушками Slack/GitHub.
-- [ ] Документ `docs/extending.md`: как добавить новое поле задачи, новый тип события, новую интеграцию.
+- [x] Скелет realtime (`/api/stream/[boardId]` через SSE, отправляет только «invalidate boardId»).
+- [ ] Скелет интеграций: таблица `integrations` + страница «Интеграции» с заглушками Slack/GitHub. — отложено по запросу пользователя.
+- [ ] Документ `docs/extending.md`. — отложено по запросу пользователя.
 
 ---
 
@@ -426,6 +426,7 @@ tasks_fts          -- виртуальная FTS5 таблица (title, descrip
 - **2026-05-23 — FTS5 включён в миграции вместе с метками**: миграция `0004_warm_ultimo.sql` помимо `labels` / `task_labels` создаёт виртуальную `tasks_fts` (external content на `tasks`, токенизатор `unicode61 remove_diacritics 2`) и три триггера синхронизации. Backfill уже существующих задач выполняется в той же миграции. Запросы поиска идут через `services/search.ts:searchTaskIds` с экранированием токенов в префиксные фразовые поиски `"foo"*`.
 - **2026-05-23 — Фильтр по исполнителю отложен**: задумывался в §8 Этап 6, но UI назначения исполнителя из Этапа 5 не реализован — фильтровать пока не по чему. Вернёмся к нему вместе с селектором исполнителя (Этап 7 «Полировка» или раньше, по запросу).
 - **2026-05-23 — Долг закрыт**: после Этапа 7 доведены селектор исполнителя в `TaskDialog` (Popover со списком участников workspace) и фильтр на доске (`?assignee=<id>|me|none`). Аватар исполнителя теперь показывается на карточке доски. Активити-событие `task.assignee` фиксируется в `services/activity:ActivityType`.
+- **2026-05-23 — Этап 8 частично: только SSE-скелет**: realtime-подписка `/api/stream/[boardId]` с in-memory pub/sub (`lib/realtime.ts`), notifyBoard вшит во все action'ы tasks/columns/labels рядом с revalidatePath. Клиент `BoardLiveSync` ловит «invalidate» и зовёт `router.refresh()`. Heartbeat 25с, cleanup по `req.signal.aborted`, авторизация — членство в workspace через `services/boards:authorizeBoardAccess`. Ограничение: in-memory pub/sub живёт в одном процессе — при горизонтальном масштабе нужен внешний broker. Таблица `integrations` и `docs/extending.md` отложены по решению пользователя — вернёмся, когда понадобится первая реальная интеграция / новый разработчик в проекте.
 
 ---
 

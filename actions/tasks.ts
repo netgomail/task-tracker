@@ -12,6 +12,7 @@ import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { notifyBoard } from "@/lib/realtime";
 import {
   TASK_PRIORITIES,
   TASK_TYPES,
@@ -34,8 +35,9 @@ async function authorize(wsSlug: string, projectSlug: string) {
   return { session, ws, project };
 }
 
-function refreshBoard(wsSlug: string, projectSlug: string) {
+function refreshBoard(wsSlug: string, projectSlug: string, boardId: string) {
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(boardId);
 }
 
 export async function createTaskAction(
@@ -63,7 +65,7 @@ export async function createTaskAction(
     type: "task.create",
     payload: { title: created.title },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -87,7 +89,7 @@ export async function renameTaskAction(
     type: "task.rename",
     payload: { title: parsed.data },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -108,7 +110,7 @@ export async function setTaskColorAction(
     type: "task.color",
     payload: { color },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -131,7 +133,7 @@ export async function setTaskPriorityAction(
     type: "task.priority",
     payload: { priority },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -154,7 +156,7 @@ export async function setTaskTypeAction(
     type: "task.type",
     payload: { type },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -172,7 +174,7 @@ export async function archiveTaskAction(
     actorId: session.user.id,
     type: "task.archive",
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -192,7 +194,7 @@ export async function deleteTaskAction(
     payload: { taskId },
   });
   await tasks.remove(ws.workspaceId, taskId);
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -214,7 +216,7 @@ export async function moveTaskAction(
     type: "task.move",
     payload: { toColumnId, orderKey },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true, orderKey };
 }
 
@@ -237,7 +239,7 @@ export async function setTaskDescriptionAction(
     actorId: session.user.id,
     type: "task.description",
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -266,7 +268,7 @@ export async function setTaskDueAction(
     type: "task.due",
     payload: { dueAt: next?.toISOString() ?? null },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -290,7 +292,7 @@ export async function setTaskAssigneeAction(
     type: "task.assignee",
     payload: { assigneeId: next },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -309,7 +311,7 @@ export async function toggleTaskCompleteAction(
     actorId: session.user.id,
     type: completed ? "task.complete" : "task.reopen",
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
 
@@ -338,6 +340,6 @@ export async function createSubtaskAction(
     type: "subtask.create",
     payload: { subtaskId: sub.id, title: sub.title },
   });
-  refreshBoard(wsSlug, projectSlug);
+  refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }

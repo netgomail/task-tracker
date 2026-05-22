@@ -8,6 +8,7 @@ import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as columns from "@/services/columns";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { notifyBoard } from "@/lib/realtime";
 
 export type ActionResult =
   | { ok: true }
@@ -46,6 +47,7 @@ export async function createColumnAction(
     color,
   });
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }
 
@@ -59,9 +61,10 @@ export async function renameColumnAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { ws, project } = await authorize(wsSlug, projectSlug);
   await columns.rename(ws.workspaceId, columnId, parsed.data);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }
 
@@ -72,9 +75,10 @@ export async function setColumnColorAction(
   color: string,
 ): Promise<ActionResult> {
   if (!isLabelColor(color)) return { ok: false, error: "Неизвестный цвет" };
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { ws, project } = await authorize(wsSlug, projectSlug);
   await columns.setColor(ws.workspaceId, columnId, color);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }
 
@@ -83,9 +87,10 @@ export async function deleteColumnAction(
   projectSlug: string,
   columnId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { ws, project } = await authorize(wsSlug, projectSlug);
   await columns.remove(ws.workspaceId, columnId);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true };
 }
 
@@ -96,8 +101,9 @@ export async function moveColumnAction(
   beforeKey: string | null,
   afterKey: string | null,
 ): Promise<ActionResult & { orderKey?: string }> {
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { ws, project } = await authorize(wsSlug, projectSlug);
   const orderKey = await columns.move(ws.workspaceId, columnId, beforeKey, afterKey);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
+  notifyBoard(project.boardId);
   return { ok: true, orderKey };
 }

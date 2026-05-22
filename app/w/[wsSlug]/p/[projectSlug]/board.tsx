@@ -29,6 +29,7 @@ import { moveColumnAction } from "@/actions/columns";
 import { moveTaskAction } from "@/actions/tasks";
 import type { TaskPriority, TaskType } from "@/domain/types";
 
+import { BoardLiveSync } from "./board-live-sync";
 import { ColumnView } from "./column-view";
 import { NewColumnForm } from "./new-column-form";
 import { TaskCard } from "./task-card";
@@ -70,6 +71,7 @@ export type BoardTask = {
 type Props = {
   wsSlug: string;
   projectSlug: string;
+  boardId: string;
   initialColumns: BoardColumn[];
   initialTasks: BoardTask[];
 };
@@ -89,7 +91,7 @@ const detectCollisions: CollisionDetection = (args) => {
   return rectIntersection(args);
 };
 
-export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Props) {
+export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTasks }: Props) {
   const dndId = useId();
   const router = useRouter();
   const pathname = usePathname();
@@ -270,6 +272,7 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
 
   return (
     <div className="flex flex-1 flex-col">
+      <BoardLiveSync boardId={boardId} />
       {noResults && (
         <div className="mx-6 mt-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">
           <span className="text-muted-foreground">

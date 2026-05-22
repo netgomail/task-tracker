@@ -135,6 +135,7 @@ export default async function ProjectBoardPage({
       <Board
         wsSlug={wsSlug}
         projectSlug={projectSlug}
+        boardId={project.boardId}
         initialColumns={columns}
         initialTasks={tasks}
       />
