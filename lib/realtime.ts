@@ -30,8 +30,6 @@ const subscribers: Map<string, Set<Sender>> =
   globalThis.__taskTrackerRealtime ?? new Map<string, Set<Sender>>();
 globalThis.__taskTrackerRealtime = subscribers;
 
-const debug = process.env.NODE_ENV !== "production";
-
 export function subscribe(boardId: string, send: Sender): () => void {
   let set = subscribers.get(boardId);
   if (!set) {
@@ -39,13 +37,10 @@ export function subscribe(boardId: string, send: Sender): () => void {
     subscribers.set(boardId, set);
   }
   set.add(send);
-  if (debug) console.log(`[realtime] subscribe board=${boardId} subs=${set.size}`);
   return () => {
     const current = subscribers.get(boardId);
     if (!current) return;
     current.delete(send);
-    if (debug)
-      console.log(`[realtime] unsubscribe board=${boardId} subs=${current.size}`);
     if (current.size === 0) subscribers.delete(boardId);
   };
 }
@@ -56,9 +51,7 @@ export function subscribe(boardId: string, send: Sender): () => void {
  */
 export function notifyBoard(boardId: string): void {
   const set = subscribers.get(boardId);
-  const size = set?.size ?? 0;
-  if (debug) console.log(`[realtime] notify board=${boardId} subs=${size}`);
-  if (!set || size === 0) return;
+  if (!set || set.size === 0) return;
   const payload = `data: ${JSON.stringify({ type: "invalidate", boardId, at: Date.now() })}\n\n`;
   for (const send of set) {
     try {
