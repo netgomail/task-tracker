@@ -43,6 +43,7 @@ export function NewTaskForm({
     return (
       <button
         type="button"
+        data-board-newtask=""
         onClick={() => setOpen(true)}
         className="m-2 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"
       >

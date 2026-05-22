@@ -243,8 +243,39 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
       ? optimisticColumns.find((c) => c.id === active.columnId) ?? null
       : null;
 
+  const hasFilters =
+    searchParams.get("q") !== null ||
+    searchParams.get("priority") !== null ||
+    searchParams.get("label") !== null;
+  const noResults =
+    hasFilters && optimisticColumns.length > 0 && optimisticTasks.length === 0;
+
+  function clearFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    params.delete("priority");
+    params.delete("label");
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   return (
-    <div className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-6 py-4">
+    <div className="flex flex-1 flex-col">
+      {noResults && (
+        <div className="mx-6 mt-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">
+          <span className="text-muted-foreground">
+            Под текущие фильтры не попало ни одной задачи.
+          </span>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="font-medium text-foreground hover:underline"
+          >
+            Сбросить фильтры
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-6 py-4">
       <DndContext
         id={dndId}
         sensors={sensors}
@@ -253,20 +284,31 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        <SortableContext
-          items={optimisticColumns.map((c) => c.id)}
-          strategy={horizontalListSortingStrategy}
-        >
-          {optimisticColumns.map((c) => (
-            <ColumnView
-              key={c.id}
-              wsSlug={wsSlug}
-              projectSlug={projectSlug}
-              column={c}
-              tasks={tasksByColumn.get(c.id) ?? []}
-            />
-          ))}
-        </SortableContext>
+        {optimisticColumns.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="flex max-w-sm flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center">
+              <p className="text-sm font-medium">В проекте пока нет колонок</p>
+              <p className="text-xs text-muted-foreground">
+                Создайте первую колонку справа, чтобы начать заводить задачи.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <SortableContext
+            items={optimisticColumns.map((c) => c.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {optimisticColumns.map((c) => (
+              <ColumnView
+                key={c.id}
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                column={c}
+                tasks={tasksByColumn.get(c.id) ?? []}
+              />
+            ))}
+          </SortableContext>
+        )}
         <DragOverlay>
           {activeColumn ? (
             <div className="w-72 rounded-lg border border-border bg-card opacity-90 shadow-md">
@@ -294,6 +336,7 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
           onClose={closeTaskDialog}
         />
       )}
+      </div>
     </div>
   );
 }
