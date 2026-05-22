@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useOptimistic, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -31,6 +32,7 @@ import type { TaskPriority, TaskType } from "@/domain/types";
 import { ColumnView } from "./column-view";
 import { NewColumnForm } from "./new-column-form";
 import { TaskCard } from "./task-card";
+import { TaskDialog } from "./task-dialog";
 
 export type BoardColumn = {
   id: string;
@@ -75,6 +77,17 @@ const detectCollisions: CollisionDetection = (args) => {
 
 export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Props) {
   const dndId = useId();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openTaskId = searchParams.get("task");
+
+  function closeTaskDialog() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("task");
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const [optimisticColumns, applyColumns] = useOptimistic(
     initialColumns,
@@ -266,6 +279,14 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
         </DragOverlay>
       </DndContext>
       <NewColumnForm wsSlug={wsSlug} projectSlug={projectSlug} />
+      {openTaskId && (
+        <TaskDialog
+          wsSlug={wsSlug}
+          projectSlug={projectSlug}
+          taskId={openTaskId}
+          onClose={closeTaskDialog}
+        />
+      )}
     </div>
   );
 }

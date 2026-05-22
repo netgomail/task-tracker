@@ -1,0 +1,759 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Check, Plus, Trash2 } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { LABEL_COLORS, type LabelColorSlug } from "@/lib/colors";
+import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/relative-time";
+import {
+  TASK_PRIORITIES,
+  TASK_TYPES,
+  type TaskPriority,
+  type TaskType,
+} from "@/domain/types";
+import {
+  PRIORITY_TONE_CLASSES,
+  TASK_PRIORITY_META,
+  TASK_TYPE_META,
+} from "@/lib/task-meta";
+
+import {
+  getTaskDetailsAction,
+  type SerializedActivity,
+  type SerializedComment,
+  type SerializedTask,
+  type TaskDetailsResult,
+} from "@/actions/task-details";
+import {
+  archiveTaskAction,
+  createSubtaskAction,
+  deleteTaskAction,
+  renameTaskAction,
+  setTaskColorAction,
+  setTaskDescriptionAction,
+  setTaskDueAction,
+  setTaskPriorityAction,
+  setTaskTypeAction,
+  toggleTaskCompleteAction,
+} from "@/actions/tasks";
+import {
+  createCommentAction,
+  deleteCommentAction,
+} from "@/actions/comments";
+
+type Props = {
+  wsSlug: string;
+  projectSlug: string;
+  taskId: string;
+  onClose: () => void;
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  "task.create": "создал(а) задачу",
+  "task.rename": "переименовал(а) задачу",
+  "task.update": "обновил(а) задачу",
+  "task.move": "переместил(а) задачу",
+  "task.color": "сменил(а) цвет",
+  "task.priority": "сменил(а) приоритет",
+  "task.type": "сменил(а) тип",
+  "task.due": "обновил(а) дедлайн",
+  "task.description": "обновил(а) описание",
+  "task.complete": "выполнил(а)",
+  "task.reopen": "переоткрыл(а)",
+  "task.archive": "отправил(а) в архив",
+  "task.delete": "удалил(а)",
+  "subtask.create": "создал(а) подзадачу",
+  "subtask.delete": "удалил(а) подзадачу",
+  "comment.create": "оставил(а) комментарий",
+  "comment.delete": "удалил(а) комментарий",
+};
+
+function toLocalDatetime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const tzOffset = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+}
+
+function fromLocalDatetime(value: string): string {
+  return value ? new Date(value).toISOString() : "";
+}
+
+export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
+  const [details, setDetails] = useState<Extract<TaskDetailsResult, { ok: true }> | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // Reset details when taskId changes via render-phase update.
+  const [prevTaskId, setPrevTaskId] = useState(taskId);
+  if (taskId !== prevTaskId) {
+    setPrevTaskId(taskId);
+    setDetails(null);
+    setLoadedFor(null);
+  }
+
+  async function reload() {
+    const res = await getTaskDetailsAction(wsSlug, projectSlug, taskId);
+    if (res.ok) setDetails(res);
+    else toast.error(res.error);
+    setLoadedFor(taskId);
+  }
+
+  useEffect(() => {
+    // Fetch task details whenever the dialog targets a different task.
+    // The setState inside reload() is the canonical "sync with server" case.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reload();
+    // reload() captures the latest wsSlug/projectSlug/taskId via closures and is
+    // intentionally not depended on — re-running on taskId change is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId]);
+
+  const loading = loadedFor !== taskId;
+  const task = details?.task;
+
+  function refresh() {
+    startTransition(reload);
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        showCloseButton
+        className="max-w-3xl gap-0 p-0 sm:max-w-3xl"
+      >
+        <DialogTitle className="sr-only">Карточка задачи</DialogTitle>
+        <DialogDescription className="sr-only">
+          Редактирование задачи, подзадач и комментариев.
+        </DialogDescription>
+        {loading || !task || !details ? (
+          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Загрузка…
+          </div>
+        ) : (
+          <div className="grid max-h-[80vh] grid-cols-1 sm:grid-cols-[1fr_220px]">
+            <div className="flex min-h-0 flex-col overflow-y-auto p-6">
+              <Header
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                task={task}
+                pending={pending}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <Description
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                task={task}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <Subtasks
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                taskId={task.id}
+                subtasks={details.subtasks}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <Comments
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                taskId={task.id}
+                meId={details.me.id}
+                comments={details.comments}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <Activity activity={details.activity} />
+            </div>
+            <aside className="hidden flex-col gap-4 border-l border-border bg-muted/30 p-4 sm:flex">
+              <Sidebar
+                wsSlug={wsSlug}
+                projectSlug={projectSlug}
+                task={task}
+                pending={pending}
+                onRefresh={refresh}
+                onClose={onClose}
+              />
+            </aside>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Header({
+  wsSlug,
+  projectSlug,
+  task,
+  pending,
+  onRefresh,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  task: SerializedTask;
+  pending: boolean;
+  onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.title);
+  const [prevTitle, setPrevTitle] = useState(task.title);
+  if (task.title !== prevTitle) {
+    setPrevTitle(task.title);
+    setDraft(task.title);
+  }
+
+  async function submitRename() {
+    setEditing(false);
+    const next = draft.trim();
+    if (!next || next === task.title) {
+      setDraft(task.title);
+      return;
+    }
+    const res = await renameTaskAction(wsSlug, projectSlug, task.id, next);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
+  async function toggleComplete(checked: boolean) {
+    const res = await toggleTaskCompleteAction(wsSlug, projectSlug, task.id, checked);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        checked={!!task.completedAt}
+        onCheckedChange={(v) => toggleComplete(Boolean(v))}
+        disabled={pending}
+        className="mt-1.5 size-5"
+        aria-label="Выполнено"
+      />
+      {editing ? (
+        <Textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={submitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submitRename();
+            }
+            if (e.key === "Escape") {
+              setDraft(task.title);
+              setEditing(false);
+            }
+          }}
+          rows={2}
+          className="flex-1 resize-none border-0 bg-transparent text-xl font-semibold shadow-none focus-visible:ring-0"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className={cn(
+            "flex-1 text-left text-xl font-semibold leading-snug",
+            task.completedAt && "text-muted-foreground line-through",
+          )}
+        >
+          {task.title}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Description({
+  wsSlug,
+  projectSlug,
+  task,
+  onRefresh,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  task: SerializedTask;
+  onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.description ?? "");
+  const [prevDesc, setPrevDesc] = useState(task.description ?? "");
+  if ((task.description ?? "") !== prevDesc) {
+    setPrevDesc(task.description ?? "");
+    setDraft(task.description ?? "");
+  }
+
+  async function save() {
+    setEditing(false);
+    if (draft === (task.description ?? "")) return;
+    const res = await setTaskDescriptionAction(wsSlug, projectSlug, task.id, draft);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Описание
+      </h3>
+      {editing ? (
+        <Textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              save();
+            }
+            if (e.key === "Escape") {
+              setDraft(task.description ?? "");
+              setEditing(false);
+            }
+          }}
+          rows={5}
+          placeholder="Что нужно сделать, как проверить, ссылки…"
+          className="min-h-24 text-sm"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="min-h-12 whitespace-pre-wrap rounded-md border border-transparent bg-transparent p-2 text-left text-sm leading-relaxed text-foreground/90 transition-colors hover:border-border"
+        >
+          {task.description?.trim() ? (
+            task.description
+          ) : (
+            <span className="text-muted-foreground">Добавьте описание…</span>
+          )}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function Subtasks({
+  wsSlug,
+  projectSlug,
+  taskId,
+  subtasks,
+  onRefresh,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  taskId: string;
+  subtasks: SerializedTask[];
+  onRefresh: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const done = subtasks.filter((s) => s.completedAt).length;
+  const total = subtasks.length;
+
+  async function add() {
+    const next = draft.trim();
+    if (!next) {
+      setAdding(false);
+      return;
+    }
+    setDraft("");
+    setAdding(true);
+    const res = await createSubtaskAction(wsSlug, projectSlug, taskId, next);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
+  async function toggle(sub: SerializedTask, checked: boolean) {
+    startTransition(async () => {
+      const res = await toggleTaskCompleteAction(wsSlug, projectSlug, sub.id, checked);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  async function remove(sub: SerializedTask) {
+    if (!window.confirm(`Удалить подзадачу «${sub.title}»?`)) return;
+    startTransition(async () => {
+      const res = await deleteTaskAction(wsSlug, projectSlug, sub.id);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Подзадачи
+          {total > 0 && (
+            <span className="ml-2 normal-case tracking-normal">
+              {done}/{total}
+            </span>
+          )}
+        </h3>
+        {!adding && (
+          <Button variant="ghost" size="sm" onClick={() => setAdding(true)} disabled={pending}>
+            <Plus className="size-3.5" /> Добавить
+          </Button>
+        )}
+      </div>
+      <ul className="flex flex-col gap-1">
+        {subtasks.map((s) => (
+          <li
+            key={s.id}
+            className="group flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent"
+          >
+            <Checkbox
+              checked={!!s.completedAt}
+              onCheckedChange={(v) => toggle(s, Boolean(v))}
+              disabled={pending}
+              className="size-4"
+              aria-label="Выполнено"
+            />
+            <span
+              className={cn(
+                "flex-1 text-sm",
+                s.completedAt && "text-muted-foreground line-through",
+              )}
+            >
+              {s.title}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 opacity-0 group-hover:opacity-100"
+              onClick={() => remove(s)}
+              disabled={pending}
+              aria-label="Удалить подзадачу"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {adding && (
+        <div className="flex items-center gap-2">
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+              if (e.key === "Escape") {
+                setAdding(false);
+                setDraft("");
+              }
+            }}
+            placeholder="Что сделать?"
+            className="h-8 text-sm"
+          />
+          <Button size="sm" onClick={add} disabled={pending}>
+            OK
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Comments({
+  wsSlug,
+  projectSlug,
+  taskId,
+  meId,
+  comments,
+  onRefresh,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  taskId: string;
+  meId: string;
+  comments: SerializedComment[];
+  onRefresh: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  async function add() {
+    const next = draft.trim();
+    if (!next) return;
+    startTransition(async () => {
+      const res = await createCommentAction(wsSlug, projectSlug, taskId, next);
+      if (!res.ok) toast.error(res.error);
+      else {
+        setDraft("");
+        onRefresh();
+      }
+    });
+  }
+
+  async function remove(c: SerializedComment) {
+    if (!window.confirm("Удалить комментарий?")) return;
+    startTransition(async () => {
+      const res = await deleteCommentAction(wsSlug, projectSlug, c.id, taskId);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Комментарии
+      </h3>
+      <ul className="flex flex-col gap-3">
+        {comments.map((c) => (
+          <li key={c.id} className="group flex gap-3">
+            <Avatar className="size-7">
+              {c.author.image && <AvatarImage src={c.author.image} alt={c.author.name} />}
+              <AvatarFallback>{c.author.name.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-1 flex-col gap-1">
+              <div className="flex items-baseline gap-2 text-xs">
+                <span className="font-medium text-foreground">{c.author.name}</span>
+                <span className="text-muted-foreground">{relativeTime(c.createdAt)}</span>
+                {c.author.id === meId && (
+                  <button
+                    type="button"
+                    onClick={() => remove(c)}
+                    className="ml-auto opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  >
+                    Удалить
+                  </button>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{c.body}</p>
+            </div>
+          </li>
+        ))}
+        {comments.length === 0 && (
+          <p className="text-xs text-muted-foreground/70">Пока нет комментариев.</p>
+        )}
+      </ul>
+      <div className="flex flex-col gap-2">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="Написать комментарий… (Ctrl/⌘+Enter — отправить)"
+          rows={2}
+          className="min-h-16 text-sm"
+        />
+        <div className="flex justify-end">
+          <Button size="sm" onClick={add} disabled={pending || !draft.trim()}>
+            Отправить
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Activity({ activity }: { activity: SerializedActivity[] }) {
+  if (activity.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        История
+      </h3>
+      <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
+        {activity.map((a) => (
+          <li key={a.id} className="flex items-baseline gap-2">
+            <span className="font-medium text-foreground/80">{a.actor.name}</span>
+            <span>{TYPE_LABELS[a.type] ?? a.type}</span>
+            <span className="ml-auto">{relativeTime(a.createdAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Sidebar({
+  wsSlug,
+  projectSlug,
+  task,
+  pending,
+  onRefresh,
+  onClose,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  task: SerializedTask;
+  pending: boolean;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  async function setType(t: TaskType) {
+    const res = await setTaskTypeAction(wsSlug, projectSlug, task.id, t);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+  async function setPriority(p: TaskPriority) {
+    const res = await setTaskPriorityAction(wsSlug, projectSlug, task.id, p);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+  async function setColor(c: LabelColorSlug) {
+    const res = await setTaskColorAction(wsSlug, projectSlug, task.id, c);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+  async function setDue(value: string) {
+    const iso = value ? fromLocalDatetime(value) : "";
+    const res = await setTaskDueAction(wsSlug, projectSlug, task.id, iso);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+  async function onArchive() {
+    if (!window.confirm("Отправить задачу в архив?")) return;
+    const res = await archiveTaskAction(wsSlug, projectSlug, task.id);
+    if (!res.ok) toast.error(res.error);
+    else {
+      toast.success("Задача в архиве");
+      onClose();
+    }
+  }
+  async function onDelete() {
+    if (!window.confirm("Удалить задачу безвозвратно?")) return;
+    const res = await deleteTaskAction(wsSlug, projectSlug, task.id);
+    if (!res.ok) toast.error(res.error);
+    else onClose();
+  }
+
+  return (
+    <>
+      <SidebarBlock title="Тип">
+        <div className="grid grid-cols-4 gap-1">
+          {TASK_TYPES.map((t) => {
+            const Icon = TASK_TYPE_META[t].Icon;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                disabled={pending}
+                className={cn(
+                  "flex h-8 items-center justify-center rounded-md ring-1 ring-inset ring-border transition hover:ring-foreground/30",
+                  task.type === t && "bg-accent ring-foreground/40",
+                )}
+                title={TASK_TYPE_META[t].label}
+                aria-label={TASK_TYPE_META[t].label}
+              >
+                <Icon className="size-3.5" />
+              </button>
+            );
+          })}
+        </div>
+      </SidebarBlock>
+      <SidebarBlock title="Приоритет">
+        <div className="grid grid-cols-4 gap-1">
+          {TASK_PRIORITIES.map((p) => {
+            const meta = TASK_PRIORITY_META[p];
+            const Icon = meta.Icon;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                disabled={pending}
+                className={cn(
+                  "flex h-8 items-center justify-center rounded-md ring-1 ring-inset ring-border transition hover:ring-foreground/30",
+                  task.priority === p && "bg-accent ring-foreground/40",
+                  PRIORITY_TONE_CLASSES[meta.tone],
+                )}
+                title={meta.label}
+                aria-label={meta.label}
+              >
+                <Icon className="size-3.5" />
+              </button>
+            );
+          })}
+        </div>
+      </SidebarBlock>
+      <SidebarBlock title="Цвет">
+        <div className="flex flex-wrap gap-1.5">
+          {LABEL_COLORS.map((c) => (
+            <button
+              key={c.slug}
+              type="button"
+              onClick={() => setColor(c.slug)}
+              disabled={pending}
+              className={cn(
+                "flex size-4 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110 disabled:opacity-50",
+                task.color === c.slug && "ring-2 ring-foreground/70",
+              )}
+              style={{ background: c.hex }}
+              aria-label={c.label}
+              title={c.label}
+            >
+              {task.color === c.slug && (
+                <Check className="size-2.5 text-white drop-shadow" />
+              )}
+            </button>
+          ))}
+        </div>
+      </SidebarBlock>
+      <SidebarBlock title="Дедлайн">
+        <input
+          type="datetime-local"
+          value={toLocalDatetime(task.dueAt)}
+          onChange={(e) => setDue(e.target.value)}
+          disabled={pending}
+          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+        />
+      </SidebarBlock>
+      <Separator />
+      <div className="flex flex-col gap-1.5">
+        <Button variant="ghost" size="sm" onClick={onArchive} disabled={pending}>
+          В архив
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={pending}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
+          Удалить
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function SidebarBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h4 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}

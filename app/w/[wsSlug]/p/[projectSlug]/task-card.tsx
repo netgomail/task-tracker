@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { MoreHorizontal, Trash2, Archive, CalendarClock, Check } from "lucide-react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useTransition } from "react";
+import { MoreHorizontal, Trash2, Archive, CalendarClock, Check, GitBranchPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +18,8 @@ import { LABEL_COLORS, colorHex, isLabelColor, type LabelColorSlug } from "@/lib
 import { cn } from "@/lib/utils";
 import {
   archiveTaskAction,
+  createSubtaskAction,
   deleteTaskAction,
-  renameTaskAction,
   setTaskColorAction,
   setTaskPriorityAction,
   setTaskTypeAction,
@@ -62,8 +62,9 @@ function formatDue(iso: string): { label: string; overdue: boolean } {
 }
 
 export function TaskCard({ wsSlug, projectSlug, task }: Props) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(task.title);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
   const typeMeta = TASK_TYPE_META[task.type];
@@ -71,19 +72,19 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const bar = isLabelColor(task.color) ? colorHex(task.color) : "#64748b";
   const due = task.dueAt ? formatDue(task.dueAt) : null;
 
-  function submitRename() {
-    const next = draft.trim();
-    setEditing(false);
-    if (!next || next === task.title) {
-      setDraft(task.title);
-      return;
-    }
+  function openDialog() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("task", task.id);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function onCreateSubtask() {
+    const title = window.prompt("Название подзадачи:");
+    if (!title?.trim()) return;
     startTransition(async () => {
-      const res = await renameTaskAction(wsSlug, projectSlug, task.id, next);
-      if (!res.ok) {
-        toast.error(res.error);
-        setDraft(task.title);
-      }
+      const res = await createSubtaskAction(wsSlug, projectSlug, task.id, title.trim());
+      if (!res.ok) toast.error(res.error);
+      else toast.success("Подзадача создана");
     });
   }
 
@@ -132,30 +133,16 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         aria-hidden
       />
       <div className="flex items-start gap-1.5">
-        {editing ? (
-          <Input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={submitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitRename();
-              if (e.key === "Escape") {
-                setDraft(task.title);
-                setEditing(false);
-              }
-            }}
-            className="h-7 flex-1 px-2 text-sm"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="flex-1 text-left text-sm font-medium leading-snug"
-          >
-            {task.title}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openDialog}
+          className={cn(
+            "flex-1 text-left text-sm font-medium leading-snug hover:underline",
+            task.completedAt && "text-muted-foreground line-through",
+          )}
+        >
+          {task.title}
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -237,7 +224,10 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
               ))}
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setEditing(true)}>Переименовать</DropdownMenuItem>
+            <DropdownMenuItem onSelect={openDialog}>Открыть</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onCreateSubtask} disabled={pending}>
+              <GitBranchPlus className="size-4" /> Подзадача
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={onArchive} disabled={pending}>
               <Archive className="size-4" /> В архив
             </DropdownMenuItem>

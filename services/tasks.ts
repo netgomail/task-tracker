@@ -210,6 +210,154 @@ export async function remove(workspaceId: string, taskId: string): Promise<void>
   await db.delete(tasks).where(eq(tasks.id, taskId));
 }
 
+export async function getById(workspaceId: string, taskId: string): Promise<TaskRow | null> {
+  const [row] = await db
+    .select({
+      id: tasks.id,
+      columnId: tasks.columnId,
+      parentId: tasks.parentId,
+      title: tasks.title,
+      description: tasks.description,
+      type: tasks.type,
+      priority: tasks.priority,
+      color: tasks.color,
+      dueAt: tasks.dueAt,
+      completedAt: tasks.completedAt,
+      orderKey: tasks.orderKey,
+      assigneeId: tasks.assigneeId,
+      archivedAt: tasks.archivedAt,
+      createdAt: tasks.createdAt,
+      workspaceId: tasks.workspaceId,
+    })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!row || row.workspaceId !== workspaceId) return null;
+  return {
+    ...row,
+    type: isTaskType(row.type) ? row.type : "task",
+    priority: isPriority(row.priority) ? row.priority : "normal",
+  };
+}
+
+export async function listSubtasks(
+  workspaceId: string,
+  parentTaskId: string,
+): Promise<TaskRow[]> {
+  await assertTaskInWorkspace(parentTaskId, workspaceId);
+  const rows = await db
+    .select({
+      id: tasks.id,
+      columnId: tasks.columnId,
+      parentId: tasks.parentId,
+      title: tasks.title,
+      description: tasks.description,
+      type: tasks.type,
+      priority: tasks.priority,
+      color: tasks.color,
+      dueAt: tasks.dueAt,
+      completedAt: tasks.completedAt,
+      orderKey: tasks.orderKey,
+      assigneeId: tasks.assigneeId,
+      archivedAt: tasks.archivedAt,
+      createdAt: tasks.createdAt,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.parentId, parentTaskId), isNull(tasks.archivedAt)))
+    .orderBy(asc(tasks.orderKey));
+  return rows.map((r) => ({
+    ...r,
+    type: isTaskType(r.type) ? r.type : "task",
+    priority: isPriority(r.priority) ? r.priority : "normal",
+  }));
+}
+
+export async function createSubtask(
+  workspaceId: string,
+  parentTaskId: string,
+  createdBy: string,
+  title: string,
+): Promise<TaskRow> {
+  const parent = await getById(workspaceId, parentTaskId);
+  if (!parent) throw new Error("Parent task not in workspace");
+  const [last] = await db
+    .select({ orderKey: tasks.orderKey })
+    .from(tasks)
+    .where(eq(tasks.parentId, parentTaskId))
+    .orderBy(desc(tasks.orderKey))
+    .limit(1);
+  const orderKey = keyBetween(last?.orderKey ?? null, null);
+  const id = newId();
+  const now = new Date();
+  await db.insert(tasks).values({
+    id,
+    workspaceId,
+    projectId: (await assertTaskInWorkspace(parentTaskId, workspaceId)).projectId,
+    columnId: parent.columnId,
+    parentId: parentTaskId,
+    title,
+    color: parent.color,
+    priority: "normal",
+    type: "task",
+    orderKey,
+    createdBy,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return {
+    id,
+    columnId: parent.columnId,
+    parentId: parentTaskId,
+    title,
+    description: null,
+    type: "task",
+    priority: "normal",
+    color: parent.color,
+    dueAt: null,
+    completedAt: null,
+    orderKey,
+    assigneeId: null,
+    archivedAt: null,
+    createdAt: now,
+  };
+}
+
+export async function setDescription(
+  workspaceId: string,
+  taskId: string,
+  description: string | null,
+): Promise<void> {
+  await assertTaskInWorkspace(taskId, workspaceId);
+  await db
+    .update(tasks)
+    .set({ description, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function setDueAt(
+  workspaceId: string,
+  taskId: string,
+  dueAt: Date | null,
+): Promise<void> {
+  await assertTaskInWorkspace(taskId, workspaceId);
+  await db
+    .update(tasks)
+    .set({ dueAt, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function setCompleted(
+  workspaceId: string,
+  taskId: string,
+  completed: boolean,
+): Promise<void> {
+  await assertTaskInWorkspace(taskId, workspaceId);
+  await db
+    .update(tasks)
+    .set({ completedAt: completed ? new Date() : null, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
 /**
  * Moves a task to a target column and position computed from neighbor keys.
  * Validates that both task and target column live in the same workspace.

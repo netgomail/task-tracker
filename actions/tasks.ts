@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
+import * as activity from "@/services/activity";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import {
   TASK_PRIORITIES,
@@ -44,12 +45,20 @@ export async function createTaskAction(
   if (!title.success) {
     return { ok: false, error: title.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { session, ws } = await authorize(wsSlug, projectSlug);
-  await tasks.create({
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const created = await tasks.create({
     workspaceId: ws.workspaceId,
     columnId,
     createdBy: session.user.id,
     title: title.data,
+  });
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId: created.id,
+    actorId: session.user.id,
+    type: "task.create",
+    payload: { title: created.title },
   });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
@@ -65,8 +74,16 @@ export async function renameTaskAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   await tasks.rename(ws.workspaceId, taskId, parsed.data);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.rename",
+    payload: { title: parsed.data },
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
 }
@@ -78,8 +95,16 @@ export async function setTaskColorAction(
   color: string,
 ): Promise<ActionResult> {
   if (!isLabelColor(color)) return { ok: false, error: "Неизвестный цвет" };
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   await tasks.setColor(ws.workspaceId, taskId, color as LabelColorSlug);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.color",
+    payload: { color },
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
 }
@@ -93,8 +118,16 @@ export async function setTaskPriorityAction(
   if (!(TASK_PRIORITIES as readonly string[]).includes(priority)) {
     return { ok: false, error: "Неизвестный приоритет" };
   }
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   await tasks.setPriority(ws.workspaceId, taskId, priority as TaskPriority);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.priority",
+    payload: { priority },
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
 }
@@ -108,8 +141,16 @@ export async function setTaskTypeAction(
   if (!(TASK_TYPES as readonly string[]).includes(type)) {
     return { ok: false, error: "Неизвестный тип" };
   }
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   await tasks.setType(ws.workspaceId, taskId, type as TaskType);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.type",
+    payload: { type },
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
 }
@@ -119,8 +160,15 @@ export async function archiveTaskAction(
   projectSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   await tasks.archive(ws.workspaceId, taskId);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.archive",
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
 }
@@ -130,7 +178,16 @@ export async function deleteTaskAction(
   projectSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  // Record activity BEFORE deletion since the FK cascades activity_events too.
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId: null,
+    actorId: session.user.id,
+    type: "task.delete",
+    payload: { taskId },
+  });
   await tasks.remove(ws.workspaceId, taskId);
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };
@@ -144,8 +201,116 @@ export async function moveTaskAction(
   beforeKey: string | null,
   afterKey: string | null,
 ): Promise<ActionResult & { orderKey?: string }> {
-  const { ws } = await authorize(wsSlug, projectSlug);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
   const orderKey = await tasks.move(ws.workspaceId, taskId, toColumnId, beforeKey, afterKey);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.move",
+    payload: { toColumnId, orderKey },
+  });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true, orderKey };
+}
+
+export async function setTaskDescriptionAction(
+  wsSlug: string,
+  projectSlug: string,
+  taskId: string,
+  description: string,
+): Promise<ActionResult> {
+  const next = description.trim() === "" ? null : description;
+  if (next && next.length > 10_000) {
+    return { ok: false, error: "Описание слишком длинное" };
+  }
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  await tasks.setDescription(ws.workspaceId, taskId, next);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.description",
+  });
+  refreshBoard(wsSlug, projectSlug);
+  return { ok: true };
+}
+
+const DueSchema = z.union([z.literal(""), z.string().datetime({ offset: true }), z.iso.datetime()]);
+
+export async function setTaskDueAction(
+  wsSlug: string,
+  projectSlug: string,
+  taskId: string,
+  dueIso: string,
+): Promise<ActionResult> {
+  const parsed = DueSchema.safeParse(dueIso);
+  if (!parsed.success && dueIso !== "") {
+    // Accept naive datetime-local like "2026-05-30T12:00".
+    const d = new Date(dueIso);
+    if (Number.isNaN(d.getTime())) return { ok: false, error: "Неверная дата" };
+  }
+  const next = dueIso === "" ? null : new Date(dueIso);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  await tasks.setDueAt(ws.workspaceId, taskId, next);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.due",
+    payload: { dueAt: next?.toISOString() ?? null },
+  });
+  refreshBoard(wsSlug, projectSlug);
+  return { ok: true };
+}
+
+export async function toggleTaskCompleteAction(
+  wsSlug: string,
+  projectSlug: string,
+  taskId: string,
+  completed: boolean,
+): Promise<ActionResult> {
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  await tasks.setCompleted(ws.workspaceId, taskId, completed);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: completed ? "task.complete" : "task.reopen",
+  });
+  refreshBoard(wsSlug, projectSlug);
+  return { ok: true };
+}
+
+export async function createSubtaskAction(
+  wsSlug: string,
+  projectSlug: string,
+  parentTaskId: string,
+  title: string,
+): Promise<ActionResult> {
+  const parsed = TitleSchema.safeParse(title);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
+  }
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const sub = await tasks.createSubtask(
+    ws.workspaceId,
+    parentTaskId,
+    session.user.id,
+    parsed.data,
+  );
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId: parentTaskId,
+    actorId: session.user.id,
+    type: "subtask.create",
+    payload: { subtaskId: sub.id, title: sub.title },
+  });
+  refreshBoard(wsSlug, projectSlug);
+  return { ok: true };
 }
