@@ -34,3 +34,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+- [Project goals & stack & status](project_overview.md) — task-tracker на Next.js 16 + SQLite, GitHub `netgomail/task-tracker`, Этапы 0-5 ✅, следующий — #7 Этап 6
+- [Next step: Этап 6 — метки, фильтры, FTS5](next_step.md) — конкретный план следующей сессии и грабли из прошлых
+- [User collaboration style](user_style.md) — пишет и отвечает по-русски, любит подробное планирование с сохранением в файл и поэтапное выполнение
+- [Коммитить после каждого этапа/фикса](feedback_commits.md) — отдельный коммит на каждый закрытый этап PLAN.md и каждый bugfix
