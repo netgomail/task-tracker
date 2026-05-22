@@ -32,7 +32,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LABEL_COLORS, colorHex, isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import {
+  LABEL_COLORS,
+  colorHex,
+  isDefaultColor,
+  isLabelColor,
+  type LabelColorSlug,
+} from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
   archiveTaskAction,
@@ -169,7 +175,9 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     });
   }
 
-  const surface = `color-mix(in oklab, ${bar} 12%, white)`;
+  const surface = isDefaultColor(task.color)
+    ? "#ffffff"
+    : `color-mix(in oklab, ${bar} 12%, white)`;
 
   return (
     <div

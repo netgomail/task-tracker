@@ -29,4 +29,18 @@ export function colorHex(slug: LabelColorSlug): string {
   return COLOR_MAP.get(slug)!.hex;
 }
 
-export const DEFAULT_COLUMN_COLORS = ["slate", "blue", "green"] as const satisfies readonly LabelColorSlug[];
+/**
+ * "slate" — это «без цвета» / дефолт: рендерим как белый фон + нейтральный
+ * бордер. При выборе любого другого цвета колонка/карточка получает тинт.
+ */
+export const DEFAULT_COLOR: LabelColorSlug = "slate";
+
+export function isDefaultColor(value: string): boolean {
+  return value === DEFAULT_COLOR;
+}
+
+export const DEFAULT_COLUMN_COLORS = [
+  "slate",
+  "slate",
+  "slate",
+] as const satisfies readonly LabelColorSlug[];

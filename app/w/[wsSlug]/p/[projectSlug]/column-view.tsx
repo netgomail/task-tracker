@@ -20,7 +20,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LABEL_COLORS, colorHex, isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import {
+  LABEL_COLORS,
+  colorHex,
+  isDefaultColor,
+  isLabelColor,
+  type LabelColorSlug,
+} from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
   deleteColumnAction,
@@ -54,13 +60,15 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
   const [pending, startTransition] = useTransition();
 
   const bar = isLabelColor(column.color) ? colorHex(column.color) : "#64748b";
-  const surface = `color-mix(in oklab, ${bar} 14%, white)`;
-  const badgeBg = `color-mix(in oklab, ${bar} 28%, white)`;
-  const badgeFg = `color-mix(in oklab, ${bar} 55%, black)`;
+  const isDefault = isDefaultColor(column.color);
+  const surface = isDefault ? "#ffffff" : `color-mix(in oklab, ${bar} 14%, white)`;
+  const borderC = isDefault ? "#e5e7eb" : bar; // gray-200 для дефолтного состояния
+  const badgeBg = isDefault ? "#f3f4f6" : `color-mix(in oklab, ${bar} 28%, white)`;
+  const badgeFg = isDefault ? "#6b7280" : `color-mix(in oklab, ${bar} 55%, black)`;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    borderColor: bar,
+    borderColor: borderC,
     backgroundColor: surface,
   };
 
