@@ -406,6 +406,61 @@ export async function setAssignee(
     .where(eq(tasks.id, taskId));
 }
 
+export type SubtaskSummary = {
+  id: string;
+  title: string;
+  completedAt: Date | null;
+  orderKey: string;
+};
+
+export type SubtaskAggregate = {
+  done: number;
+  total: number;
+  items: SubtaskSummary[];
+};
+
+/**
+ * Возвращает подзадачи для списка parent-id'ов одним запросом + строит мапу
+ * с агрегатами done/total/items. Активити-фильтр: пропускаем archivedAt.
+ */
+export async function listSubtaskAggregates(
+  workspaceId: string,
+  parentIds: string[],
+): Promise<Map<string, SubtaskAggregate>> {
+  const out = new Map<string, SubtaskAggregate>();
+  if (parentIds.length === 0) return out;
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      completedAt: tasks.completedAt,
+      orderKey: tasks.orderKey,
+      parentId: tasks.parentId,
+      workspaceId: tasks.workspaceId,
+      archivedAt: tasks.archivedAt,
+    })
+    .from(tasks)
+    .where(inArray(tasks.parentId, parentIds))
+    .orderBy(asc(tasks.orderKey));
+  for (const r of rows) {
+    if (r.workspaceId !== workspaceId || r.archivedAt || !r.parentId) continue;
+    let bucket = out.get(r.parentId);
+    if (!bucket) {
+      bucket = { done: 0, total: 0, items: [] };
+      out.set(r.parentId, bucket);
+    }
+    bucket.total += 1;
+    if (r.completedAt) bucket.done += 1;
+    bucket.items.push({
+      id: r.id,
+      title: r.title,
+      completedAt: r.completedAt,
+      orderKey: r.orderKey,
+    });
+  }
+  return out;
+}
+
 /**
  * Moves a task to a target column and position computed from neighbor keys.
  * Validates that both task and target column live in the same workspace.

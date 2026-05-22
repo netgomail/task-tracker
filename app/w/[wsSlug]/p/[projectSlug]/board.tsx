@@ -54,6 +54,12 @@ export type BoardTaskAssignee = {
   image: string | null;
 };
 
+export type BoardTaskSubtask = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
 export type BoardTask = {
   id: string;
   columnId: string;
@@ -66,6 +72,8 @@ export type BoardTask = {
   orderKey: string;
   labels: BoardTaskLabel[];
   assignee: BoardTaskAssignee | null;
+  subtasks: BoardTaskSubtask[];
+  subtasksDone: number;
 };
 
 type Props = {

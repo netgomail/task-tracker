@@ -2,7 +2,15 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Trash2, Archive, CalendarClock, Check, GitBranchPlus } from "lucide-react";
+import {
+  Archive,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  GitBranchPlus,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LABEL_COLORS, colorHex, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +41,7 @@ import {
   setTaskColorAction,
   setTaskPriorityAction,
   setTaskTypeAction,
+  toggleTaskCompleteAction,
 } from "@/actions/tasks";
 import {
   PRIORITY_TONE_CLASSES,
@@ -77,6 +87,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const [pending, startTransition] = useTransition();
   const [subtaskOpen, setSubtaskOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [subtreeExpanded, setSubtreeExpanded] = useState(false);
 
   const typeMeta = TASK_TYPE_META[task.type];
   const priMeta = TASK_PRIORITY_META[task.priority];
@@ -104,7 +115,20 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         toast.success("Подзадача создана");
         setSubtaskOpen(false);
         setSubtaskTitle("");
+        setSubtreeExpanded(true);
       }
+    });
+  }
+
+  function onToggleSubtask(subtaskId: string, completed: boolean) {
+    startTransition(async () => {
+      const res = await toggleTaskCompleteAction(
+        wsSlug,
+        projectSlug,
+        subtaskId,
+        completed,
+      );
+      if (!res.ok) toast.error(res.error);
     });
   }
 
@@ -320,6 +344,63 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
               </span>
             );
           })}
+        </div>
+      )}
+      {task.subtasks.length > 0 && (
+        <div className="mt-1 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSubtreeExpanded((v) => !v)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="flex items-center gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-black/[0.03]"
+            aria-expanded={subtreeExpanded}
+            aria-label="Подзадачи"
+          >
+            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full transition-all"
+                style={{
+                  width: `${(task.subtasksDone / task.subtasks.length) * 100}%`,
+                  backgroundColor: bar,
+                }}
+              />
+            </div>
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {task.subtasksDone}/{task.subtasks.length}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-3.5 text-muted-foreground transition-transform",
+                subtreeExpanded && "rotate-180",
+              )}
+            />
+          </button>
+          {subtreeExpanded && (
+            <ul
+              className="ml-2 flex flex-col gap-0.5 border-l border-black/10 pl-2.5"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {task.subtasks.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 py-0.5">
+                  <Checkbox
+                    checked={s.completed}
+                    onCheckedChange={(v) => onToggleSubtask(s.id, Boolean(v))}
+                    disabled={pending}
+                    className="size-3.5"
+                    aria-label={s.title}
+                  />
+                  <span
+                    className={cn(
+                      "flex-1 truncate text-xs",
+                      s.completed && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {s.title}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       <Dialog open={subtaskOpen} onOpenChange={setSubtaskOpen}>

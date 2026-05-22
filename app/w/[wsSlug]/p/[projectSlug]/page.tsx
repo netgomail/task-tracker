@@ -4,7 +4,13 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import { listForBoard } from "@/services/columns";
-import { listForProject, type TaskFilter, type TaskRow } from "@/services/tasks";
+import {
+  listForProject,
+  listSubtaskAggregates,
+  type SubtaskAggregate,
+  type TaskFilter,
+  type TaskRow,
+} from "@/services/tasks";
 import {
   listForTasks as listLabelsForTasks,
   listForWorkspace as listLabelsForWorkspace,
@@ -28,6 +34,7 @@ function toBoardTask(
   t: TaskRow,
   labels: LabelRow[] | undefined,
   assignee: BoardTaskAssignee | null,
+  subtaskAgg: SubtaskAggregate | undefined,
 ): BoardTask {
   return {
     id: t.id,
@@ -41,6 +48,12 @@ function toBoardTask(
     orderKey: t.orderKey,
     labels: labels ?? [],
     assignee,
+    subtasks: (subtaskAgg?.items ?? []).map((s) => ({
+      id: s.id,
+      title: s.title,
+      completed: s.completedAt !== null,
+    })),
+    subtasksDone: subtaskAgg?.done ?? 0,
   };
 }
 
@@ -97,10 +110,11 @@ export default async function ProjectBoardPage({
     listLabelsForWorkspace(ws.workspaceId),
     listMembers(ws.workspaceId),
   ]);
-  const labelMap = await listLabelsForTasks(
-    ws.workspaceId,
-    taskRows.map((t) => t.id),
-  );
+  const taskIds = taskRows.map((t) => t.id);
+  const [labelMap, subtaskMap] = await Promise.all([
+    listLabelsForTasks(ws.workspaceId, taskIds),
+    listSubtaskAggregates(ws.workspaceId, taskIds),
+  ]);
   const membersById = new Map<string, WorkspaceMember>(members.map((m) => [m.id, m]));
 
   const columns: BoardColumn[] = cols.map((c) => ({
@@ -114,7 +128,7 @@ export default async function ProjectBoardPage({
     const assignee: BoardTaskAssignee | null = m
       ? { id: m.id, name: m.name, image: m.image }
       : null;
-    return toBoardTask(t, labelMap.get(t.id), assignee);
+    return toBoardTask(t, labelMap.get(t.id), assignee, subtaskMap.get(t.id));
   });
 
   return (
