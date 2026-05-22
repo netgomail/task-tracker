@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
+import { taskLabels } from "@/db/schema/labels";
 import { tasks } from "@/db/schema/tasks";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
@@ -39,8 +40,30 @@ function isPriority(value: string): value is TaskPriority {
   return (TASK_PRIORITIES as readonly string[]).includes(value);
 }
 
-export async function listForProject(projectId: string): Promise<TaskRow[]> {
-  const rows = await db
+export type TaskFilter = {
+  priority?: TaskPriority;
+  labelId?: string;
+  /** Список id из FTS5; если undefined — поиск не применялся, если [] — пусто. */
+  matchingIds?: string[];
+};
+
+export async function listForProject(
+  projectId: string,
+  filter?: TaskFilter,
+): Promise<TaskRow[]> {
+  const conditions: SQL[] = [
+    eq(tasks.projectId, projectId),
+    isNull(tasks.archivedAt),
+    isNull(tasks.parentId),
+  ];
+  if (filter?.priority) {
+    conditions.push(eq(tasks.priority, filter.priority));
+  }
+  if (filter?.matchingIds) {
+    if (filter.matchingIds.length === 0) return [];
+    conditions.push(inArray(tasks.id, filter.matchingIds));
+  }
+  let query = db
     .select({
       id: tasks.id,
       columnId: tasks.columnId,
@@ -58,8 +81,14 @@ export async function listForProject(projectId: string): Promise<TaskRow[]> {
       createdAt: tasks.createdAt,
     })
     .from(tasks)
-    .where(and(eq(tasks.projectId, projectId), isNull(tasks.archivedAt), isNull(tasks.parentId)))
-    .orderBy(asc(tasks.orderKey));
+    .$dynamic();
+  if (filter?.labelId) {
+    query = query.innerJoin(
+      taskLabels,
+      and(eq(taskLabels.taskId, tasks.id), eq(taskLabels.labelId, filter.labelId)),
+    );
+  }
+  const rows = await query.where(and(...conditions)).orderBy(asc(tasks.orderKey));
   return rows.map((r) => ({
     ...r,
     type: isTaskType(r.type) ? r.type : "task",

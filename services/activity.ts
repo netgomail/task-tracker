@@ -25,7 +25,9 @@ export type ActivityType =
   | "subtask.create"
   | "subtask.delete"
   | "comment.create"
-  | "comment.delete";
+  | "comment.delete"
+  | "label.attach"
+  | "label.detach";
 
 export type ActivityRow = {
   id: string;

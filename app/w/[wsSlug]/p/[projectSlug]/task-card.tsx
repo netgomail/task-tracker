@@ -287,6 +287,26 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           </span>
         )}
       </div>
+      {task.labels.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {task.labels.map((l) => {
+            const hex = isLabelColor(l.color) ? colorHex(l.color) : "#64748b";
+            return (
+              <span
+                key={l.id}
+                className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset"
+                style={{
+                  background: `${hex}1a`,
+                  color: hex,
+                  borderColor: `${hex}55`,
+                }}
+              >
+                {l.name}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <Dialog open={subtaskOpen} onOpenChange={setSubtaskOpen}>
         <DialogContent>
           <DialogTitle>Новая подзадача</DialogTitle>

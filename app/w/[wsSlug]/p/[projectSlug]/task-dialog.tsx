@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Check, Plus, Trash2 } from "lucide-react";
 
@@ -16,7 +17,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { LABEL_COLORS, type LabelColorSlug } from "@/lib/colors";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { LABEL_COLORS, colorHex, type LabelColorSlug } from "@/lib/colors";
+import type { LabelRow } from "@/services/labels";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/relative-time";
 import {
@@ -54,6 +61,10 @@ import {
   createCommentAction,
   deleteCommentAction,
 } from "@/actions/comments";
+import {
+  attachLabelAction,
+  detachLabelAction,
+} from "@/actions/labels";
 
 type Props = {
   wsSlug: string;
@@ -80,6 +91,8 @@ const TYPE_LABELS: Record<string, string> = {
   "subtask.delete": "удалил(а) подзадачу",
   "comment.create": "оставил(а) комментарий",
   "comment.delete": "удалил(а) комментарий",
+  "label.attach": "добавил(а) метку",
+  "label.detach": "снял(а) метку",
 };
 
 function toLocalDatetime(iso: string | null): string {
@@ -186,6 +199,8 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 wsSlug={wsSlug}
                 projectSlug={projectSlug}
                 task={task}
+                labels={details.labels}
+                workspaceLabels={details.workspaceLabels}
                 pending={pending}
                 onRefresh={refresh}
                 onClose={onClose}
@@ -598,6 +613,8 @@ function Sidebar({
   wsSlug,
   projectSlug,
   task,
+  labels,
+  workspaceLabels,
   pending,
   onRefresh,
   onClose,
@@ -605,6 +622,8 @@ function Sidebar({
   wsSlug: string;
   projectSlug: string;
   task: SerializedTask;
+  labels: LabelRow[];
+  workspaceLabels: LabelRow[];
   pending: boolean;
   onRefresh: () => void;
   onClose: () => void;
@@ -630,6 +649,13 @@ function Sidebar({
     if (!res.ok) toast.error(res.error);
     onRefresh();
   }
+  async function toggleLabel(labelId: string, attached: boolean) {
+    const fn = attached ? detachLabelAction : attachLabelAction;
+    const res = await fn(wsSlug, projectSlug, task.id, labelId);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
   async function onArchive() {
     if (!window.confirm("Отправить задачу в архив?")) return;
     const res = await archiveTaskAction(wsSlug, projectSlug, task.id);
@@ -728,6 +754,15 @@ function Sidebar({
           className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
         />
       </SidebarBlock>
+      <SidebarBlock title="Метки">
+        <LabelsPicker
+          wsSlug={wsSlug}
+          attached={labels}
+          available={workspaceLabels}
+          disabled={pending}
+          onToggle={toggleLabel}
+        />
+      </SidebarBlock>
       <Separator />
       <div className="flex flex-col gap-1.5">
         <Button variant="ghost" size="sm" onClick={onArchive} disabled={pending}>
@@ -754,6 +789,89 @@ function SidebarBlock({ title, children }: { title: string; children: React.Reac
         {title}
       </h4>
       {children}
+    </div>
+  );
+}
+
+function LabelsPicker({
+  wsSlug,
+  attached,
+  available,
+  disabled,
+  onToggle,
+}: {
+  wsSlug: string;
+  attached: LabelRow[];
+  available: LabelRow[];
+  disabled: boolean;
+  onToggle: (labelId: string, attached: boolean) => void;
+}) {
+  const attachedSet = new Set(attached.map((l) => l.id));
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1">
+        {attached.length === 0 ? (
+          <span className="text-xs text-muted-foreground/70">—</span>
+        ) : (
+          attached.map((l) => (
+            <span
+              key={l.id}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-foreground/90 ring-1 ring-inset"
+              style={{
+                background: `${colorHex(l.color)}1f`,
+                color: colorHex(l.color),
+                borderColor: `${colorHex(l.color)}66`,
+              }}
+            >
+              {l.name}
+            </span>
+          ))
+        )}
+      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" disabled={disabled} className="justify-start">
+            <Plus className="size-3.5" /> Изменить
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-64">
+          {available.length === 0 ? (
+            <div className="flex flex-col gap-1 px-1 py-2">
+              <p className="text-xs text-muted-foreground">Меток ещё нет.</p>
+              <Link
+                href={`/w/${wsSlug}/settings/labels`}
+                className="text-xs font-medium text-foreground hover:underline"
+              >
+                Создать в настройках
+              </Link>
+            </div>
+          ) : (
+            <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+              {available.map((l) => {
+                const isOn = attachedSet.has(l.id);
+                return (
+                  <li key={l.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggle(l.id, isOn)}
+                      disabled={disabled}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent disabled:opacity-50"
+                    >
+                      <span
+                        className="block size-3 rounded-full ring-1 ring-inset ring-black/10"
+                        style={{ background: colorHex(l.color) }}
+                      />
+                      <span className="flex-1">{l.name}</span>
+                      {isOn && <Check className="size-3.5 text-muted-foreground" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

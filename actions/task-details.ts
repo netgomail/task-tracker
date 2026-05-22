@@ -6,8 +6,10 @@ import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
 import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
+import * as labels from "@/services/labels";
 import type { ActivityRow } from "@/services/activity";
 import type { CommentRow } from "@/services/comments";
+import type { LabelRow } from "@/services/labels";
 import type { TaskRow } from "@/services/tasks";
 
 export type TaskDetailsResult =
@@ -18,6 +20,8 @@ export type TaskDetailsResult =
       subtasks: SerializedTask[];
       comments: SerializedComment[];
       activity: SerializedActivity[];
+      labels: LabelRow[];
+      workspaceLabels: LabelRow[];
       me: { id: string; name: string };
     };
 
@@ -62,11 +66,14 @@ export async function getTaskDetailsAction(
     const task = await tasks.getById(ws.workspaceId, taskId);
     if (!task) return { ok: false, error: "Задача не найдена" };
 
-    const [subtaskRows, commentRows, activityRows] = await Promise.all([
-      tasks.listSubtasks(ws.workspaceId, taskId),
-      comments.listForTask(ws.workspaceId, taskId),
-      activity.listForTask(ws.workspaceId, taskId),
-    ]);
+    const [subtaskRows, commentRows, activityRows, taskLabels, wsLabels] =
+      await Promise.all([
+        tasks.listSubtasks(ws.workspaceId, taskId),
+        comments.listForTask(ws.workspaceId, taskId),
+        activity.listForTask(ws.workspaceId, taskId),
+        labels.listForTask(ws.workspaceId, taskId),
+        labels.listForWorkspace(ws.workspaceId),
+      ]);
 
     return {
       ok: true,
@@ -81,6 +88,8 @@ export async function getTaskDetailsAction(
         ...a,
         createdAt: a.createdAt.toISOString(),
       })),
+      labels: taskLabels,
+      workspaceLabels: wsLabels,
       me: { id: session.user.id, name: session.user.name },
     };
   } catch (e) {

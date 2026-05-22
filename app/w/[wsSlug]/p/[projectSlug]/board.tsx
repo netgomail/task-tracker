@@ -41,6 +41,12 @@ export type BoardColumn = {
   orderKey: string;
 };
 
+export type BoardTaskLabel = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type BoardTask = {
   id: string;
   columnId: string;
@@ -51,6 +57,7 @@ export type BoardTask = {
   dueAt: string | null;
   completedAt: string | null;
   orderKey: string;
+  labels: BoardTaskLabel[];
 };
 
 type Props = {
