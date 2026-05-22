@@ -287,7 +287,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
           </button>
         </div>
       )}
-      <div className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-6 py-4">
+      <div className="flex flex-1 items-start gap-3 overflow-auto px-6 py-4">
       <DndContext
         id={dndId}
         sensors={sensors}

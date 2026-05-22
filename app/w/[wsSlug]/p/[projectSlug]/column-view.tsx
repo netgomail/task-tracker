@@ -53,8 +53,16 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
   const [draft, setDraft] = useState(column.name);
   const [pending, startTransition] = useTransition();
 
-  const style = { transform: CSS.Transform.toString(transform), transition };
   const bar = isLabelColor(column.color) ? colorHex(column.color) : "#64748b";
+  const surface = `color-mix(in oklab, ${bar} 14%, white)`;
+  const badgeBg = `color-mix(in oklab, ${bar} 28%, white)`;
+  const badgeFg = `color-mix(in oklab, ${bar} 55%, black)`;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    borderColor: bar,
+    backgroundColor: surface,
+  };
 
   function submitRename() {
     const next = draft.trim();
@@ -92,11 +100,11 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex h-full w-72 shrink-0 flex-col rounded-lg border border-border bg-card",
+        "flex h-fit max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-lg border",
         isDragging && "opacity-50",
       )}
     >
-      <div className="flex items-center gap-1.5 border-b border-border p-2.5">
+      <div className="flex items-center gap-1.5 p-2.5">
         <button
           type="button"
           className="touch-none rounded text-muted-foreground/60 hover:text-muted-foreground"
@@ -106,7 +114,6 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
         >
           <GripVertical className="size-4" />
         </button>
-        <span className="block size-2 shrink-0 rounded-sm" style={{ background: bar }} aria-hidden />
         {editing ? (
           <Input
             autoFocus
@@ -133,7 +140,8 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
         )}
         {!editing && (
           <span
-            className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground"
+            className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
+            style={{ backgroundColor: badgeBg, color: badgeFg }}
             aria-label={`Задач в колонке: ${tasks.length}`}
             title={`Задач: ${tasks.length}`}
           >
@@ -167,7 +175,7 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
         ref={setBodyRef}
         className={cn(
           "flex-1 overflow-y-auto transition-colors",
-          isOver && "bg-accent/40",
+          isOver && "bg-black/5",
         )}
       >
         <SortableContext
