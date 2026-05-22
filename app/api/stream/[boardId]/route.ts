@@ -37,6 +37,10 @@ export async function GET(
 
       // Приветствие + ретрай-таймаут для EventSource.
       safeEnqueue("retry: 5000\n\n");
+      // 2 КБ комментария-паддинга, чтобы пробить буферы dev-сервера/прокси
+      // (Next dev иногда не флашит маленькие чанки). Это no-op для клиента —
+      // SSE-комментарии начинаются с двоеточия и игнорируются EventSource.
+      safeEnqueue(`: ${"x".repeat(2048)}\n\n`);
       safeEnqueue(`: connected board=${boardId}\n\n`);
 
       const unsubscribe = subscribe(boardId, safeEnqueue);

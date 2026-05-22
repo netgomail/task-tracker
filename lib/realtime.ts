@@ -10,13 +10,27 @@ import "server-only";
  *
  * Ограничения in-memory pub/sub:
  *   - живёт только в одном Node-процессе. Если будет несколько инстансов
- *     приложения, нужен внешний broker (Redis pubsub, Postgres LISTEN, и т.п.).
+ *     приложения, нужен внешний broker (Redis pubsub, Postgres LISTEN и т.п.).
  *     Для текущего one-process сетапа на SQLite это не проблема.
+ *
+ * Singleton через globalThis:
+ *   - В dev-режиме Next (Turbopack) роут-хендлеры и Server Actions могут
+ *     получать разные инстансы модуля. Если Map хранить как module-local,
+ *     подписчик и notifyBoard оказываются в разных мирах — сообщение в пустоту.
+ *     globalThis — общий для всех инстансов в одном процессе.
  */
 
 type Sender = (payload: string) => void;
 
-const subscribers = new Map<string, Set<Sender>>();
+declare global {
+  var __taskTrackerRealtime: Map<string, Set<Sender>> | undefined;
+}
+
+const subscribers: Map<string, Set<Sender>> =
+  globalThis.__taskTrackerRealtime ?? new Map<string, Set<Sender>>();
+globalThis.__taskTrackerRealtime = subscribers;
+
+const debug = process.env.NODE_ENV !== "production";
 
 export function subscribe(boardId: string, send: Sender): () => void {
   let set = subscribers.get(boardId);
@@ -25,10 +39,13 @@ export function subscribe(boardId: string, send: Sender): () => void {
     subscribers.set(boardId, set);
   }
   set.add(send);
+  if (debug) console.log(`[realtime] subscribe board=${boardId} subs=${set.size}`);
   return () => {
     const current = subscribers.get(boardId);
     if (!current) return;
     current.delete(send);
+    if (debug)
+      console.log(`[realtime] unsubscribe board=${boardId} subs=${current.size}`);
     if (current.size === 0) subscribers.delete(boardId);
   };
 }
@@ -39,7 +56,9 @@ export function subscribe(boardId: string, send: Sender): () => void {
  */
 export function notifyBoard(boardId: string): void {
   const set = subscribers.get(boardId);
-  if (!set || set.size === 0) return;
+  const size = set?.size ?? 0;
+  if (debug) console.log(`[realtime] notify board=${boardId} subs=${size}`);
+  if (!set || size === 0) return;
   const payload = `data: ${JSON.stringify({ type: "invalidate", boardId, at: Date.now() })}\n\n`;
   for (const send of set) {
     try {
