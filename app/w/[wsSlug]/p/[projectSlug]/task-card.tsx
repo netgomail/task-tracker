@@ -1,11 +1,18 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { MoreHorizontal, Trash2, Archive, CalendarClock, Check, GitBranchPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { LABEL_COLORS, colorHex, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +74,8 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const [subtaskOpen, setSubtaskOpen] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState("");
 
   const typeMeta = TASK_TYPE_META[task.type];
   const priMeta = TASK_PRIORITY_META[task.priority];
@@ -78,13 +88,22 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  function onCreateSubtask() {
-    const title = window.prompt("Название подзадачи:");
-    if (!title?.trim()) return;
+  function openSubtaskDialog() {
+    setSubtaskTitle("");
+    setSubtaskOpen(true);
+  }
+
+  function submitSubtask() {
+    const next = subtaskTitle.trim();
+    if (!next) return;
     startTransition(async () => {
-      const res = await createSubtaskAction(wsSlug, projectSlug, task.id, title.trim());
+      const res = await createSubtaskAction(wsSlug, projectSlug, task.id, next);
       if (!res.ok) toast.error(res.error);
-      else toast.success("Подзадача создана");
+      else {
+        toast.success("Подзадача создана");
+        setSubtaskOpen(false);
+        setSubtaskTitle("");
+      }
     });
   }
 
@@ -225,7 +244,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={openDialog}>Открыть</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onCreateSubtask} disabled={pending}>
+            <DropdownMenuItem onSelect={openSubtaskDialog} disabled={pending}>
               <GitBranchPlus className="size-4" /> Подзадача
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={onArchive} disabled={pending}>
@@ -268,6 +287,38 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           </span>
         )}
       </div>
+      <Dialog open={subtaskOpen} onOpenChange={setSubtaskOpen}>
+        <DialogContent>
+          <DialogTitle>Новая подзадача</DialogTitle>
+          <DialogDescription className="sr-only">
+            Введите название подзадачи для «{task.title}».
+          </DialogDescription>
+          <Input
+            autoFocus
+            value={subtaskTitle}
+            onChange={(e) => setSubtaskTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitSubtask();
+              }
+            }}
+            placeholder="Что сделать?"
+          />
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setSubtaskOpen(false)}
+              disabled={pending}
+            >
+              Отмена
+            </Button>
+            <Button onClick={submitSubtask} disabled={pending || !subtaskTitle.trim()}>
+              {pending ? "Создаём…" : "Создать"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
