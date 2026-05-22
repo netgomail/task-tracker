@@ -169,13 +169,13 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     });
   }
 
+  const surface = `color-mix(in oklab, ${bar} 12%, white)`;
+
   return (
-    <div className="group relative flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5 pl-3 transition-colors hover:border-foreground/30">
-      <span
-        className="absolute inset-y-1.5 left-0 w-1 rounded-r-sm"
-        style={{ background: bar }}
-        aria-hidden
-      />
+    <div
+      style={{ backgroundColor: surface }}
+      className="group relative flex flex-col gap-1.5 rounded-md p-2.5 shadow-xs ring-1 ring-black/5 transition-all hover:shadow-sm hover:ring-black/15"
+    >
       <div className="flex items-start gap-1.5">
         <button
           type="button"
