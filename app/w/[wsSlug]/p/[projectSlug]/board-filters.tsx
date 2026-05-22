@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Search, X } from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,14 +15,17 @@ import {
 import { cn } from "@/lib/utils";
 import { colorHex, isLabelColor } from "@/lib/colors";
 import type { LabelRow } from "@/services/labels";
+import type { WorkspaceMember } from "@/services/membership";
 import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META } from "@/lib/task-meta";
 
 type Props = {
   labels: LabelRow[];
+  members: WorkspaceMember[];
+  currentUserId: string;
 };
 
-export function BoardFilters({ labels }: Props) {
+export function BoardFilters({ labels, members, currentUserId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -30,6 +34,7 @@ export function BoardFilters({ labels }: Props) {
   const currentQ = searchParams.get("q") ?? "";
   const currentPriority = searchParams.get("priority");
   const currentLabel = searchParams.get("label");
+  const currentAssignee = searchParams.get("assignee");
   const [draftQ, setDraftQ] = useState(currentQ);
 
   function push(next: URLSearchParams) {
@@ -58,7 +63,18 @@ export function BoardFilters({ labels }: Props) {
   }
 
   const activeLabel = labels.find((l) => l.id === currentLabel);
-  const hasActive = Boolean(currentQ || currentPriority || currentLabel);
+  const activeMember =
+    currentAssignee && currentAssignee !== "me" && currentAssignee !== "none"
+      ? members.find((m) => m.id === currentAssignee)
+      : null;
+  const assigneeLabel = activeMember
+    ? activeMember.name
+    : currentAssignee === "me"
+      ? "Мои"
+      : currentAssignee === "none"
+        ? "Без исполнителя"
+        : "Исполнитель";
+  const hasActive = Boolean(currentQ || currentPriority || currentLabel || currentAssignee);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -200,6 +216,106 @@ export function BoardFilters({ labels }: Props) {
                       }}
                     />
                     {l.name}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5", currentAssignee && "ring-1 ring-foreground/40")}
+            disabled={pending}
+          >
+            {activeMember ? (
+              <>
+                <Avatar className="size-4">
+                  {activeMember.image && (
+                    <AvatarImage src={activeMember.image} alt={activeMember.name} />
+                  )}
+                  <AvatarFallback className="text-[9px]">
+                    {activeMember.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {assigneeLabel}
+              </>
+            ) : (
+              <>
+                <Filter className="size-3.5" /> {assigneeLabel}
+              </>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56">
+          <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+            <li>
+              <button
+                type="button"
+                onClick={() => setParam("assignee", null)}
+                className={cn(
+                  "flex w-full items-center rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                  !currentAssignee && "bg-accent",
+                )}
+              >
+                Все
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setParam("assignee", "me")}
+                className={cn(
+                  "flex w-full items-center rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                  currentAssignee === "me" && "bg-accent",
+                )}
+              >
+                Мои
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setParam("assignee", "none")}
+                className={cn(
+                  "flex w-full items-center rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                  currentAssignee === "none" && "bg-accent",
+                )}
+              >
+                Без исполнителя
+              </button>
+            </li>
+            {members.length === 0 ? (
+              <li className="px-2 py-1 text-xs text-muted-foreground">
+                В workspace пока нет участников.
+              </li>
+            ) : (
+              members.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onClick={() => setParam("assignee", m.id)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                      currentAssignee === m.id && "bg-accent",
+                    )}
+                  >
+                    <Avatar className="size-4">
+                      {m.image && <AvatarImage src={m.image} alt={m.name} />}
+                      <AvatarFallback className="text-[9px]">
+                        {m.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">
+                      {m.name}
+                      {m.id === currentUserId && (
+                        <span className="ml-1 text-xs text-muted-foreground">(вы)</span>
+                      )}
+                    </span>
                   </button>
                 </li>
               ))

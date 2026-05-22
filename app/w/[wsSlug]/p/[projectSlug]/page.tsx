@@ -10,15 +10,25 @@ import {
   listForWorkspace as listLabelsForWorkspace,
 } from "@/services/labels";
 import type { LabelRow } from "@/services/labels";
+import { listMembers, type WorkspaceMember } from "@/services/membership";
 import { searchTaskIds } from "@/services/search";
 import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
 
-import { Board, type BoardColumn, type BoardTask } from "./board";
+import {
+  Board,
+  type BoardColumn,
+  type BoardTask,
+  type BoardTaskAssignee,
+} from "./board";
 import { BoardFilters } from "./board-filters";
 
 export const dynamic = "force-dynamic";
 
-function toBoardTask(t: TaskRow, labels: LabelRow[] | undefined): BoardTask {
+function toBoardTask(
+  t: TaskRow,
+  labels: LabelRow[] | undefined,
+  assignee: BoardTaskAssignee | null,
+): BoardTask {
   return {
     id: t.id,
     columnId: t.columnId,
@@ -30,6 +40,7 @@ function toBoardTask(t: TaskRow, labels: LabelRow[] | undefined): BoardTask {
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     orderKey: t.orderKey,
     labels: labels ?? [],
+    assignee,
   };
 }
 
@@ -62,6 +73,12 @@ export default async function ProjectBoardPage({
   const qParam = pickString(sp.q)?.trim() ?? "";
   const priorityParam = pickPriority(pickString(sp.priority));
   const labelParam = pickString(sp.label);
+  const assigneeParam = pickString(sp.assignee);
+
+  let assigneeFilter: TaskFilter["assignee"];
+  if (assigneeParam === "none") assigneeFilter = "unassigned";
+  else if (assigneeParam === "me") assigneeFilter = { userId: session.user.id };
+  else if (assigneeParam) assigneeFilter = { userId: assigneeParam };
 
   const matchingIds = qParam
     ? (searchTaskIds(ws.workspaceId, project.id, qParam) ?? undefined)
@@ -71,17 +88,20 @@ export default async function ProjectBoardPage({
     priority: priorityParam,
     labelId: labelParam,
     matchingIds,
+    assignee: assigneeFilter,
   };
 
-  const [cols, taskRows, wsLabels] = await Promise.all([
+  const [cols, taskRows, wsLabels, members] = await Promise.all([
     listForBoard(project.boardId),
     listForProject(project.id, filter),
     listLabelsForWorkspace(ws.workspaceId),
+    listMembers(ws.workspaceId),
   ]);
   const labelMap = await listLabelsForTasks(
     ws.workspaceId,
     taskRows.map((t) => t.id),
   );
+  const membersById = new Map<string, WorkspaceMember>(members.map((m) => [m.id, m]));
 
   const columns: BoardColumn[] = cols.map((c) => ({
     id: c.id,
@@ -89,7 +109,13 @@ export default async function ProjectBoardPage({
     color: c.color,
     orderKey: c.orderKey,
   }));
-  const tasks: BoardTask[] = taskRows.map((t) => toBoardTask(t, labelMap.get(t.id)));
+  const tasks: BoardTask[] = taskRows.map((t) => {
+    const m = t.assigneeId ? membersById.get(t.assigneeId) ?? null : null;
+    const assignee: BoardTaskAssignee | null = m
+      ? { id: m.id, name: m.name, image: m.image }
+      : null;
+    return toBoardTask(t, labelMap.get(t.id), assignee);
+  });
 
   return (
     <div className="flex h-[calc(100dvh-49px)] flex-col">
@@ -99,7 +125,11 @@ export default async function ProjectBoardPage({
           <span className="text-xs text-muted-foreground">/{project.slug}</span>
         </div>
         <div className="ml-auto">
-          <BoardFilters labels={wsLabels} />
+          <BoardFilters
+            labels={wsLabels}
+            members={members}
+            currentUserId={session.user.id}
+          />
         </div>
       </header>
       <Board

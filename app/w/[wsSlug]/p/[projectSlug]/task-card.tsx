@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { MoreHorizontal, Trash2, Archive, CalendarClock, Check, GitBranchPlus } from "lucide-react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -285,6 +286,20 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             <CalendarClock className="size-3" />
             {due.label}
           </span>
+        )}
+        {task.assignee && (
+          <Avatar
+            className="ml-auto size-5"
+            title={task.assignee.name}
+            aria-label={`Исполнитель: ${task.assignee.name}`}
+          >
+            {task.assignee.image && (
+              <AvatarImage src={task.assignee.image} alt={task.assignee.name} />
+            )}
+            <AvatarFallback className="text-[10px]">
+              {task.assignee.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
         )}
       </div>
       {task.labels.length > 0 && (

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/popover";
 import { LABEL_COLORS, colorHex, type LabelColorSlug } from "@/lib/colors";
 import type { LabelRow } from "@/services/labels";
+import type { WorkspaceMember } from "@/services/membership";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/relative-time";
 import {
@@ -50,6 +51,7 @@ import {
   createSubtaskAction,
   deleteTaskAction,
   renameTaskAction,
+  setTaskAssigneeAction,
   setTaskColorAction,
   setTaskDescriptionAction,
   setTaskDueAction,
@@ -93,6 +95,7 @@ const TYPE_LABELS: Record<string, string> = {
   "comment.delete": "удалил(а) комментарий",
   "label.attach": "добавил(а) метку",
   "label.detach": "снял(а) метку",
+  "task.assignee": "сменил(а) исполнителя",
 };
 
 function toLocalDatetime(iso: string | null): string {
@@ -201,6 +204,8 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 task={task}
                 labels={details.labels}
                 workspaceLabels={details.workspaceLabels}
+                members={details.members}
+                assignee={details.assignee}
                 pending={pending}
                 onRefresh={refresh}
                 onClose={onClose}
@@ -615,6 +620,8 @@ function Sidebar({
   task,
   labels,
   workspaceLabels,
+  members,
+  assignee,
   pending,
   onRefresh,
   onClose,
@@ -624,6 +631,8 @@ function Sidebar({
   task: SerializedTask;
   labels: LabelRow[];
   workspaceLabels: LabelRow[];
+  members: WorkspaceMember[];
+  assignee: WorkspaceMember | null;
   pending: boolean;
   onRefresh: () => void;
   onClose: () => void;
@@ -652,6 +661,17 @@ function Sidebar({
   async function toggleLabel(labelId: string, attached: boolean) {
     const fn = attached ? detachLabelAction : attachLabelAction;
     const res = await fn(wsSlug, projectSlug, task.id, labelId);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
+
+  async function pickAssignee(memberId: string | null) {
+    const res = await setTaskAssigneeAction(
+      wsSlug,
+      projectSlug,
+      task.id,
+      memberId ?? "",
+    );
     if (!res.ok) toast.error(res.error);
     onRefresh();
   }
@@ -754,6 +774,14 @@ function Sidebar({
           className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
         />
       </SidebarBlock>
+      <SidebarBlock title="Исполнитель">
+        <AssigneePicker
+          assignee={assignee}
+          members={members}
+          disabled={pending}
+          onPick={pickAssignee}
+        />
+      </SidebarBlock>
       <SidebarBlock title="Метки">
         <LabelsPicker
           wsSlug={wsSlug}
@@ -790,6 +818,94 @@ function SidebarBlock({ title, children }: { title: string; children: React.Reac
       </h4>
       {children}
     </div>
+  );
+}
+
+function AssigneePicker({
+  assignee,
+  members,
+  disabled,
+  onPick,
+}: {
+  assignee: WorkspaceMember | null;
+  members: WorkspaceMember[];
+  disabled: boolean;
+  onPick: (memberId: string | null) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className="flex h-8 w-full items-center gap-2 rounded-md border border-input bg-background px-2 text-left text-xs disabled:opacity-60"
+          aria-label="Исполнитель"
+        >
+          {assignee ? (
+            <>
+              <Avatar className="size-5">
+                {assignee.image && (
+                  <AvatarImage src={assignee.image} alt={assignee.name} />
+                )}
+                <AvatarFallback className="text-[10px]">
+                  {assignee.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="flex-1 truncate">{assignee.name}</span>
+            </>
+          ) : (
+            <span className="flex-1 text-muted-foreground">Не назначен</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64">
+        <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+          <li>
+            <button
+              type="button"
+              onClick={() => onPick(null)}
+              disabled={disabled}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent disabled:opacity-50",
+                !assignee && "bg-accent",
+              )}
+            >
+              Снять исполнителя
+            </button>
+          </li>
+          {members.length === 0 ? (
+            <li className="px-2 py-1 text-xs text-muted-foreground">
+              В workspace пока нет участников.
+            </li>
+          ) : (
+            members.map((m) => (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(m.id)}
+                  disabled={disabled}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent disabled:opacity-50",
+                    assignee?.id === m.id && "bg-accent",
+                  )}
+                >
+                  <Avatar className="size-5">
+                    {m.image && <AvatarImage src={m.image} alt={m.name} />}
+                    <AvatarFallback className="text-[10px]">
+                      {m.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="flex-1 truncate">{m.name}</span>
+                  {assignee?.id === m.id && (
+                    <Check className="size-3.5 text-muted-foreground" />
+                  )}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 

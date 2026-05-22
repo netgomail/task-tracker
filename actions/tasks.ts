@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/rbac";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
+import {
+  getBySlug as getWorkspaceBySlug,
+  isMember,
+} from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
@@ -262,6 +265,30 @@ export async function setTaskDueAction(
     actorId: session.user.id,
     type: "task.due",
     payload: { dueAt: next?.toISOString() ?? null },
+  });
+  refreshBoard(wsSlug, projectSlug);
+  return { ok: true };
+}
+
+export async function setTaskAssigneeAction(
+  wsSlug: string,
+  projectSlug: string,
+  taskId: string,
+  assigneeId: string,
+): Promise<ActionResult> {
+  const next = assigneeId.trim() === "" ? null : assigneeId.trim();
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  if (next && !(await isMember(ws.workspaceId, next))) {
+    return { ok: false, error: "Пользователь не состоит в workspace" };
+  }
+  await tasks.setAssignee(ws.workspaceId, taskId, next);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.assignee",
+    payload: { assigneeId: next },
   });
   refreshBoard(wsSlug, projectSlug);
   return { ok: true };

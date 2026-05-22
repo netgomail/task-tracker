@@ -47,6 +47,12 @@ export type BoardTaskLabel = {
   color: string;
 };
 
+export type BoardTaskAssignee = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
 export type BoardTask = {
   id: string;
   columnId: string;
@@ -58,6 +64,7 @@ export type BoardTask = {
   completedAt: string | null;
   orderKey: string;
   labels: BoardTaskLabel[];
+  assignee: BoardTaskAssignee | null;
 };
 
 type Props = {
@@ -246,7 +253,8 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
   const hasFilters =
     searchParams.get("q") !== null ||
     searchParams.get("priority") !== null ||
-    searchParams.get("label") !== null;
+    searchParams.get("label") !== null ||
+    searchParams.get("assignee") !== null;
   const noResults =
     hasFilters && optimisticColumns.length > 0 && optimisticTasks.length === 0;
 
@@ -255,6 +263,7 @@ export function Board({ wsSlug, projectSlug, initialColumns, initialTasks }: Pro
     params.delete("q");
     params.delete("priority");
     params.delete("label");
+    params.delete("assignee");
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }

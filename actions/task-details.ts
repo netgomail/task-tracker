@@ -7,6 +7,7 @@ import * as tasks from "@/services/tasks";
 import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
 import * as labels from "@/services/labels";
+import { listMembers, type WorkspaceMember } from "@/services/membership";
 import type { ActivityRow } from "@/services/activity";
 import type { CommentRow } from "@/services/comments";
 import type { LabelRow } from "@/services/labels";
@@ -22,6 +23,8 @@ export type TaskDetailsResult =
       activity: SerializedActivity[];
       labels: LabelRow[];
       workspaceLabels: LabelRow[];
+      members: WorkspaceMember[];
+      assignee: WorkspaceMember | null;
       me: { id: string; name: string };
     };
 
@@ -66,14 +69,19 @@ export async function getTaskDetailsAction(
     const task = await tasks.getById(ws.workspaceId, taskId);
     if (!task) return { ok: false, error: "Задача не найдена" };
 
-    const [subtaskRows, commentRows, activityRows, taskLabels, wsLabels] =
+    const [subtaskRows, commentRows, activityRows, taskLabels, wsLabels, members] =
       await Promise.all([
         tasks.listSubtasks(ws.workspaceId, taskId),
         comments.listForTask(ws.workspaceId, taskId),
         activity.listForTask(ws.workspaceId, taskId),
         labels.listForTask(ws.workspaceId, taskId),
         labels.listForWorkspace(ws.workspaceId),
+        listMembers(ws.workspaceId),
       ]);
+
+    const assignee = task.assigneeId
+      ? members.find((m) => m.id === task.assigneeId) ?? null
+      : null;
 
     return {
       ok: true,
@@ -90,6 +98,8 @@ export async function getTaskDetailsAction(
       })),
       labels: taskLabels,
       workspaceLabels: wsLabels,
+      members,
+      assignee,
       me: { id: session.user.id, name: session.user.name },
     };
   } catch (e) {

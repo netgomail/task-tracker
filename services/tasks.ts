@@ -45,6 +45,8 @@ export type TaskFilter = {
   labelId?: string;
   /** Список id из FTS5; если undefined — поиск не применялся, если [] — пусто. */
   matchingIds?: string[];
+  /** `"unassigned"` — без исполнителя, `{ userId }` — закреплено за пользователем. */
+  assignee?: "unassigned" | { userId: string };
 };
 
 export async function listForProject(
@@ -62,6 +64,11 @@ export async function listForProject(
   if (filter?.matchingIds) {
     if (filter.matchingIds.length === 0) return [];
     conditions.push(inArray(tasks.id, filter.matchingIds));
+  }
+  if (filter?.assignee === "unassigned") {
+    conditions.push(isNull(tasks.assigneeId));
+  } else if (filter?.assignee && typeof filter.assignee === "object") {
+    conditions.push(eq(tasks.assigneeId, filter.assignee.userId));
   }
   let query = db
     .select({
@@ -384,6 +391,18 @@ export async function setCompleted(
   await db
     .update(tasks)
     .set({ completedAt: completed ? new Date() : null, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function setAssignee(
+  workspaceId: string,
+  taskId: string,
+  assigneeId: string | null,
+): Promise<void> {
+  await assertTaskInWorkspace(taskId, workspaceId);
+  await db
+    .update(tasks)
+    .set({ assigneeId, updatedAt: new Date() })
     .where(eq(tasks.id, taskId));
 }
 
