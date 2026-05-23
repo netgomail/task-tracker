@@ -57,7 +57,7 @@ import {
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
-import type { BoardTask } from "./board";
+import type { BoardTask, BoardTaskSubtask } from "./board";
 
 type Props = {
   wsSlug: string;
@@ -478,23 +478,14 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
               onPointerDown={(e) => e.stopPropagation()}
             >
               {task.subtasks.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 py-0.5">
-                  <Checkbox
-                    checked={s.completed}
-                    onCheckedChange={(v) => onToggleSubtask(s.id, Boolean(v))}
-                    disabled={pending}
-                    className="size-3.5"
-                    aria-label={s.title}
-                  />
-                  <span
-                    className={cn(
-                      "flex-1 truncate text-xs",
-                      s.completed && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {s.title}
-                  </span>
-                </li>
+                <SubtaskRow
+                  key={s.id}
+                  wsSlug={wsSlug}
+                  projectSlug={projectSlug}
+                  subtask={s}
+                  onToggle={(v) => onToggleSubtask(s.id, v)}
+                  parentDisabled={pending}
+                />
               ))}
             </ul>
           )}
@@ -529,5 +520,100 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SubtaskRow({
+  wsSlug,
+  projectSlug,
+  subtask,
+  onToggle,
+  parentDisabled,
+}: {
+  wsSlug: string;
+  projectSlug: string;
+  subtask: BoardTaskSubtask;
+  onToggle: (completed: boolean) => void;
+  parentDisabled: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(subtask.title);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!editing) setDraft(subtask.title);
+  }, [subtask.title, editing]);
+
+  function submit() {
+    const next = draft.trim();
+    setEditing(false);
+    if (!next || next === subtask.title) {
+      setDraft(subtask.title);
+      return;
+    }
+    startTransition(async () => {
+      const res = await renameTaskAction(wsSlug, projectSlug, subtask.id, next);
+      if (!res.ok) {
+        toast.error(res.error);
+        setDraft(subtask.title);
+      }
+    });
+  }
+
+  const disabled = parentDisabled || pending;
+
+  return (
+    <li className="group/sub flex items-center gap-2 py-0.5">
+      <Checkbox
+        checked={subtask.completed}
+        onCheckedChange={(v) => onToggle(Boolean(v))}
+        disabled={disabled}
+        className="size-3.5"
+        aria-label={subtask.title}
+      />
+      {editing ? (
+        <Input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={submit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(subtask.title);
+              setEditing(false);
+            }
+          }}
+          maxLength={500}
+          className="h-6 flex-1 px-1.5 text-xs"
+        />
+      ) : (
+        <span
+          className={cn(
+            "flex-1 truncate text-xs",
+            subtask.completed && "text-muted-foreground line-through",
+          )}
+        >
+          {subtask.title}
+        </span>
+      )}
+      {!editing && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setEditing(true)}
+          disabled={disabled}
+          className="text-muted-foreground size-5 opacity-0 transition-opacity group-hover/sub:opacity-100 focus-visible:opacity-100"
+          aria-label="Редактировать подзадачу"
+          title="Редактировать"
+        >
+          <Pencil className="size-3" />
+        </Button>
+      )}
+    </li>
   );
 }
