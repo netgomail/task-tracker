@@ -397,7 +397,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <BoardLiveSync boardId={boardId} />
       {noResults && (
         <div className="mx-6 mt-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">
