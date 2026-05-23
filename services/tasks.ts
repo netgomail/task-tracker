@@ -8,7 +8,7 @@ import { taskLabels } from "@/db/schema/labels";
 import { tasks } from "@/db/schema/tasks";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
-import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import {
   TASK_PRIORITIES,
   TASK_TYPES,
@@ -147,14 +147,14 @@ export type CreateTaskInput = {
 
 export async function create(input: CreateTaskInput): Promise<TaskRow> {
   const { projectId } = await assertColumnInWorkspace(input.columnId, input.workspaceId);
-  const [last] = await db
+  const [first] = await db
     .select({ orderKey: tasks.orderKey })
     .from(tasks)
     .where(eq(tasks.columnId, input.columnId))
-    .orderBy(desc(tasks.orderKey))
+    .orderBy(asc(tasks.orderKey))
     .limit(1);
-  const orderKey = keyBetween(last?.orderKey ?? null, null);
-  const color = input.color ?? "slate";
+  const orderKey = keyBetween(null, first?.orderKey ?? null);
+  const color = input.color ?? DEFAULT_COLOR;
   const priority = input.priority ?? "normal";
   const type = input.type ?? "task";
   const id = newId();
