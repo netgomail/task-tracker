@@ -181,6 +181,7 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <NewTaskForm wsSlug={wsSlug} projectSlug={projectSlug} columnId={column.id} />
       <div
         ref={setBodyRef}
         className={cn(
@@ -209,7 +210,6 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
           </div>
         </SortableContext>
       </div>
-      <NewTaskForm wsSlug={wsSlug} projectSlug={projectSlug} columnId={column.id} />
     </div>
   );
 }

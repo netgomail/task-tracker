@@ -45,7 +45,7 @@ export function NewTaskForm({
         type="button"
         data-board-newtask=""
         onClick={() => setOpen(true)}
-        className="m-2 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"
+        className="mx-2.5 mb-1 flex items-center gap-1 self-start rounded-sm py-0.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline dark:text-sky-400 dark:hover:text-sky-300"
       >
         <Plus className="size-3.5" /> Добавить задачу
       </button>
@@ -53,7 +53,7 @@ export function NewTaskForm({
   }
 
   return (
-    <div className="m-2 flex flex-col gap-2 rounded-md border border-border bg-card p-2">
+    <div className="mx-2 mb-2 flex flex-col gap-2 rounded-md border border-border bg-card p-2">
       <Textarea
         autoFocus
         value={title}
