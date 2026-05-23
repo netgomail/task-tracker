@@ -9,6 +9,7 @@ import {
   ChevronDown,
   GitBranchPlus,
   MoreHorizontal,
+  Pencil,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   LABEL_COLORS,
@@ -46,6 +48,7 @@ import {
   archiveTaskAction,
   createSubtaskAction,
   deleteTaskAction,
+  renameTaskAction,
   setTaskColorAction,
   setTaskPriorityAction,
   setTaskTypeAction,
@@ -90,12 +93,39 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const [titleExpanded, setTitleExpanded] = useState(false);
   const [titleOverflows, setTitleOverflows] = useState(false);
   const titleRef = useRef<HTMLButtonElement | null>(null);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title);
 
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
     setTitleOverflows(el.scrollHeight - el.clientHeight > 1);
   }, [task.title, titleExpanded]);
+
+  useEffect(() => {
+    if (!titleEditing) setTitleDraft(task.title);
+  }, [task.title, titleEditing]);
+
+  function startTitleEdit() {
+    setTitleDraft(task.title);
+    setTitleEditing(true);
+  }
+
+  function submitTitleRename() {
+    const next = titleDraft.trim();
+    setTitleEditing(false);
+    if (!next || next === task.title) {
+      setTitleDraft(task.title);
+      return;
+    }
+    startTransition(async () => {
+      const res = await renameTaskAction(wsSlug, projectSlug, task.id, next);
+      if (!res.ok) {
+        toast.error(res.error);
+        setTitleDraft(task.title);
+      }
+    });
+  }
 
   const typeMeta = TASK_TYPE_META[task.type];
   const priMeta = TASK_PRIORITY_META[task.priority];
@@ -181,19 +211,43 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     >
       <div className="flex items-start gap-1.5">
         <div className="flex flex-1 flex-col gap-0.5">
-          <button
-            ref={titleRef}
-            type="button"
-            onClick={openDialog}
-            className={cn(
-              "cursor-pointer text-left text-sm leading-snug font-medium whitespace-pre-wrap break-words",
-              !titleExpanded && "line-clamp-8",
-              task.completedAt && "text-muted-foreground line-through",
-            )}
-          >
-            {task.title}
-          </button>
-          {(titleOverflows || titleExpanded) && (
+          {titleEditing ? (
+            <Textarea
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={submitTitleRename}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submitTitleRename();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setTitleDraft(task.title);
+                  setTitleEditing(false);
+                }
+              }}
+              rows={2}
+              maxLength={500}
+              className="min-h-12 resize-none text-sm leading-snug font-medium"
+            />
+          ) : (
+            <button
+              ref={titleRef}
+              type="button"
+              onClick={openDialog}
+              className={cn(
+                "cursor-pointer text-left text-sm leading-snug font-medium whitespace-pre-wrap break-words",
+                !titleExpanded && "line-clamp-8",
+                task.completedAt && "text-muted-foreground line-through",
+              )}
+            >
+              {task.title}
+            </button>
+          )}
+          {!titleEditing && (titleOverflows || titleExpanded) && (
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
@@ -207,6 +261,22 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             </button>
           )}
         </div>
+        {!titleEditing && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              startTitleEdit();
+            }}
+            className="text-muted-foreground size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label="Редактировать заголовок"
+            title="Редактировать"
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
