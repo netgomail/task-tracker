@@ -134,6 +134,11 @@
   html {
     @apply font-sans;
   }
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a {
+    cursor: pointer;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
