@@ -34,7 +34,7 @@ export function NewTaskForm({
       if (!res.ok) toast.error(res.error);
       else {
         setTitle("");
-        setOpen(true);
+        setOpen(false);
       }
     });
   }
