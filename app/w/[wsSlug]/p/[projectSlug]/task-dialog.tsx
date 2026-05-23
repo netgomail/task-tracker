@@ -444,13 +444,14 @@ function Subtasks({
           </Button>
         )}
       </div>
-      <ul className="flex flex-col gap-1">
-        {subtasks.map((s) => (
+      <ul className="ml-1 flex flex-col">
+        {subtasks.map((s, i, arr) => (
           <SubtaskItem
             key={s.id}
             wsSlug={wsSlug}
             projectSlug={projectSlug}
             sub={s}
+            isLast={i === arr.length - 1}
             parentPending={pending}
             onToggle={(v) => toggle(s, v)}
             onRemove={() => remove(s)}
@@ -497,6 +498,7 @@ function SubtaskItem({
   wsSlug,
   projectSlug,
   sub,
+  isLast,
   parentPending,
   onToggle,
   onRemove,
@@ -505,6 +507,7 @@ function SubtaskItem({
   wsSlug: string;
   projectSlug: string;
   sub: SerializedTask;
+  isLast: boolean;
   parentPending: boolean;
   onToggle: (completed: boolean) => void;
   onRemove: () => void;
@@ -538,7 +541,14 @@ function SubtaskItem({
   const disabled = parentPending || pending;
 
   return (
-    <li className="group flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent">
+    <li
+      className={cn(
+        "group relative flex items-center gap-2 rounded-md py-1 pl-6 pr-1.5 hover:bg-accent",
+        "before:absolute before:left-1.5 before:top-0 before:h-[1.05rem] before:w-3 before:rounded-bl-[3px] before:border-b before:border-l before:border-black/15",
+        !isLast &&
+          "after:absolute after:left-1.5 after:top-[1.05rem] after:bottom-0 after:border-l after:border-black/15",
+      )}
+    >
       <Checkbox
         checked={!!sub.completedAt}
         onCheckedChange={(v) => onToggle(Boolean(v))}

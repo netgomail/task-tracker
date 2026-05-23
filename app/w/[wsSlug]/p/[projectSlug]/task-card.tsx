@@ -474,15 +474,16 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           </button>
           {subtreeExpanded && (
             <ul
-              className="ml-2 flex flex-col gap-0.5 border-l border-black/10 pl-2.5"
+              className="ml-1.5 flex flex-col"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              {task.subtasks.map((s) => (
+              {task.subtasks.map((s, i, arr) => (
                 <SubtaskRow
                   key={s.id}
                   wsSlug={wsSlug}
                   projectSlug={projectSlug}
                   subtask={s}
+                  isLast={i === arr.length - 1}
                   onToggle={(v) => onToggleSubtask(s.id, v)}
                   parentDisabled={pending}
                 />
@@ -527,12 +528,14 @@ function SubtaskRow({
   wsSlug,
   projectSlug,
   subtask,
+  isLast,
   onToggle,
   parentDisabled,
 }: {
   wsSlug: string;
   projectSlug: string;
   subtask: BoardTaskSubtask;
+  isLast: boolean;
   onToggle: (completed: boolean) => void;
   parentDisabled: boolean;
 }) {
@@ -563,7 +566,14 @@ function SubtaskRow({
   const disabled = parentDisabled || pending;
 
   return (
-    <li className="group/sub flex items-center gap-2 py-0.5">
+    <li
+      className={cn(
+        "group/sub relative flex items-center gap-2 py-0.5 pl-4",
+        "before:absolute before:left-0 before:top-0 before:h-[0.75rem] before:w-3 before:rounded-bl-[3px] before:border-b before:border-l before:border-black/15",
+        !isLast &&
+          "after:absolute after:left-0 after:top-[0.75rem] after:bottom-0 after:border-l after:border-black/15",
+      )}
+    >
       <Checkbox
         checked={subtask.completed}
         onCheckedChange={(v) => onToggle(Boolean(v))}
