@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
@@ -89,6 +89,24 @@ type Active =
   | { type: "task"; taskId: string }
   | null;
 
+function compareTasksByOrder(a: BoardTask, b: BoardTask): number {
+  if (a.orderKey === b.orderKey) return a.id.localeCompare(b.id);
+  return a.orderKey < b.orderKey ? -1 : 1;
+}
+
+function isAfterOverItem(
+  over: { rect: { top: number; height: number } },
+  translatedRect: { top: number; height: number } | null,
+): boolean {
+  if (!translatedRect) return false;
+  return translatedRect.top + translatedRect.height / 2 > over.rect.top + over.rect.height / 2;
+}
+
+function sameOrder(a: BoardTask[], b: BoardTask[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((task, index) => task.id === b[index]?.id);
+}
+
 /**
  * Combined detector: prefer pointer for cards (fine-grained), fall back to
  * rect intersection so empty columns still receive drops.
@@ -122,18 +140,25 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
     initialTasks,
     (_: BoardTask[], next: BoardTask[]) => next,
   );
+  const [dragTasks, setDragTasks] = useState<BoardTask[] | null>(null);
+  const visibleTasks = dragTasks ?? optimisticTasks;
+  const visibleTasksRef = useRef(visibleTasks);
+
+  useEffect(() => {
+    visibleTasksRef.current = visibleTasks;
+  }, [visibleTasks]);
 
   const tasksByColumn = useMemo(() => {
     const map = new Map<string, BoardTask[]>();
     for (const c of optimisticColumns) map.set(c.id, []);
-    for (const t of optimisticTasks) {
+    for (const t of visibleTasks) {
       const list = map.get(t.columnId) ?? [];
       list.push(t);
       map.set(t.columnId, list);
     }
-    for (const list of map.values()) list.sort((a, b) => (a.orderKey < b.orderKey ? -1 : 1));
+    for (const list of map.values()) list.sort(compareTasksByOrder);
     return map;
-  }, [optimisticColumns, optimisticTasks]);
+  }, [optimisticColumns, visibleTasks]);
 
   const [active, setActive] = useState<Active>(null);
   const [, startTransition] = useTransition();
@@ -156,34 +181,71 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
   function onDragStart(event: DragStartEvent) {
     const t = event.active.data.current?.type;
     if (t === "column") setActive({ type: "column", columnId: String(event.active.id) });
-    else if (t === "task") setActive({ type: "task", taskId: String(event.active.id) });
-    else setActive(null);
+    else if (t === "task") {
+      setActive({ type: "task", taskId: String(event.active.id) });
+      visibleTasksRef.current = optimisticTasks;
+      setDragTasks(optimisticTasks);
+    } else setActive(null);
   }
 
+  function onDragCancel() {
+    setActive(null);
+    setDragTasks(null);
+  }
+
+  // Hybrid model:
+  //   - onDragOver animates only within-column reorder (so neighbors visibly
+  //     slide). Cross-column moves are NOT previewed — only the column under
+  //     the pointer is highlighted via its own droppable's isOver.
+  //   - onDragEnd resolves the final position from the `over` element at drop
+  //     time. This avoids geometry breakage caused by virtually moving the
+  //     task across columns mid-drag (the source of the "lands anywhere" bug).
   function onDragOver(event: DragOverEvent) {
     const { active: a, over } = event;
     if (!over) return;
     if (a.data.current?.type !== "task") return;
+    if (over.data.current?.type !== "task") return;
 
     const activeId = String(a.id);
     const overId = String(over.id);
-    const sourceColumnId = String(a.data.current.columnId);
-    const targetColumnId = findColumnIdFromOver(overId, over.data.current);
-    if (!targetColumnId || sourceColumnId === targetColumnId) return;
+    if (overId === activeId) return;
 
-    // Cross-column visual move during drag. useOptimistic requires a transition.
-    const updated = optimisticTasks.map((t) =>
-      t.id === activeId ? { ...t, columnId: targetColumnId } : t,
+    const sourceColumnId = a.data.current?.columnId;
+    const overColumnId = over.data.current?.columnId;
+    if (sourceColumnId !== overColumnId) return;
+    if (typeof sourceColumnId !== "string") return;
+
+    const currentTasks = visibleTasksRef.current;
+    const activeTask = currentTasks.find((t) => t.id === activeId);
+    if (!activeTask) return;
+
+    const targetTasks = currentTasks
+      .filter((t) => t.columnId === sourceColumnId && t.id !== activeId)
+      .sort(compareTasksByOrder);
+    const overIdx = targetTasks.findIndex((t) => t.id === overId);
+    if (overIdx < 0) return;
+    const landingIndex =
+      overIdx + (isAfterOverItem(over, a.rect.current.translated) ? 1 : 0);
+
+    const before = targetTasks[landingIndex - 1]?.orderKey ?? null;
+    const after = targetTasks[landingIndex]?.orderKey ?? null;
+    const orderKey = keyBetween(before, after);
+    if (activeTask.orderKey === orderKey) return;
+
+    const updated = currentTasks.map((t) =>
+      t.id === activeId ? { ...t, orderKey } : t,
     );
-    startTransition(() => {
-      applyTasks(updated);
-    });
+    visibleTasksRef.current = updated;
+    setDragTasks(updated);
   }
 
   function onDragEnd(event: DragEndEvent) {
     const { active: a, over } = event;
     setActive(null);
-    if (!over) return;
+    if (!over) {
+      setDragTasks(null);
+      return;
+    }
 
     const type = a.data.current?.type;
 
@@ -213,31 +275,83 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
 
     if (type === "task") {
       const activeId = String(a.id);
+      const sourceColumnId = a.data.current?.columnId;
+      if (typeof sourceColumnId !== "string") {
+        setDragTasks(null);
+        return;
+      }
       const overId = String(over.id);
       const targetColumnId = findColumnIdFromOver(overId, over.data.current);
-      if (!targetColumnId) return;
-
-      // IMPORTANT: compute the new position from the server-rendered state
-      // (initialTasks), not from optimisticTasks. onDragOver may have already
-      // shuffled the task into the target column visually, which would make
-      // any same-state detection lie.
-      const withoutMoved = initialTasks
-        .filter((t) => t.columnId === targetColumnId && t.id !== activeId)
-        .sort((x, y) => (x.orderKey < y.orderKey ? -1 : 1));
-
-      let landingIndex = withoutMoved.length;
-      if (over.data.current?.type === "task" && overId !== activeId) {
-        const overIdx = withoutMoved.findIndex((t) => t.id === overId);
-        if (overIdx >= 0) landingIndex = overIdx;
+      if (!targetColumnId) {
+        setDragTasks(null);
+        return;
       }
 
-      const before = withoutMoved[landingIndex - 1]?.orderKey ?? null;
-      const after = withoutMoved[landingIndex]?.orderKey ?? null;
-      const newKey = keyBetween(before, after);
+      let before: string | null;
+      let after: string | null;
+      let noop = false;
 
+      if (sourceColumnId === targetColumnId && over.data.current?.type === "task") {
+        // Within-column reorder over a task — the preview already reflects the
+        // final position (onDragOver updated it). Use it as source of truth.
+        const previewColumnTasks = visibleTasksRef.current
+          .filter((t) => t.columnId === targetColumnId)
+          .sort(compareTasksByOrder);
+        const committedColumnTasks = optimisticTasks
+          .filter((t) => t.columnId === targetColumnId)
+          .sort(compareTasksByOrder);
+        if (sameOrder(committedColumnTasks, previewColumnTasks)) noop = true;
+        const activeIdx = previewColumnTasks.findIndex((t) => t.id === activeId);
+        if (activeIdx < 0) {
+          setDragTasks(null);
+          return;
+        }
+        before = activeIdx > 0 ? previewColumnTasks[activeIdx - 1].orderKey : null;
+        after =
+          activeIdx < previewColumnTasks.length - 1
+            ? previewColumnTasks[activeIdx + 1].orderKey
+            : null;
+      } else {
+        // Either:
+        //   - within-column drop on column body → land at end of column
+        //   - cross-column drop on a task → above/below that task
+        //   - cross-column drop on column body → land at end of target column
+        const targetTasks = optimisticTasks
+          .filter((t) => t.columnId === targetColumnId && t.id !== activeId)
+          .sort(compareTasksByOrder);
+        let landingIndex: number;
+        if (over.data.current?.type === "task") {
+          const overIdx = targetTasks.findIndex((t) => t.id === overId);
+          landingIndex =
+            overIdx >= 0
+              ? overIdx + (isAfterOverItem(over, a.rect.current.translated) ? 1 : 0)
+              : targetTasks.length;
+        } else {
+          landingIndex = targetTasks.length;
+        }
+        before = targetTasks[landingIndex - 1]?.orderKey ?? null;
+        after = targetTasks[landingIndex]?.orderKey ?? null;
+
+        if (sourceColumnId === targetColumnId) {
+          const sourceList = optimisticTasks
+            .filter((t) => t.columnId === sourceColumnId)
+            .sort(compareTasksByOrder);
+          const currentIdx = sourceList.findIndex((t) => t.id === activeId);
+          if (currentIdx === landingIndex) noop = true;
+        }
+      }
+
+      if (noop) {
+        setDragTasks(null);
+        return;
+      }
+
+      const newKey = keyBetween(before, after);
       const optimisticNext = optimisticTasks.map((t) =>
         t.id === activeId ? { ...t, columnId: targetColumnId, orderKey: newKey } : t,
       );
+      visibleTasksRef.current = optimisticNext;
+      setDragTasks(optimisticNext);
       startTransition(async () => {
         applyTasks(optimisticNext);
         const res = await moveTaskAction(
@@ -249,12 +363,16 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
           after,
         );
         if (!res.ok) toast.error(res.error);
+        setDragTasks(null);
       });
+      return;
     }
+
+    setDragTasks(null);
   }
 
   const activeTask =
-    active?.type === "task" ? optimisticTasks.find((t) => t.id === active.taskId) ?? null : null;
+    active?.type === "task" ? visibleTasks.find((t) => t.id === active.taskId) ?? null : null;
   const activeColumn =
     active?.type === "column"
       ? optimisticColumns.find((c) => c.id === active.columnId) ?? null
@@ -266,7 +384,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
     searchParams.get("label") !== null ||
     searchParams.get("assignee") !== null;
   const noResults =
-    hasFilters && optimisticColumns.length > 0 && optimisticTasks.length === 0;
+    hasFilters && optimisticColumns.length > 0 && visibleTasks.length === 0;
 
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
@@ -295,13 +413,14 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
           </button>
         </div>
       )}
-      <div className="flex flex-1 items-start gap-3 overflow-auto px-6 py-4">
+      <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden px-6 py-4">
       <DndContext
         id={dndId}
         sensors={sensors}
         collisionDetection={detectCollisions}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
+        onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
       >
         {optimisticColumns.length === 0 ? (

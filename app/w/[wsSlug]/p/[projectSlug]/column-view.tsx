@@ -23,6 +23,8 @@ import {
 import {
   LABEL_COLORS,
   colorHex,
+  colorSwatchHex,
+  colorSwatchLabel,
   isDefaultColor,
   isLabelColor,
   type LabelColorSlug,
@@ -108,7 +110,7 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks }: Props) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex h-fit max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-lg border",
+        "flex h-full w-72 shrink-0 flex-col overflow-hidden rounded-lg border",
         isDragging && "opacity-50",
       )}
     >
@@ -233,11 +235,18 @@ function ColorDots({
             "flex size-4 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110 disabled:opacity-50",
             current === c.slug && "ring-2 ring-foreground/70",
           )}
-          aria-label={c.label}
-          title={c.label}
-          style={{ background: c.hex }}
+          aria-label={colorSwatchLabel(c.slug)}
+          title={colorSwatchLabel(c.slug)}
+          style={{ background: colorSwatchHex(c.slug) }}
         >
-          {current === c.slug && <Check className="size-2.5 text-white drop-shadow" />}
+          {current === c.slug && (
+            <Check
+              className={cn(
+                "size-2.5 drop-shadow",
+                isDefaultColor(c.slug) ? "text-zinc-900" : "text-white",
+              )}
+            />
+          )}
         </button>
       ))}
     </div>
