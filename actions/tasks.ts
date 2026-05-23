@@ -24,7 +24,7 @@ export type ActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
-const TitleSchema = z.string().trim().min(1, "Введите название").max(200, "Слишком длинное");
+const TitleSchema = z.string().trim().min(1, "Введите название").max(500, "Слишком длинное");
 
 async function authorize(wsSlug: string, projectSlug: string) {
   const session = await requireUser();

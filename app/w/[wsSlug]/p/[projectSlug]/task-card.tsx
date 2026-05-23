@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Archive,
   CalendarClock,
@@ -35,6 +35,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   LABEL_COLORS,
   colorHex,
+  colorSwatchHex,
+  colorSwatchLabel,
   isDefaultColor,
   isLabelColor,
   type LabelColorSlug,
@@ -49,17 +51,8 @@ import {
   setTaskTypeAction,
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
-import {
-  PRIORITY_TONE_CLASSES,
-  TASK_PRIORITY_META,
-  TASK_TYPE_META,
-} from "@/lib/task-meta";
-import {
-  TASK_PRIORITIES,
-  TASK_TYPES,
-  type TaskPriority,
-  type TaskType,
-} from "@/domain/types";
+import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
+import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 import type { BoardTask } from "./board";
 
@@ -94,6 +87,15 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const [subtaskOpen, setSubtaskOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [subtreeExpanded, setSubtreeExpanded] = useState(false);
+  const [titleExpanded, setTitleExpanded] = useState(false);
+  const [titleOverflows, setTitleOverflows] = useState(false);
+  const titleRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    setTitleOverflows(el.scrollHeight - el.clientHeight > 1);
+  }, [task.title, titleExpanded]);
 
   const typeMeta = TASK_TYPE_META[task.type];
   const priMeta = TASK_PRIORITY_META[task.priority];
@@ -128,12 +130,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
 
   function onToggleSubtask(subtaskId: string, completed: boolean) {
     startTransition(async () => {
-      const res = await toggleTaskCompleteAction(
-        wsSlug,
-        projectSlug,
-        subtaskId,
-        completed,
-      );
+      const res = await toggleTaskCompleteAction(wsSlug, projectSlug, subtaskId, completed);
       if (!res.ok) toast.error(res.error);
     });
   }
@@ -175,9 +172,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     });
   }
 
-  const surface = isDefaultColor(task.color)
-    ? "#ffffff"
-    : `color-mix(in oklab, ${bar} 12%, white)`;
+  const surface = isDefaultColor(task.color) ? "#ffffff" : `color-mix(in oklab, ${bar} 12%, white)`;
 
   return (
     <div
@@ -185,29 +180,46 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
       className="group relative flex flex-col gap-1.5 rounded-md p-2.5 shadow-xs ring-1 ring-black/5 transition-all hover:shadow-sm hover:ring-black/15"
     >
       <div className="flex items-start gap-1.5">
-        <button
-          type="button"
-          onClick={openDialog}
-          className={cn(
-            "flex-1 text-left text-sm font-medium leading-snug hover:underline",
-            task.completedAt && "text-muted-foreground line-through",
+        <div className="flex flex-1 flex-col gap-0.5">
+          <button
+            ref={titleRef}
+            type="button"
+            onClick={openDialog}
+            className={cn(
+              "cursor-pointer text-left text-sm leading-snug font-medium whitespace-pre-wrap break-words",
+              !titleExpanded && "line-clamp-8",
+              task.completedAt && "text-muted-foreground line-through",
+            )}
+          >
+            {task.title}
+          </button>
+          {(titleOverflows || titleExpanded) && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTitleExpanded((v) => !v);
+              }}
+              className="self-start text-[11px] font-medium text-sky-600 transition hover:text-sky-700 hover:underline dark:text-sky-400 dark:hover:text-sky-300"
+            >
+              {titleExpanded ? "Свернуть" : "Развернуть"}
+            </button>
           )}
-        >
-          {task.title}
-        </button>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+              className="text-muted-foreground size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               aria-label="Меню задачи"
             >
               <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 p-2">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Тип</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-muted-foreground text-xs">Тип</DropdownMenuLabel>
             <div className="grid grid-cols-4 gap-1 px-1 pb-1.5">
               {TASK_TYPES.map((t) => {
                 const Icon = TASK_TYPE_META[t].Icon;
@@ -218,7 +230,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                     onClick={() => onTypePick(t)}
                     disabled={pending}
                     className={cn(
-                      "flex h-7 items-center justify-center rounded-md ring-1 ring-inset ring-border transition hover:ring-foreground/30 disabled:opacity-50",
+                      "ring-border hover:ring-foreground/30 flex h-7 items-center justify-center rounded-md ring-1 transition ring-inset disabled:opacity-50",
                       task.type === t && "bg-accent ring-foreground/40",
                     )}
                     aria-label={TASK_TYPE_META[t].label}
@@ -229,7 +241,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                 );
               })}
             </div>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
+            <DropdownMenuLabel className="text-muted-foreground text-xs">
               Приоритет
             </DropdownMenuLabel>
             <div className="grid grid-cols-4 gap-1 px-1 pb-1.5">
@@ -243,7 +255,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                     onClick={() => onPriorityPick(p)}
                     disabled={pending}
                     className={cn(
-                      "flex h-7 items-center justify-center rounded-md ring-1 ring-inset ring-border transition hover:ring-foreground/30 disabled:opacity-50",
+                      "ring-border hover:ring-foreground/30 flex h-7 items-center justify-center rounded-md ring-1 transition ring-inset disabled:opacity-50",
                       task.priority === p && "bg-accent ring-foreground/40",
                       PRIORITY_TONE_CLASSES[meta.tone],
                     )}
@@ -255,7 +267,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                 );
               })}
             </div>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Цвет</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-muted-foreground text-xs">Цвет</DropdownMenuLabel>
             <div className="flex flex-wrap gap-1.5 px-1 pb-2">
               {LABEL_COLORS.map((c) => (
                 <button
@@ -264,14 +276,21 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                   onClick={() => onColorPick(c.slug)}
                   disabled={pending}
                   className={cn(
-                    "flex size-4 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110 disabled:opacity-50",
-                    task.color === c.slug && "ring-2 ring-foreground/70",
+                    "flex size-4 items-center justify-center rounded-full ring-1 ring-black/10 transition ring-inset hover:scale-110 disabled:opacity-50",
+                    task.color === c.slug && "ring-foreground/70 ring-2",
                   )}
-                  aria-label={c.label}
-                  title={c.label}
-                  style={{ background: c.hex }}
+                  aria-label={colorSwatchLabel(c.slug)}
+                  title={colorSwatchLabel(c.slug)}
+                  style={{ background: colorSwatchHex(c.slug) }}
                 >
-                  {task.color === c.slug && <Check className="size-2.5 text-white drop-shadow" />}
+                  {task.color === c.slug && (
+                    <Check
+                      className={cn(
+                        "size-2.5 drop-shadow",
+                        isDefaultColor(c.slug) ? "text-zinc-900" : "text-white",
+                      )}
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -289,7 +308,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
         <span
           className="inline-flex items-center gap-1"
           aria-label={typeMeta.label}
@@ -360,11 +379,11 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             type="button"
             onClick={() => setSubtreeExpanded((v) => !v)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex items-center gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-black/[0.03]"
+            className="flex cursor-pointer items-center gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors"
             aria-expanded={subtreeExpanded}
             aria-label="Подзадачи"
           >
-            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="bg-muted relative h-1.5 flex-1 overflow-hidden rounded-full">
               <div
                 className="absolute inset-y-0 left-0 rounded-full transition-all"
                 style={{
@@ -373,12 +392,12 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                 }}
               />
             </div>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
+            <span className="text-muted-foreground text-[11px] tabular-nums">
               {task.subtasksDone}/{task.subtasks.length}
             </span>
             <ChevronDown
               className={cn(
-                "size-3.5 text-muted-foreground transition-transform",
+                "text-muted-foreground size-3.5 transition-transform",
                 subtreeExpanded && "rotate-180",
               )}
             />
@@ -430,11 +449,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             placeholder="Что сделать?"
           />
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setSubtaskOpen(false)}
-              disabled={pending}
-            >
+            <Button variant="ghost" onClick={() => setSubtaskOpen(false)} disabled={pending}>
               Отмена
             </Button>
             <Button onClick={submitSubtask} disabled={pending || !subtaskTitle.trim()}>
