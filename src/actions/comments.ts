@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/rbac";
+import { sanitizeText } from "@/lib/sanitize";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as comments from "@/services/comments";
@@ -17,7 +18,8 @@ const BodySchema = z
   .string()
   .trim()
   .min(1, "Введите комментарий")
-  .max(5000, "Слишком длинный комментарий");
+  .max(5000, "Слишком длинный комментарий")
+  .transform(sanitizeText);
 
 async function authorize(wsSlug: string, projectSlug: string) {
   const session = await requireUser();

@@ -13,6 +13,7 @@ import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
+import { sanitizeText } from "@/lib/sanitize";
 import {
   TASK_PRIORITIES,
   TASK_TYPES,
@@ -24,7 +25,12 @@ export type ActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
-const TitleSchema = z.string().trim().min(1, "Введите название").max(500, "Слишком длинное");
+const TitleSchema = z
+  .string()
+  .trim()
+  .min(1, "Введите название")
+  .max(500, "Слишком длинное")
+  .transform(sanitizeText);
 
 async function authorize(wsSlug: string, projectSlug: string) {
   const session = await requireUser();
@@ -226,7 +232,8 @@ export async function setTaskDescriptionAction(
   taskId: string,
   description: string,
 ): Promise<ActionResult> {
-  const next = description.trim() === "" ? null : description;
+  const trimmed = description.trim();
+  const next = trimmed === "" ? null : sanitizeText(trimmed);
   if (next && next.length > 10_000) {
     return { ok: false, error: "Описание слишком длинное" };
   }

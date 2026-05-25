@@ -1,6 +1,6 @@
 # Security — Task Tracker
 
-> Последнее обновление: 2026-05-25
+> Последнее обновление: 2026-05-25 (P2+P3 реализованы)
 
 ---
 
@@ -33,17 +33,17 @@
 
 | # | Мера | Статус | Файл |
 |---|---|---|---|
-| 2.1 | Санитизация текстовых полей (XSS в комментариях / описаниях) | ⏳ ожидает | `src/services/comments.ts`, `src/services/tasks.ts` |
-| 2.2 | Обновление drizzle-kit (moderate уязвимость в dev-зависимости) | ⏳ ожидает | `package.json` |
-| 2.3 | Проверка `BETTER_AUTH_SECRET` (минимум 32 символа) | ⏳ ожидает | `.env.local` |
-| 2.4 | `Cache-Control: no-store` на SSE-эндпоинте `/api/stream` | ⏳ ожидает | `src/app/api/stream/[boardId]/route.ts` |
+| 2.1 | Санитизация текстовых полей (XSS в комментариях / описаниях) | ✅ Реализовано | `src/lib/sanitize.ts`, `src/actions/comments.ts`, `src/actions/tasks.ts` |
+| 2.2 | Обновление drizzle-kit (moderate уязвимость в dev-зависимости) | ⚠️ Принято (v0.31.10 — последняя стабильная; CVE ссылается на старые pre-release версии) | `package.json` |
+| 2.3 | Проверка `BETTER_AUTH_SECRET` (минимум 32 символа) | ✅ Реализовано (Zod min(32) при старте) | `src/lib/env.ts` |
+| 2.4 | `Cache-Control: no-store` на SSE-эндпоинте `/api/stream` | ✅ Реализовано | `src/app/api/stream/[boardId]/route.ts` |
 
 ### 🟢 Приоритет 3 — Полировка
 
 | # | Мера | Статус | Файл |
 |---|---|---|---|
-| 3.1 | Убрать отладочные `console.log` с session.user.id из продакшена | ⏳ ожидает | `src/app/w/[wsSlug]/p/[projectSlug]/page.tsx` |
-| 3.2 | Логирование ForbiddenError (подозрительная активность) | ⏳ ожидает | `src/lib/rbac.ts` |
+| 3.1 | Убрать отладочные `console.log` с session.user.id из продакшена | ✅ Реализовано | `src/app/w/[wsSlug]/p/[projectSlug]/page.tsx` |
+| 3.2 | Логирование ForbiddenError (подозрительная активность) | ✅ Реализовано (`console.warn` в `requireRole`) | `src/lib/rbac.ts` |
 | 3.3 | `npm audit` — мониторинг зависимостей в CI | ⏳ ожидает | `.github/workflows/` |
 
 ---
@@ -53,7 +53,7 @@
 | CVE | Описание | Статус | Решение |
 |---|---|---|---|
 | CVE-2025-29927 | Bypass middleware через `x-middleware-subrequest` (Next.js 11–15) | ✅ Не затронуты (v16.2.6), блокируем для защиты в глубину | Блокировка в `proxy.ts` |
-| CVE-2025-55182 | RCE в React Server Components Flight protocol | ⏳ Проверить версию React | Обновление React |
+| CVE-2025-55182 | RCE в React Server Components Flight protocol | ✅ Не затронуты (React 19.2.4, фикс вышел в 19.1.0) | — |
 | postcss XSS | Moderate в bundled postcss внутри next | ⚠️ Принято (фикс требует downgrade Next.js) | Мониторинг обновлений Next.js |
 
 ---

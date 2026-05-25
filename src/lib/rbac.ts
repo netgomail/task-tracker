@@ -66,6 +66,8 @@ export function hasRole(actual: MembershipRole, atLeast: MembershipRole): boolea
  */
 export function requireRole(actual: MembershipRole | undefined, atLeast: MembershipRole): void {
   if (!actual || !hasRole(actual, atLeast)) {
-    throw new ForbiddenError(`Required role: ${atLeast}, got: ${actual ?? "none"}`);
+    const err = new ForbiddenError(`Required role: ${atLeast}, got: ${actual ?? "none"}`);
+    console.warn("[security] ForbiddenError:", err.message);
+    throw err;
   }
 }
