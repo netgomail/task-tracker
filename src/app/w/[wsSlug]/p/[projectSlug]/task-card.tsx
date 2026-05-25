@@ -103,6 +103,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   }, [task.title, titleExpanded]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!titleEditing) setTitleDraft(task.title);
   }, [task.title, titleEditing]);
 
@@ -544,6 +545,7 @@ function SubtaskRow({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!editing) setDraft(subtask.title);
   }, [subtask.title, editing]);
 

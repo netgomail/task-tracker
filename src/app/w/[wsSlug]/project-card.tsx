@@ -48,6 +48,11 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
 
   return (
     <Card className="group hover:border-foreground/30 relative gap-2 overflow-hidden p-4 transition-colors">
+      <span
+        className="absolute inset-y-0 left-0 w-1 rounded-l-xl"
+        style={{ background: bar }}
+        aria-hidden
+      />
       <Link
         href={`/w/${wsSlug}/p/${slug}`}
         className="absolute inset-0 z-10 rounded-xl"

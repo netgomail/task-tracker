@@ -518,6 +518,7 @@ function SubtaskItem({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!editing) setDraft(sub.title);
   }, [sub.title, editing]);
 
