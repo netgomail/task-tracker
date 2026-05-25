@@ -287,9 +287,109 @@ export async function permanentlyDelete(
 }
 
 export async function countArchived(workspaceId: string): Promise<number> {
-  const [row] = await db
+  const [tasksRow] = await db
     .select({ value: count() })
     .from(tasks)
     .where(and(eq(tasks.workspaceId, workspaceId), isNotNull(tasks.archivedAt)));
-  return row?.value ?? 0;
+  const [projRow] = await db
+    .select({ value: count() })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), isNotNull(projects.archivedAt)));
+  return (tasksRow?.value ?? 0) + (projRow?.value ?? 0);
+}
+
+export type ArchivedProjectRow = {
+  id: string;
+  slug: string;
+  name: string;
+  color: string;
+  archivedAt: Date;
+  createdAt: Date;
+  taskCount: number;
+};
+
+export async function listArchivedProjects(
+  workspaceId: string,
+): Promise<ArchivedProjectRow[]> {
+  const rows = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      name: projects.name,
+      color: projects.color,
+      archivedAt: projects.archivedAt,
+      createdAt: projects.createdAt,
+    })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), isNotNull(projects.archivedAt)))
+    .orderBy(desc(projects.archivedAt));
+
+  if (rows.length === 0) return [];
+
+  const taskCounts = await db
+    .select({ projectId: tasks.projectId, value: count() })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, workspaceId),
+        inArray(
+          tasks.projectId,
+          rows.map((r) => r.id),
+        ),
+      ),
+    )
+    .groupBy(tasks.projectId);
+  const counts = new Map(taskCounts.map((c) => [c.projectId, c.value]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    color: r.color,
+    archivedAt: r.archivedAt as Date,
+    createdAt: r.createdAt,
+    taskCount: counts.get(r.id) ?? 0,
+  }));
+}
+
+/**
+ * Снимает archived_at у проекта. Не трогает задачи: они могли быть
+ * заархивированы независимо.
+ */
+export async function restoreProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ slug: string } | null> {
+  const [row] = await db
+    .select({ id: projects.id, slug: projects.slug, workspaceId: projects.workspaceId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!row || row.workspaceId !== workspaceId) return null;
+
+  await db
+    .update(projects)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(projects.id, projectId));
+
+  return { slug: row.slug };
+}
+
+/**
+ * Hard-delete проекта. По FK cascade удалит boards, columns, tasks,
+ * task_labels, comments, attachments, activity_events.
+ */
+export async function permanentlyDeleteProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ slug: string } | null> {
+  const [row] = await db
+    .select({ id: projects.id, slug: projects.slug, workspaceId: projects.workspaceId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!row || row.workspaceId !== workspaceId) return null;
+
+  await db.delete(projects).where(eq(projects.id, projectId));
+  return { slug: row.slug };
 }

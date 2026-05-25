@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import * as projects from "@/services/projects";
+import * as activity from "@/services/activity";
 
 const NameSchema = z.string().trim().min(1, "Введите название").max(80, "Слишком длинное");
 
@@ -52,9 +53,16 @@ export async function renameProjectAction(
 }
 
 export async function archiveProjectAction(wsSlug: string, projectId: string): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug);
+  const { session, ws } = await authorize(wsSlug);
   await projects.archive(ws.workspaceId, projectId);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId,
+    actorId: session.user.id,
+    type: "project.archive",
+  });
   revalidatePath(`/w/${wsSlug}`);
+  revalidatePath(`/w/${wsSlug}/archive`);
   return { ok: true };
 }
 

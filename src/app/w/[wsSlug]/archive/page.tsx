@@ -5,9 +5,10 @@ import { Archive as ArchiveIcon } from "lucide-react";
 import { requireUser, hasRole } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listForWorkspace } from "@/services/projects";
-import { listArchivedTasks } from "@/services/archive";
+import { listArchivedProjects, listArchivedTasks } from "@/services/archive";
 
 import { ArchiveFilters } from "./archive-filters";
+import { ArchiveProjects } from "./archive-projects";
 import { ArchiveTable } from "./archive-table";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function ArchivePage({
   if (!ws) notFound();
 
   const allProjects = await listForWorkspace(ws.workspaceId);
+  const archivedProjects = await listArchivedProjects(ws.workspaceId);
   const projectFilter = sp.project && allProjects.some((p) => p.slug === sp.project)
     ? allProjects.find((p) => p.slug === sp.project)
     : undefined;
@@ -42,6 +44,7 @@ export default async function ArchivePage({
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const canPermanentlyDelete = hasRole(ws.role, "admin");
+  const grandTotal = total + archivedProjects.length;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
@@ -57,44 +60,72 @@ export default async function ArchivePage({
           <h1 className="text-2xl font-semibold tracking-tight">Архив</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          {total === 0
-            ? "Архив пуст. Когда вы заархивируете задачи, они появятся здесь."
-            : `Архивных задач: ${total}.`}
+          {grandTotal === 0
+            ? "Архив пуст. Когда вы заархивируете проекты или задачи, они появятся здесь."
+            : `Архивных проектов: ${archivedProjects.length}, задач: ${total}.`}
         </p>
       </div>
 
-      <ArchiveFilters
-        wsSlug={wsSlug}
-        projects={allProjects.map((p) => ({ slug: p.slug, name: p.name }))}
-        currentProject={projectFilter?.slug ?? null}
-        currentQuery={sp.q ?? ""}
-      />
-
-      {rows.length > 0 ? (
-        <ArchiveTable
-          wsSlug={wsSlug}
-          rows={rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            priority: r.priority,
-            type: r.type,
-            projectSlug: r.projectSlug,
-            projectName: r.projectName,
-            projectColor: r.projectColor,
-            archivedAt: r.archivedAt.toISOString(),
-            archivedBy: r.archivedBy?.name ?? null,
-          }))}
-          canPermanentlyDelete={canPermanentlyDelete}
-        />
-      ) : (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            {sp.q || sp.project
-              ? "Под фильтры ничего не подошло."
-              : "В архиве пока ничего нет."}
-          </p>
-        </div>
+      {archivedProjects.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            Проекты ({archivedProjects.length})
+          </h2>
+          <ArchiveProjects
+            wsSlug={wsSlug}
+            rows={archivedProjects.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              name: p.name,
+              color: p.color,
+              taskCount: p.taskCount,
+              archivedAt: p.archivedAt.toISOString(),
+            }))}
+            canPermanentlyDelete={canPermanentlyDelete}
+          />
+        </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+          Задачи ({total})
+        </h2>
+
+        <ArchiveFilters
+          wsSlug={wsSlug}
+          projects={allProjects.map((p) => ({ slug: p.slug, name: p.name }))}
+          currentProject={projectFilter?.slug ?? null}
+          currentQuery={sp.q ?? ""}
+        />
+
+        {rows.length > 0 ? (
+          <ArchiveTable
+            wsSlug={wsSlug}
+            rows={rows.map((r) => ({
+              id: r.id,
+              title: r.title,
+              priority: r.priority,
+              type: r.type,
+              projectSlug: r.projectSlug,
+              projectName: r.projectName,
+              projectColor: r.projectColor,
+              archivedAt: r.archivedAt.toISOString(),
+              archivedBy: r.archivedBy?.name ?? null,
+            }))}
+            canPermanentlyDelete={canPermanentlyDelete}
+          />
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              {sp.q || sp.project
+                ? "Под фильтры ничего не подошло."
+                : archivedProjects.length > 0
+                  ? "Архивных задач нет."
+                  : "В архиве пока ничего нет."}
+            </p>
+          </div>
+        )}
+      </section>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 text-sm">

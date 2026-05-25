@@ -61,3 +61,43 @@ export async function permanentlyDeleteTaskAction(
   notifyBoard(result.boardId);
   return { ok: true };
 }
+
+export async function restoreProjectAction(
+  wsSlug: string,
+  projectId: string,
+): Promise<ActionResult> {
+  const { session, ws } = await authorizeWorkspace(wsSlug);
+  const result = await archive.restoreProject(ws.workspaceId, projectId);
+  if (!result) return { ok: false, error: "Проект не найден" };
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId,
+    actorId: session.user.id,
+    type: "project.restore",
+  });
+  revalidatePath(`/w/${wsSlug}/archive`);
+  revalidatePath(`/w/${wsSlug}`);
+  return { ok: true };
+}
+
+export async function permanentlyDeleteProjectAction(
+  wsSlug: string,
+  projectId: string,
+): Promise<ActionResult> {
+  const { session, ws } = await authorizeWorkspace(wsSlug);
+  if (!hasRole(ws.role, "admin")) {
+    return { ok: false, error: "Только администратор может удалять навсегда" };
+  }
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: null,
+    actorId: session.user.id,
+    type: "project.permanently_delete",
+    payload: { projectId },
+  });
+  const result = await archive.permanentlyDeleteProject(ws.workspaceId, projectId);
+  if (!result) return { ok: false, error: "Проект не найден" };
+  revalidatePath(`/w/${wsSlug}/archive`);
+  revalidatePath(`/w/${wsSlug}`);
+  return { ok: true };
+}
