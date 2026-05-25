@@ -27,6 +27,8 @@ import {
   type BoardTaskAssignee,
 } from "./board";
 import { BoardFilters } from "./board-filters";
+import { TaskTable, type TaskTableRow } from "./task-table";
+import { ViewToggle, type ViewMode } from "./view-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,11 @@ function toBoardTask(
     })),
     subtasksDone: subtaskAgg?.done ?? 0,
   };
+}
+
+function pickView(value: string | string[] | undefined): ViewMode {
+  const v = Array.isArray(value) ? value[0] : value;
+  return v === "table" ? "table" : "board";
 }
 
 function pickPriority(value: string | undefined): TaskPriority | undefined {
@@ -131,6 +138,12 @@ export default async function ProjectBoardPage({
       : null;
     return toBoardTask(t, labelMap.get(t.id), assignee, subtaskMap.get(t.id));
   });
+  const tableTasks: TaskTableRow[] = tasks.map((t, i) => ({
+    ...t,
+    createdAt: taskRows[i].createdAt.toISOString(),
+  }));
+
+  const view = pickView(sp.view);
 
   return (
     <div className="flex h-full flex-col">
@@ -139,7 +152,8 @@ export default async function ProjectBoardPage({
           <h1 className="text-base font-semibold tracking-tight">{project.name}</h1>
           <span className="text-xs text-muted-foreground">/{project.slug}</span>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <ViewToggle projectSlug={projectSlug} current={view} />
           <BoardFilters
             labels={wsLabels}
             members={members}
@@ -147,14 +161,24 @@ export default async function ProjectBoardPage({
           />
         </div>
       </header>
-      <Board
-        wsSlug={wsSlug}
-        projectSlug={projectSlug}
-        boardId={project.boardId}
-        initialColumns={columns}
-        initialTasks={tasks}
-        members={members}
-      />
+      {view === "table" ? (
+        <TaskTable
+          wsSlug={wsSlug}
+          projectSlug={projectSlug}
+          columns={columns}
+          tasks={tableTasks}
+          members={members}
+        />
+      ) : (
+        <Board
+          wsSlug={wsSlug}
+          projectSlug={projectSlug}
+          boardId={project.boardId}
+          initialColumns={columns}
+          initialTasks={tasks}
+          members={members}
+        />
+      )}
     </div>
   );
 }
