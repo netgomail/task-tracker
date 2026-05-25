@@ -77,11 +77,22 @@ export default async function ProjectBoardPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { wsSlug, projectSlug } = await params;
+  console.log("[page] enter wsSlug=", wsSlug, "projectSlug=", projectSlug);
   const sp = await searchParams;
   const session = await requireUser();
-  const ws = (await getWorkspaceBySlug(session.user.id, wsSlug))!;
+  console.log("[page] session.user=", session.user.id);
+  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
+  console.log("[page] ws=", ws?.workspaceId);
+  if (!ws) {
+    console.log("[page] notFound: ws null");
+    notFound();
+  }
   const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) notFound();
+  console.log("[page] project=", project?.id, project?.slug, "boardId=", project?.boardId);
+  if (!project) {
+    console.log("[page] notFound: project null");
+    notFound();
+  }
 
   const qParam = pickString(sp.q)?.trim() ?? "";
   const priorityParam = pickPriority(pickString(sp.priority));

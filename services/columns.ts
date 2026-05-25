@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
-import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 
 export type ColumnRow = {
   id: string;
@@ -74,7 +74,7 @@ export async function create(input: CreateColumnInput): Promise<ColumnRow> {
     .orderBy(desc(columns.orderKey))
     .limit(1);
   const orderKey = keyBetween(last?.orderKey ?? null, null);
-  const color = input.color ?? "slate";
+  const color = input.color ?? DEFAULT_COLOR;
   const id = newId();
   const now = new Date();
   await db.insert(columns).values({
@@ -134,4 +134,3 @@ export async function move(
   await db.update(columns).set({ orderKey }).where(eq(columns.id, columnId));
   return orderKey;
 }
-

@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as columns from "@/services/columns";
-import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
+import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 
 export type ActionResult =
@@ -38,7 +38,7 @@ export async function createColumnAction(
   const color =
     typeof colorRaw === "string" && isLabelColor(colorRaw)
       ? (colorRaw as LabelColorSlug)
-      : "slate";
+      : DEFAULT_COLOR;
   const { ws, project } = await authorize(wsSlug, projectSlug);
   await columns.create({
     workspaceId: ws.workspaceId,

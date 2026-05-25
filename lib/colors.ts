@@ -34,9 +34,19 @@ export function colorHex(slug: LabelColorSlug): string {
  * бордер. При выборе любого другого цвета колонка/карточка получает тинт.
  */
 export const DEFAULT_COLOR: LabelColorSlug = "slate";
+export const DEFAULT_COLOR_LABEL = "Белый";
+export const DEFAULT_COLOR_SWATCH = "#ffffff";
 
 export function isDefaultColor(value: string): boolean {
   return value === DEFAULT_COLOR;
+}
+
+export function colorSwatchHex(slug: LabelColorSlug): string {
+  return isDefaultColor(slug) ? DEFAULT_COLOR_SWATCH : colorHex(slug);
+}
+
+export function colorSwatchLabel(slug: LabelColorSlug): string {
+  return isDefaultColor(slug) ? DEFAULT_COLOR_LABEL : COLOR_MAP.get(slug)!.label;
 }
 
 export const DEFAULT_COLUMN_COLORS = [

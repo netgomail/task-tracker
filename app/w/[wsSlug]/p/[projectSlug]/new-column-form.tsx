@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createColumnAction } from "@/actions/columns";
+import { DEFAULT_COLOR } from "@/lib/colors";
 
 export function NewColumnForm({
   wsSlug,
@@ -28,7 +29,7 @@ export function NewColumnForm({
     startTransition(async () => {
       const fd = new FormData();
       fd.set("name", next);
-      fd.set("color", "slate");
+      fd.set("color", DEFAULT_COLOR);
       const res = await createColumnAction(wsSlug, projectSlug, fd);
       if (!res.ok) toast.error(res.error);
       else {

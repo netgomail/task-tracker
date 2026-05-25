@@ -29,7 +29,7 @@ export function SortableTaskCard({ wsSlug, projectSlug, task }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("touch-none", isDragging && "opacity-40")}
+      className={cn("touch-none", isDragging && "opacity-35")}
       {...attributes}
       {...listeners}
     >
