@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc } from "drizzle-orm";
 
 import { db } from "@/db";
 import { member, organization, user } from "@/db/schema/auth";
 import { MEMBERSHIP_ROLES, type MembershipRole } from "@/domain/types";
+import { eq } from "drizzle-orm";
 
 export type WorkspaceMembership = {
   workspaceId: string;
@@ -40,6 +41,7 @@ export async function getBySlug(
 
 export type WorkspaceMember = {
   id: string;
+  memberId: string;
   name: string;
   image: string | null;
   role: MembershipRole;
@@ -49,6 +51,7 @@ export async function listMembers(workspaceId: string): Promise<WorkspaceMember[
   const rows = await db
     .select({
       id: user.id,
+      memberId: member.id,
       name: user.name,
       image: user.image,
       role: member.role,
@@ -59,10 +62,28 @@ export async function listMembers(workspaceId: string): Promise<WorkspaceMember[
     .orderBy(asc(user.name));
   return rows.map((r) => ({
     id: r.id,
+    memberId: r.memberId,
     name: r.name,
     image: r.image ?? null,
     role: isKnownRole(r.role) ? r.role : "member",
   }));
+}
+
+export async function updateMemberRole(
+  workspaceId: string,
+  memberId: string,
+  role: MembershipRole,
+): Promise<void> {
+  await db
+    .update(member)
+    .set({ role })
+    .where(and(eq(member.id, memberId), eq(member.organizationId, workspaceId)));
+}
+
+export async function removeMember(workspaceId: string, memberId: string): Promise<void> {
+  await db
+    .delete(member)
+    .where(and(eq(member.id, memberId), eq(member.organizationId, workspaceId)));
 }
 
 export async function isMember(workspaceId: string, userId: string): Promise<boolean> {

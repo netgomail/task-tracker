@@ -1,7 +1,7 @@
 import "server-only";
 
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
@@ -71,4 +71,8 @@ export async function remove(workspaceId: string): Promise<void> {
     headers: hdrs,
     body: { organizationId: workspaceId },
   });
+}
+
+export async function rename(workspaceId: string, name: string): Promise<void> {
+  await db.update(organization).set({ name }).where(eq(organization.id, workspaceId));
 }

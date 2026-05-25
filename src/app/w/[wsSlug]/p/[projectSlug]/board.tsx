@@ -26,6 +26,7 @@ import { keyBetween } from "@/domain/ordering";
 import { moveColumnAction } from "@/actions/columns";
 import { moveTaskAction } from "@/actions/tasks";
 import type { TaskPriority, TaskType } from "@/domain/types";
+import type { WorkspaceMember } from "@/services/membership";
 
 import { BoardLiveSync } from "./board-live-sync";
 import { ColumnView } from "./column-view";
@@ -80,6 +81,7 @@ type Props = {
   boardId: string;
   initialColumns: BoardColumn[];
   initialTasks: BoardTask[];
+  members: WorkspaceMember[];
 };
 
 type Active =
@@ -115,7 +117,7 @@ const detectCollisions: CollisionDetection = (args) => {
   return rectIntersection(args);
 };
 
-export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTasks }: Props) {
+export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTasks, members }: Props) {
   const dndId = useId();
   const router = useRouter();
   const pathname = usePathname();
@@ -441,6 +443,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
                 projectSlug={projectSlug}
                 column={c}
                 tasks={tasksByColumn.get(c.id) ?? []}
+                members={members}
               />
             ))}
           </SortableContext>

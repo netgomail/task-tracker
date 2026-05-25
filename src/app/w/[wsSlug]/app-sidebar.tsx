@@ -9,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Settings,
   Tag,
 } from "lucide-react";
 
@@ -96,13 +97,20 @@ export function AppSidebar({ wsSlug, wsItems }: AppSidebarProps) {
           );
         })}
 
-        <div className="mt-auto">
+        <div className="mt-auto flex flex-col items-center gap-1">
           <Link
             href={`/w/${wsSlug}/settings/labels`}
             title="Метки"
             className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <Tag className="h-4 w-4" />
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/settings`}
+            title="Настройки"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Settings className="h-4 w-4" />
           </Link>
         </div>
       </aside>
@@ -228,6 +236,13 @@ export function AppSidebar({ wsSlug, wsItems }: AppSidebarProps) {
           >
             <Tag className="h-4 w-4" />
             <span>Метки</span>
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/settings`}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Settings className="h-4 w-4" />
+            <span>Настройки</span>
           </Link>
         </div>
       </aside>

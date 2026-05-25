@@ -143,6 +143,7 @@ export type CreateTaskInput = {
   color?: LabelColorSlug;
   priority?: TaskPriority;
   type?: TaskType;
+  assigneeId?: string | null;
 };
 
 export async function create(input: CreateTaskInput): Promise<TaskRow> {
@@ -170,6 +171,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
     type,
     orderKey,
     createdBy: input.createdBy,
+    assigneeId: input.assigneeId ?? null,
     createdAt: now,
     updatedAt: now,
   });
@@ -185,7 +187,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
     dueAt: null,
     completedAt: null,
     orderKey,
-    assigneeId: null,
+    assigneeId: input.assigneeId ?? null,
     archivedAt: null,
     createdAt: now,
   };

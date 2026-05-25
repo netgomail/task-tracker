@@ -153,6 +153,7 @@ export default async function ProjectBoardPage({
         boardId={project.boardId}
         initialColumns={columns}
         initialTasks={tasks}
+        members={members}
       />
     </div>
   );

@@ -56,12 +56,17 @@ export async function createTaskAction(
   if (!title.success) {
     return { ok: false, error: title.error.issues[0]?.message ?? "Неверное название" };
   }
+  const rawAssigneeId = ((formData.get("assigneeId") as string | null) ?? "").trim() || null;
   const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  if (rawAssigneeId && !(await isMember(ws.workspaceId, rawAssigneeId))) {
+    return { ok: false, error: "Пользователь не состоит в workspace" };
+  }
   const created = await tasks.create({
     workspaceId: ws.workspaceId,
     columnId,
     createdBy: session.user.id,
     title: title.data,
+    assigneeId: rawAssigneeId,
   });
   await activity.record({
     workspaceId: ws.workspaceId,

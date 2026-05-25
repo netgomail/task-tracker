@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/rbac";
+import { getBySlug } from "@/services/membership";
+import * as membershipSvc from "@/services/membership";
 import * as workspaces from "@/services/workspaces";
+import { sanitizeText } from "@/lib/sanitize";
+import { MEMBERSHIP_ROLES, type MembershipRole } from "@/domain/types";
 
 const CreateSchema = z.object({
   name: z.string().trim().min(1, "Введите название").max(80, "Слишком длинное"),
@@ -14,6 +18,13 @@ const CreateSchema = z.object({
 const DeleteSchema = z.object({
   workspaceId: z.string().min(1),
 });
+
+const NameSchema = z
+  .string()
+  .trim()
+  .min(1, "Введите название")
+  .max(80, "Слишком длинное")
+  .transform(sanitizeText);
 
 export type ActionResult =
   | { ok: true }
@@ -43,5 +54,59 @@ export async function deleteWorkspaceAction(formData: FormData): Promise<ActionR
     return { ok: false, error: message };
   }
   revalidatePath("/workspaces");
+  return { ok: true };
+}
+
+export async function renameWorkspaceAction(
+  wsSlug: string,
+  name: string,
+): Promise<ActionResult> {
+  const parsed = NameSchema.safeParse(name);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
+  }
+  const session = await requireUser();
+  const ws = await getBySlug(session.user.id, wsSlug);
+  if (!ws) return { ok: false, error: "Пространство не найдено" };
+  if (ws.role !== "owner" && ws.role !== "admin") {
+    return { ok: false, error: "Недостаточно прав" };
+  }
+  await workspaces.rename(ws.workspaceId, parsed.data);
+  revalidatePath(`/w/${wsSlug}`);
+  revalidatePath(`/w/${wsSlug}/settings`);
+  return { ok: true };
+}
+
+export async function updateMemberRoleAction(
+  wsSlug: string,
+  memberId: string,
+  role: string,
+): Promise<ActionResult> {
+  if (!(MEMBERSHIP_ROLES as readonly string[]).includes(role)) {
+    return { ok: false, error: "Неизвестная роль" };
+  }
+  const session = await requireUser();
+  const ws = await getBySlug(session.user.id, wsSlug);
+  if (!ws) return { ok: false, error: "Пространство не найдено" };
+  if (ws.role !== "owner" && ws.role !== "admin") {
+    return { ok: false, error: "Недостаточно прав" };
+  }
+  await membershipSvc.updateMemberRole(ws.workspaceId, memberId, role as MembershipRole);
+  revalidatePath(`/w/${wsSlug}/settings`);
+  return { ok: true };
+}
+
+export async function removeMemberAction(
+  wsSlug: string,
+  memberId: string,
+): Promise<ActionResult> {
+  const session = await requireUser();
+  const ws = await getBySlug(session.user.id, wsSlug);
+  if (!ws) return { ok: false, error: "Пространство не найдено" };
+  if (ws.role !== "owner" && ws.role !== "admin") {
+    return { ok: false, error: "Недостаточно прав" };
+  }
+  await membershipSvc.removeMember(ws.workspaceId, memberId);
+  revalidatePath(`/w/${wsSlug}/settings`);
   return { ok: true };
 }
