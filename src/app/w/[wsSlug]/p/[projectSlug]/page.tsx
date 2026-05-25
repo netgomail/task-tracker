@@ -143,7 +143,7 @@ export default async function ProjectBoardPage({
   });
 
   return (
-    <div className="flex h-[calc(100dvh-49px)] flex-col">
+    <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3">
         <div className="flex items-baseline gap-3">
           <h1 className="text-base font-semibold tracking-tight">{project.name}</h1>

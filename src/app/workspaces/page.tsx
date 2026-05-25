@@ -5,7 +5,7 @@ import { NewWorkspaceForm } from "./new-workspace-form";
 import { SignOutButton } from "./sign-out-button";
 import { WorkspaceCard } from "./workspace-card";
 
-export const metadata = { title: "Workspaces — Task Tracker" };
+export const metadata = { title: "Пространства — Task Tracker" };
 export const dynamic = "force-dynamic";
 
 export default async function WorkspacesPage() {
@@ -19,11 +19,11 @@ export default async function WorkspacesPage() {
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Task Tracker
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight">Ваши workspaces</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Ваши пространства</h1>
           <p className="text-sm text-muted-foreground">
             {list.length === 0
-              ? "Пока ни одного. Создайте первый, чтобы начать работу."
-              : "Выберите рабочее пространство или создайте новое."}
+              ? "Пока ни одного. Создайте первое, чтобы начать работу."
+              : "Выберите пространство или создайте новое."}
           </p>
         </div>
         <SignOutButton />
@@ -46,7 +46,7 @@ export default async function WorkspacesPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-foreground">
-          {list.length === 0 ? "Создайте первый workspace" : "Создать workspace"}
+          {list.length === 0 ? "Создайте первое пространство" : "Создать пространство"}
         </h2>
         <NewWorkspaceForm
           defaultName={list.length === 0 ? `${session.user.name} — личный` : ""}

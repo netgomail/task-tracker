@@ -23,14 +23,11 @@ export default async function WorkspaceLabelsPage({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-1">
-        <Link
-          href={`/w/${wsSlug}`}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← {ws.workspaceName}
+        <Link href={`/w/${wsSlug}`} className="text-muted-foreground hover:text-foreground text-xs">
+          {ws.workspaceName}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Метки</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Цветные метки этого workspace. Назначаются задачам, фильтруют доску.
         </p>
       </div>

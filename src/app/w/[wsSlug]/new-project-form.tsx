@@ -17,9 +17,19 @@ function SubmitButton() {
   );
 }
 
-export function NewProjectForm({ wsSlug }: { wsSlug: string }) {
+export function NewProjectForm({
+  wsSlug,
+  onSuccess,
+}: {
+  wsSlug: string;
+  onSuccess?: () => void;
+}) {
   const [state, action] = useActionState<ActionResult | null, FormData>(
-    async (_prev, formData) => createProjectAction(wsSlug, formData),
+    async (_prev, formData) => {
+      const result = await createProjectAction(wsSlug, formData);
+      if (result.ok) onSuccess?.();
+      return result;
+    },
     null,
   );
 

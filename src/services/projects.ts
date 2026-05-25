@@ -5,7 +5,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
 import { keysBetween } from "@/domain/ordering";
-import { newId, shortSlug } from "@/lib/ids";
+import { newId, randomSlug } from "@/lib/ids";
 import { DEFAULT_COLUMN_COLORS, type LabelColorSlug } from "@/lib/colors";
 
 export type ProjectSummary = {
@@ -70,7 +70,7 @@ export type CreateProjectInput = {
 export async function create(input: CreateProjectInput): Promise<ProjectSummary & { boardId: string }> {
   const projectId = newId();
   const boardId = newId();
-  const slug = shortSlug(projectId);
+  const slug = randomSlug(projectId);
   const color = input.color ?? "slate";
   const now = new Date();
 

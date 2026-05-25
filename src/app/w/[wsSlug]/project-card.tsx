@@ -15,10 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { colorHex, isLabelColor } from "@/lib/colors";
-import {
-  archiveProjectAction,
-  deleteProjectAction,
-} from "@/actions/projects";
+import { archiveProjectAction, deleteProjectAction } from "@/actions/projects";
 
 type Props = {
   wsSlug: string;
@@ -50,25 +47,20 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
   }
 
   return (
-    <Card className="group relative gap-2 overflow-hidden p-4 transition-colors hover:border-foreground/30">
-      <span
-        className="absolute inset-y-0 left-0 w-1"
-        style={{ background: bar }}
-        aria-hidden
-      />
+    <Card className="group hover:border-foreground/30 relative gap-2 overflow-hidden p-4 transition-colors">
       <Link
         href={`/w/${wsSlug}/p/${slug}`}
-        className="absolute inset-0 z-0 rounded-xl"
+        className="absolute inset-0 z-10 rounded-xl"
         aria-label={name}
       />
-      <div className="relative z-10 flex items-start justify-between gap-2 pl-2">
+      <div className="pointer-events-none relative z-20 flex items-start justify-between gap-2 pl-2">
         <h3 className="truncate text-base font-semibold">{name}</h3>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+              className="text-muted-foreground pointer-events-auto size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               onClick={(e) => e.preventDefault()}
               aria-label="Действия"
             >
@@ -86,7 +78,9 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <p className="relative z-10 pl-2 truncate text-xs text-muted-foreground">/{slug}</p>
+      <p className="text-muted-foreground pointer-events-none relative z-20 truncate pl-2 text-xs">
+        /{slug}
+      </p>
     </Card>
   );
 }

@@ -30,7 +30,7 @@ export function NewWorkspaceForm({ defaultName = "" }: { defaultName?: string })
         <Input
           id="ws-name"
           name="name"
-          placeholder="Например, Команда продукта"
+          placeholder="Например, Команда продукта или Личные задачи"
           defaultValue={defaultName}
           required
         />
