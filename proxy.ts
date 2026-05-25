@@ -5,6 +5,12 @@ const PROTECTED_PREFIXES = ["/w", "/workspaces"];
 const AUTH_PAGES = ["/login", "/register"];
 
 export function proxy(request: NextRequest) {
+  // CVE-2025-29927: блокируем заголовок, который позволял обходить middleware
+  // в Next.js 11–15. Версия 16 не уязвима, но блокируем для защиты в глубину.
+  if (request.headers.has("x-middleware-subrequest")) {
+    return new NextResponse(null, { status: 403 });
+  }
+
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
