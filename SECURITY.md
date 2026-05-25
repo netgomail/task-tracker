@@ -44,7 +44,7 @@
 |---|---|---|---|
 | 3.1 | Убрать отладочные `console.log` с session.user.id из продакшена | ✅ Реализовано | `src/app/w/[wsSlug]/p/[projectSlug]/page.tsx` |
 | 3.2 | Логирование ForbiddenError (подозрительная активность) | ✅ Реализовано (`console.warn` в `requireRole`) | `src/lib/rbac.ts` |
-| 3.3 | `npm audit` — мониторинг зависимостей в CI | ⏳ ожидает | `.github/workflows/` |
+| 3.3 | `npm audit` — мониторинг зависимостей в CI | ✅ Реализовано (push/PR/cron по пн) | `.github/workflows/audit.yml` |
 
 ---
 
