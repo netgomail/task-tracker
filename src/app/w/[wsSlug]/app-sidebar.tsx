@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Archive as ArchiveIcon,
   ChevronDown,
   ChevronRight,
   PanelLeftClose,
@@ -44,9 +45,10 @@ export interface WsWithProjects {
 interface AppSidebarProps {
   wsSlug: string;
   wsItems: WsWithProjects[];
+  archivedCount: number;
 }
 
-export function AppSidebar({ wsSlug, wsItems }: AppSidebarProps) {
+export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([wsSlug]));
@@ -98,6 +100,18 @@ export function AppSidebar({ wsSlug, wsItems }: AppSidebarProps) {
         })}
 
         <div className="mt-auto flex flex-col items-center gap-1">
+          <Link
+            href={`/w/${wsSlug}/archive`}
+            title={`Архив${archivedCount > 0 ? ` (${archivedCount})` : ""}`}
+            className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <ArchiveIcon className="h-4 w-4" />
+            {archivedCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[9px] font-medium leading-none">
+                {archivedCount > 99 ? "99+" : archivedCount}
+              </span>
+            )}
+          </Link>
           <Link
             href={`/w/${wsSlug}/settings/labels`}
             title="Метки"
@@ -228,8 +242,20 @@ export function AppSidebar({ wsSlug, wsItems }: AppSidebarProps) {
 
         <div className="mx-3 h-px bg-border" />
 
-        {/* Bottom: Settings */}
+        {/* Bottom: Archive / Settings */}
         <div className="px-2 py-2">
+          <Link
+            href={`/w/${wsSlug}/archive`}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <ArchiveIcon className="h-4 w-4" />
+            <span>Архив</span>
+            {archivedCount > 0 && (
+              <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                {archivedCount > 99 ? "99+" : archivedCount}
+              </span>
+            )}
+          </Link>
           <Link
             href={`/w/${wsSlug}/settings/labels`}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"

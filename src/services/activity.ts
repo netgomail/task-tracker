@@ -21,6 +21,8 @@ export type ActivityType =
   | "task.reopen"
   | "task.archive"
   | "task.unarchive"
+  | "task.restore"
+  | "task.permanently_delete"
   | "task.delete"
   | "subtask.create"
   | "subtask.delete"

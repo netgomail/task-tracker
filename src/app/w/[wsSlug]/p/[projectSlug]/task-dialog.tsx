@@ -799,7 +799,14 @@ function Sidebar({
     const res = await archiveTaskAction(wsSlug, projectSlug, task.id);
     if (!res.ok) toast.error(res.error);
     else {
-      toast.success("Задача в архиве");
+      toast.success("Задача в архиве", {
+        action: {
+          label: "Открыть архив",
+          onClick: () => {
+            window.location.href = `/w/${wsSlug}/archive`;
+          },
+        },
+      });
       onClose();
     }
   }

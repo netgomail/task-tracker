@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug } from "@/services/membership";
 import { listForUser } from "@/services/workspaces";
 import { listForWorkspace } from "@/services/projects";
+import { countArchived } from "@/services/archive";
 import { SignOutButton } from "@/app/workspaces/sign-out-button";
 import { AppSidebar, type WsWithProjects } from "./app-sidebar";
 
@@ -27,6 +28,7 @@ export default async function WorkspaceLayout({
       projects: await listForWorkspace(w.id),
     })),
   );
+  const archivedCount = await countArchived(ws.workspaceId);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -59,7 +61,7 @@ export default async function WorkspaceLayout({
       {/* Below header: the card contains sidebar + content together */}
       <main className="flex min-h-0 flex-1 p-1.5">
         <div className="border-border bg-background flex min-h-0 flex-1 overflow-hidden rounded-lg border shadow-sm">
-          <AppSidebar wsSlug={wsSlug} wsItems={wsItems} />
+          <AppSidebar wsSlug={wsSlug} wsItems={wsItems} archivedCount={archivedCount} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
         </div>
       </main>
