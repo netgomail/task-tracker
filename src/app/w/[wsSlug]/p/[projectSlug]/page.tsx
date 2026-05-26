@@ -7,7 +7,9 @@ import { listForBoard } from "@/services/columns";
 import {
   listForProject,
   listSubtaskAggregates,
+  listTaskCounts,
   type SubtaskAggregate,
+  type TaskCounts,
   type TaskFilter,
   type TaskRow,
 } from "@/services/tasks";
@@ -39,6 +41,7 @@ function toBoardTask(
   labels: LabelRow[] | undefined,
   assignee: BoardTaskAssignee | null,
   subtaskAgg: SubtaskAggregate | undefined,
+  counts: TaskCounts | undefined,
 ): BoardTask {
   return {
     id: t.id,
@@ -58,6 +61,8 @@ function toBoardTask(
       completed: s.completedAt !== null,
     })),
     subtasksDone: subtaskAgg?.done ?? 0,
+    commentsCount: counts?.commentsCount ?? 0,
+    attachmentsCount: counts?.attachmentsCount ?? 0,
   };
 }
 
@@ -127,9 +132,10 @@ export default async function ProjectBoardPage({
     color: t.color,
   }));
   const taskIds = taskRows.map((t) => t.id);
-  const [labelMap, subtaskMap] = await Promise.all([
+  const [labelMap, subtaskMap, countsMap] = await Promise.all([
     listLabelsForTasks(ws.workspaceId, taskIds),
     listSubtaskAggregates(ws.workspaceId, taskIds),
+    listTaskCounts(ws.workspaceId, taskIds),
   ]);
   const membersById = new Map<string, WorkspaceMember>(members.map((m) => [m.id, m]));
 
@@ -144,7 +150,7 @@ export default async function ProjectBoardPage({
     const assignee: BoardTaskAssignee | null = m
       ? { id: m.id, name: m.name, image: m.image }
       : null;
-    return toBoardTask(t, labelMap.get(t.id), assignee, subtaskMap.get(t.id));
+    return toBoardTask(t, labelMap.get(t.id), assignee, subtaskMap.get(t.id), countsMap.get(t.id));
   });
   const tableTasks: TaskTableRow[] = tasks.map((t, i) => ({
     ...t,

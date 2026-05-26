@@ -74,6 +74,8 @@ export type BoardTask = {
   assignee: BoardTaskAssignee | null;
   subtasks: BoardTaskSubtask[];
   subtasksDone: number;
+  commentsCount: number;
+  attachmentsCount: number;
 };
 
 type Props = {

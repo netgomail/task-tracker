@@ -9,7 +9,9 @@ import {
   ChevronDown,
   FileText,
   GitBranchPlus,
+  MessageSquare,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -421,6 +423,26 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         >
           <typeMeta.Icon className="size-3.5" />
         </span>
+        {task.commentsCount > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5"
+            title={`Комментарии: ${task.commentsCount}`}
+            aria-label={`${task.commentsCount} комментариев`}
+          >
+            <MessageSquare className="size-3.5" />
+            <span className="tabular-nums">{task.commentsCount}</span>
+          </span>
+        )}
+        {task.attachmentsCount > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5"
+            title={`Вложения: ${task.attachmentsCount}`}
+            aria-label={`${task.attachmentsCount} вложений`}
+          >
+            <Paperclip className="size-3.5" />
+            <span className="tabular-nums">{task.attachmentsCount}</span>
+          </span>
+        )}
         {task.priority !== "normal" && (
           <span
             className={cn("inline-flex items-center", PRIORITY_TONE_CLASSES[priMeta.tone])}

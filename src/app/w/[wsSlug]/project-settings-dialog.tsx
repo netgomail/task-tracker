@@ -67,7 +67,7 @@ export function ProjectSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Настройки проекта</DialogTitle>
           <DialogDescription className="sr-only">
@@ -82,7 +82,7 @@ export function ProjectSettingsDialog({
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-0">
             <div className="flex border-b border-border">
               <TabButton active={tab === "general"} onClick={() => setTab("general")}>
                 Общие
@@ -95,39 +95,41 @@ export function ProjectSettingsDialog({
               </TabButton>
             </div>
 
-            {tab === "general" && (
-              <GeneralTab
-                wsSlug={wsSlug}
-                settings={settings}
-                onPatch={patch}
-                canEdit={settings.role === "owner" || settings.role === "admin"}
-              />
-            )}
+            <div className="max-h-[65vh] overflow-y-auto pt-4">
+              {tab === "general" && (
+                <GeneralTab
+                  wsSlug={wsSlug}
+                  settings={settings}
+                  onPatch={patch}
+                  canEdit={settings.role === "owner" || settings.role === "admin"}
+                />
+              )}
 
-            {tab === "fields" && (
-              <FieldsEditor
-                wsSlug={wsSlug}
-                projectSlug={settings.slug}
-                canEdit={settings.role === "owner" || settings.role === "admin"}
-                initialFields={settings.customFields as FieldDef[] as unknown as Parameters<
-                  typeof FieldsEditor
-                >[0]["initialFields"]}
-              />
-            )}
+              {tab === "fields" && (
+                <FieldsEditor
+                  wsSlug={wsSlug}
+                  projectSlug={settings.slug}
+                  canEdit={settings.role === "owner" || settings.role === "admin"}
+                  initialFields={settings.customFields as FieldDef[] as unknown as Parameters<
+                    typeof FieldsEditor
+                  >[0]["initialFields"]}
+                />
+              )}
 
-            {tab === "automations" && (
-              <AutomationsEditor
-                wsSlug={wsSlug}
-                projectSlug={settings.slug}
-                canEdit={settings.role === "owner" || settings.role === "admin"}
-                initialRules={settings.automationsContext.rules}
-                ctx={{
-                  columns: settings.automationsContext.columns,
-                  labels: settings.automationsContext.labels,
-                  members: settings.automationsContext.members,
-                }}
-              />
-            )}
+              {tab === "automations" && (
+                <AutomationsEditor
+                  wsSlug={wsSlug}
+                  projectSlug={settings.slug}
+                  canEdit={settings.role === "owner" || settings.role === "admin"}
+                  initialRules={settings.automationsContext.rules}
+                  ctx={{
+                    columns: settings.automationsContext.columns,
+                    labels: settings.automationsContext.labels,
+                    members: settings.automationsContext.members,
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
       </DialogContent>

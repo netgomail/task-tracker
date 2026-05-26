@@ -1,11 +1,13 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
 import { taskLabels } from "@/db/schema/labels";
 import { tasks } from "@/db/schema/tasks";
+import { comments } from "@/db/schema/activity";
+import { attachments } from "@/db/schema/attachments";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
 import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
@@ -463,6 +465,42 @@ export async function listSubtaskAggregates(
       completedAt: r.completedAt,
       orderKey: r.orderKey,
     });
+  }
+  return out;
+}
+
+export type TaskCounts = {
+  commentsCount: number;
+  attachmentsCount: number;
+};
+
+export async function listTaskCounts(
+  workspaceId: string,
+  taskIds: string[],
+): Promise<Map<string, TaskCounts>> {
+  if (taskIds.length === 0) return new Map();
+  const [commentRows, attachmentRows] = await Promise.all([
+    db
+      .select({ taskId: comments.taskId, n: count() })
+      .from(comments)
+      .where(and(inArray(comments.taskId, taskIds), isNull(comments.deletedAt)))
+      .groupBy(comments.taskId),
+    db
+      .select({ taskId: attachments.taskId, n: count() })
+      .from(attachments)
+      .where(and(inArray(attachments.taskId, taskIds), eq(attachments.workspaceId, workspaceId)))
+      .groupBy(attachments.taskId),
+  ]);
+  const out = new Map<string, TaskCounts>();
+  for (const r of commentRows) {
+    const entry = out.get(r.taskId) ?? { commentsCount: 0, attachmentsCount: 0 };
+    entry.commentsCount = r.n;
+    out.set(r.taskId, entry);
+  }
+  for (const r of attachmentRows) {
+    const entry = out.get(r.taskId) ?? { commentsCount: 0, attachmentsCount: 0 };
+    entry.attachmentsCount = r.n;
+    out.set(r.taskId, entry);
   }
   return out;
 }

@@ -125,6 +125,7 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
   const [details, setDetails] = useState<Extract<TaskDetailsResult, { ok: true }> | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [contentTab, setContentTab] = useState<"comments" | "history">("comments");
 
   // Reset details when taskId changes via render-phase update.
   const [prevTaskId, setPrevTaskId] = useState(taskId);
@@ -132,6 +133,7 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
     setPrevTaskId(taskId);
     setDetails(null);
     setLoadedFor(null);
+    setContentTab("comments");
   }
 
   async function reload() {
@@ -198,15 +200,6 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 onRefresh={refresh}
               />
               <Separator className="my-4" />
-              <Comments
-                wsSlug={wsSlug}
-                projectSlug={projectSlug}
-                taskId={task.id}
-                meId={details.me.id}
-                comments={details.comments}
-                onRefresh={refresh}
-              />
-              <Separator className="my-4" />
               <TaskAttachments
                 wsSlug={wsSlug}
                 taskId={task.id}
@@ -216,7 +209,37 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 onRefresh={refresh}
               />
               <Separator className="my-4" />
-              <Activity activity={details.activity} />
+              <div className="flex border-b border-border">
+                <ContentTabButton
+                  active={contentTab === "comments"}
+                  onClick={() => setContentTab("comments")}
+                  count={details.comments.length}
+                >
+                  Комментарии
+                </ContentTabButton>
+                <ContentTabButton
+                  active={contentTab === "history"}
+                  onClick={() => setContentTab("history")}
+                  count={details.activity.length}
+                >
+                  История
+                </ContentTabButton>
+              </div>
+              <div className="pt-4">
+                {contentTab === "comments" && (
+                  <Comments
+                    wsSlug={wsSlug}
+                    projectSlug={projectSlug}
+                    taskId={task.id}
+                    meId={details.me.id}
+                    comments={details.comments}
+                    onRefresh={refresh}
+                  />
+                )}
+                {contentTab === "history" && (
+                  <Activity activity={details.activity} />
+                )}
+              </div>
             </div>
             <aside className="hidden flex-col gap-4 border-l border-border bg-muted/30 p-4 sm:flex">
               <Sidebar
@@ -728,22 +751,88 @@ function Comments({
   );
 }
 
+function ContentTabButton({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm transition-colors",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+      {count !== undefined && count > 0 && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[10px] leading-none",
+            active ? "bg-foreground/10" : "bg-muted",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+const HISTORY_PAGE_SIZE = 15;
+
 function Activity({ activity }: { activity: SerializedActivity[] }) {
-  if (activity.length === 0) return null;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.ceil(activity.length / HISTORY_PAGE_SIZE);
+  const slice = activity.slice(page * HISTORY_PAGE_SIZE, (page + 1) * HISTORY_PAGE_SIZE);
+
+  if (activity.length === 0) {
+    return <p className="text-xs text-muted-foreground/70">История пуста.</p>;
+  }
+
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        История
-      </h3>
       <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
-        {activity.map((a) => (
+        {slice.map((a) => (
           <li key={a.id} className="flex items-baseline gap-2">
             <span className="font-medium text-foreground/80">{a.actor.name}</span>
             <span>{TYPE_LABELS[a.type] ?? a.type}</span>
-            <span className="ml-auto">{relativeTime(a.createdAt)}</span>
+            <span className="ml-auto shrink-0">{relativeTime(a.createdAt)}</span>
           </li>
         ))}
       </ul>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between pt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+          >
+            ← Назад
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {page + 1} / {pageCount}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+          >
+            Вперёд →
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

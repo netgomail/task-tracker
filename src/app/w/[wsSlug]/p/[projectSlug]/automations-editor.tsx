@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Pencil, Plus, Power, Trash2, X } from "lucide-react";
+import { History, Pencil, Plus, Power, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -222,8 +222,7 @@ export function AutomationsEditor({ wsSlug, projectSlug, canEdit, initialRules, 
                     disabled={pending}
                     title="История запусков"
                   >
-                    <Loader2 className={cn("size-3.5", !pending && "hidden")} />
-                    <span className={cn("text-xs", pending && "hidden")}>≡</span>
+                    <History className="size-3.5" />
                   </Button>
                   <Button
                     size="icon-sm"
