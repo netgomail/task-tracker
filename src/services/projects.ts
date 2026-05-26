@@ -132,6 +132,8 @@ export async function archive(workspaceId: string, projectId: string): Promise<v
 }
 
 export async function remove(workspaceId: string, projectId: string): Promise<void> {
+  const { purgeForProject } = await import("@/services/attachments");
+  await purgeForProject(workspaceId, projectId);
   await db
     .delete(projects)
     .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)));

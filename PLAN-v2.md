@@ -201,13 +201,15 @@ attachments (
 6. **CSP**: в `next.config.ts` — `img-src 'self'` уже должен это покрывать; проверить.
 
 ### 5.4 Чек-лист
-- [ ] Миграция 0006 (attachments).
-- [ ] `lib/storage.ts` с `LocalStorageDriver`.
-- [ ] services/attachments.ts.
-- [ ] `POST /api/attachments` и `GET /api/files/[id]`.
-- [ ] UI секции вложений в TaskDialog.
-- [ ] Проверка лимитов и MIME.
-- [ ] Коммит «этап 12: вложения файлов (локальное хранилище)».
+- [x] Миграция 0006 (attachments).
+- [x] `lib/storage.ts` с `LocalStorageDriver` (put/read/readAll/delete/size, path-traversal protection).
+- [x] services/attachments.ts (list/upload/getMeta/remove + purgeForTask/purgeForProject для hard-delete каскада).
+- [x] `POST /api/attachments` (multipart) и `GET /api/files/[id]` (inline для image/pdf/text, `?download=1` для force).
+- [x] UI секции вложений в TaskDialog: drag-zone, превью для изображений, кнопки скачать/удалить.
+- [x] Проверка лимитов (25 МБ/файл, 50 МБ и 30 файлов на задачу) и MIME-allowlist.
+- [x] Activity attachment.add / .remove. Каскад на hard-delete задачи и проекта.
+- [x] `/data/attachments/` в .gitignore.
+- [x] Коммит «этап 12: вложения файлов (локальное хранилище)».
 
 ### 5.5 Подводные камни
 - На удалении задачи каскадно сносим attachments — но **файлы на диске нужно удалять отдельно**: hook в service `tasks.permanentlyDelete` + service `tasks.archive` (нет, при архиве файлы оставляем). При hard-delete — service вычитывает список attachments, удаляет файлы, потом коммитит транзакцию.

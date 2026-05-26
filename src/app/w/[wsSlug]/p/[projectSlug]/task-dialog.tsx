@@ -76,6 +76,8 @@ import {
 } from "@/actions/labels";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
 
+import { TaskAttachments } from "./task-attachments";
+
 type Props = {
   wsSlug: string;
   projectSlug: string;
@@ -200,6 +202,15 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 taskId={task.id}
                 meId={details.me.id}
                 comments={details.comments}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <TaskAttachments
+                wsSlug={wsSlug}
+                taskId={task.id}
+                attachments={details.attachments}
+                meId={details.me.id}
+                canDeleteAny={details.me.role === "admin" || details.me.role === "owner"}
                 onRefresh={refresh}
               />
               <Separator className="my-4" />

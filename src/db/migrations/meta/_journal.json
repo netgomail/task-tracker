@@ -43,6 +43,13 @@
       "when": 1779765185452,
       "tag": "0005_lucky_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779766072855,
+      "tag": "0006_bizarre_alex_wilder",
+      "breakpoints": true
     }
   ]
 }

@@ -49,3 +49,6 @@ next-env.d.ts
 # *.db-journal
 # *.db-wal
 # *.db-shm
+
+# attachments uploaded by users — локальные файлы, не должны попадать в git
+/data/attachments/

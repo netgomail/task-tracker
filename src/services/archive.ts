@@ -8,6 +8,7 @@ import { user } from "@/db/schema/auth";
 import { boards, columns, projects } from "@/db/schema/projects";
 import { tasks } from "@/db/schema/tasks";
 import { keyBetween } from "@/domain/ordering";
+import * as attachments from "@/services/attachments";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 export type ArchivedTaskRow = {
@@ -282,6 +283,9 @@ export async function permanentlyDelete(
     .limit(1);
   if (!proj) return null;
 
+  // Удаляем физические файлы вложений ДО drop'а задачи, иначе FK cascade
+  // снесёт rows attachments и storage_key потеряется.
+  await attachments.purgeForTask(workspaceId, taskId);
   await db.delete(tasks).where(eq(tasks.id, taskId));
   return { projectSlug: proj.slug, boardId: proj.boardId };
 }
@@ -390,6 +394,7 @@ export async function permanentlyDeleteProject(
     .limit(1);
   if (!row || row.workspaceId !== workspaceId) return null;
 
+  await attachments.purgeForProject(workspaceId, projectId);
   await db.delete(projects).where(eq(projects.id, projectId));
   return { slug: row.slug };
 }

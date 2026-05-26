@@ -33,7 +33,9 @@ export type ActivityType =
   | "comment.delete"
   | "label.attach"
   | "label.detach"
-  | "task.assignee";
+  | "task.assignee"
+  | "attachment.add"
+  | "attachment.remove";
 
 export type ActivityRow = {
   id: string;

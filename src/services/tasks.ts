@@ -245,6 +245,10 @@ export async function archive(workspaceId: string, taskId: string): Promise<void
 
 export async function remove(workspaceId: string, taskId: string): Promise<void> {
   await assertTaskInWorkspace(taskId, workspaceId);
+  // Удалить физические файлы вложений до drop'а: cascade FK снесёт rows
+  // attachments, без этого файлы остались бы orphan'ами на диске.
+  const { purgeForTask } = await import("@/services/attachments");
+  await purgeForTask(workspaceId, taskId);
   await db.delete(tasks).where(eq(tasks.id, taskId));
 }
 
