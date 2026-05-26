@@ -75,8 +75,10 @@ import {
   detachLabelAction,
 } from "@/actions/labels";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
+import type { FieldDef } from "@/services/custom-fields";
 
 import { TaskAttachments } from "./task-attachments";
+import { TaskCustomFields } from "./task-custom-fields";
 
 type Props = {
   wsSlug: string;
@@ -225,6 +227,8 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 workspaceLabels={details.workspaceLabels}
                 members={details.members}
                 assignee={details.assignee}
+                customFields={details.customFields}
+                customFieldValues={details.customFieldValues}
                 pending={pending}
                 onRefresh={refresh}
                 onClose={onClose}
@@ -752,6 +756,8 @@ function Sidebar({
   workspaceLabels,
   members,
   assignee,
+  customFields,
+  customFieldValues,
   pending,
   onRefresh,
   onClose,
@@ -763,6 +769,8 @@ function Sidebar({
   workspaceLabels: LabelRow[];
   members: WorkspaceMember[];
   assignee: WorkspaceMember | null;
+  customFields: FieldDef[];
+  customFieldValues: Record<string, string>;
   pending: boolean;
   onRefresh: () => void;
   onClose: () => void;
@@ -940,6 +948,19 @@ function Sidebar({
           onToggle={toggleLabel}
         />
       </SidebarBlock>
+      {customFields.length > 0 && (
+        <>
+          <Separator />
+          <TaskCustomFields
+            wsSlug={wsSlug}
+            projectSlug={projectSlug}
+            taskId={task.id}
+            fields={customFields}
+            values={customFieldValues}
+            onRefresh={onRefresh}
+          />
+        </>
+      )}
       <Separator />
       <div className="flex flex-col gap-1.5">
         <Button variant="ghost" size="sm" onClick={onSaveAsTemplate} disabled={pending}>

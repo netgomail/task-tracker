@@ -256,12 +256,14 @@ custom_field_values (
 4. **UI: фильтры доски** — расширяем панель фильтров: для `select`-полей добавляем чипы.
 
 ### 6.3 Чек-лист
-- [ ] Миграция 0007 (custom_field_defs + values).
-- [ ] services/custom-fields.ts с валидацией по типу.
-- [ ] Страница настроек проекта → таб «Поля».
-- [ ] Рендер полей в TaskDialog.
-- [ ] (опц.) Фильтр доски по select-полю.
-- [ ] Коммит «этап 13: кастомные поля».
+- [x] Миграция 0007 (custom_field_defs + values) с CHECK на type.
+- [x] services/custom-fields.ts с валидацией по типу (text/number/select/date/url/checkbox), upsert через ON CONFLICT.
+- [x] actions/custom-fields.ts (RBAC ≥ admin для CRUD, любой member для setValue).
+- [x] Страница `/w/[wsSlug]/p/[slug]/settings` с FieldsEditor (CRUD + reorder up/down).
+- [x] Рендер полей в TaskDialog (секция «Дополнительно» в правом sidebar).
+- [ ] (опц.) Фильтр доски по select-полю — отложено.
+- [x] Кнопка «⚙» в шапке проекта со ссылкой на /settings.
+- [x] Коммит «этап 13: кастомные поля».
 
 ### 6.4 Подводные камни
 - Хранение в `value_text` (везде строка) — компромисс: меньше колонок, проще миграции, но фильтрация по `number > 5` требует `CAST`. Для MVP кастомных полей это ок; индекс по `(field_id, value_text)` всё равно даст быстрый equality-поиск.

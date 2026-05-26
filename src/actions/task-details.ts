@@ -8,12 +8,14 @@ import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
 import * as labels from "@/services/labels";
 import * as attachmentsService from "@/services/attachments";
+import * as customFieldsService from "@/services/custom-fields";
 import { listMembers, type WorkspaceMember } from "@/services/membership";
 import type { ActivityRow } from "@/services/activity";
 import type { AttachmentRow } from "@/services/attachments";
 import type { CommentRow } from "@/services/comments";
 import type { LabelRow } from "@/services/labels";
 import type { TaskRow } from "@/services/tasks";
+import type { FieldDef } from "@/services/custom-fields";
 import type { MembershipRole } from "@/domain/types";
 
 export type TaskDetailsResult =
@@ -29,6 +31,8 @@ export type TaskDetailsResult =
       members: WorkspaceMember[];
       assignee: WorkspaceMember | null;
       attachments: SerializedAttachment[];
+      customFields: FieldDef[];
+      customFieldValues: Record<string, string>;
       me: { id: string; name: string; role: MembershipRole };
     };
 
@@ -77,16 +81,27 @@ export async function getTaskDetailsAction(
     const task = await tasks.getById(ws.workspaceId, taskId);
     if (!task) return { ok: false, error: "Задача не найдена" };
 
-    const [subtaskRows, commentRows, activityRows, taskLabels, wsLabels, members, attachmentRows] =
-      await Promise.all([
-        tasks.listSubtasks(ws.workspaceId, taskId),
-        comments.listForTask(ws.workspaceId, taskId),
-        activity.listForTask(ws.workspaceId, taskId),
-        labels.listForTask(ws.workspaceId, taskId),
-        labels.listForWorkspace(ws.workspaceId),
-        listMembers(ws.workspaceId),
-        attachmentsService.listForTask(ws.workspaceId, taskId),
-      ]);
+    const [
+      subtaskRows,
+      commentRows,
+      activityRows,
+      taskLabels,
+      wsLabels,
+      members,
+      attachmentRows,
+      customFieldDefs,
+      customFieldValues,
+    ] = await Promise.all([
+      tasks.listSubtasks(ws.workspaceId, taskId),
+      comments.listForTask(ws.workspaceId, taskId),
+      activity.listForTask(ws.workspaceId, taskId),
+      labels.listForTask(ws.workspaceId, taskId),
+      labels.listForWorkspace(ws.workspaceId),
+      listMembers(ws.workspaceId),
+      attachmentsService.listForTask(ws.workspaceId, taskId),
+      customFieldsService.listForProject(project.id),
+      customFieldsService.getValuesForTask(ws.workspaceId, taskId),
+    ]);
 
     const assignee = task.assigneeId
       ? members.find((m) => m.id === task.assigneeId) ?? null
@@ -113,6 +128,8 @@ export async function getTaskDetailsAction(
         ...a,
         createdAt: a.createdAt.toISOString(),
       })),
+      customFields: customFieldDefs,
+      customFieldValues,
       me: { id: session.user.id, name: session.user.name, role: ws.role },
     };
   } catch (e) {
