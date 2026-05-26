@@ -6,8 +6,8 @@ import { getBySlug } from "@/services/membership";
 import { listForUser } from "@/services/workspaces";
 import { listForWorkspace } from "@/services/projects";
 import { countArchived } from "@/services/archive";
-import { SignOutButton } from "@/app/workspaces/sign-out-button";
 import { AppSidebar, type WsWithProjects } from "./app-sidebar";
+import { UserMenu } from "./user-menu";
 
 export default async function WorkspaceLayout({
   children,
@@ -54,7 +54,11 @@ export default async function WorkspaceLayout({
           >
             Метки
           </Link>
-          <SignOutButton />
+          <UserMenu
+            name={session.user.name}
+            email={session.user.email}
+            image={session.user.image}
+          />
         </div>
       </header>
 
