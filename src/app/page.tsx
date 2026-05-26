@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { getSession } from "@/lib/rbac";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-6">
       <div className="flex w-full max-w-xl flex-col items-start gap-6">
@@ -17,12 +20,20 @@ export default function Home() {
           подзадачами и комментариями. Перетаскивайте карточки мышью или с клавиатуры.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
-            <Link href="/login">Войти</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/register">Создать аккаунт</Link>
-          </Button>
+          {session ? (
+            <Button asChild>
+              <Link href="/workspaces">Перейти к пространствам</Link>
+            </Button>
+          ) : (
+            <>
+              <Button asChild>
+                <Link href="/login">Войти</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/register">Создать аккаунт</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </main>
