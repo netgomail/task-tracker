@@ -337,13 +337,20 @@ automation_runs (
   - История запусков на правиле (последние 50 из `automation_runs`).
 
 ### 7.5 Чек-лист
-- [ ] Миграция 0008 (automations + automation_runs).
-- [ ] services/automations.ts (loader + runner с anti-loop).
-- [ ] Хуки в services/tasks и services/labels (после мутации → runAutomations).
-- [ ] UI редактор правил.
-- [ ] scripts/cron-automations.ts для due_passed.
-- [ ] Тест на anti-loop (правило A триггерит B, B триггерит A → стоп после 3).
-- [ ] Коммит «этап 14: автоматизации».
+- [x] Миграция 0008 (automations + automation_runs).
+- [x] domain/automations.ts — типы триггеров/условий/действий + zod-схемы (TriggerSchema, ConditionSchema, ActionSchema, RuleSchema).
+- [x] services/automations.ts: CRUD + runner с anti-loop через AsyncLocalStorage (MAX_DEPTH=3). Действия выполняются через other services (не db напрямую) — automation сама пишет activity, может триггерить другие правила.
+- [x] Хуки в actions/tasks (create, move) и actions/labels (attach) — после успешной мутации вызов runAutomations.
+- [x] actions/automations.ts (CRUD только для role>=admin).
+- [x] UI: новый таб «Автоматизации» в ProjectSettingsDialog с редактором (триггер → условия → действия → enabled), переключатель on/off, история запусков.
+- [ ] scripts/cron-automations.ts для due_passed — отложено (триггер не реализован в MVP).
+- [ ] Тест на anti-loop — отложено (e2e/unit-тестов в проекте пока нет).
+- [x] Коммит «этап 14: автоматизации».
+
+**MVP-сужение** (по решению пользователя 2026-05-26):
+- Триггеры: `task.created`, `task.moved`, `task.label_added`. Без `task.assigned`, `task.label_removed`, `task.due_passed`.
+- Условия: column, priority, has_label, assignee.
+- Действия: set_priority, set_color, add_label, assign_to, move_to_column, mark_complete, add_comment.
 
 ### 7.6 Подводные камни
 - Запуск действий **через services, а не напрямую через db** — критично, чтобы automation тоже писала activity и триггерила другие automations.

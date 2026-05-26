@@ -24,9 +24,10 @@ import { cn } from "@/lib/utils";
 import { LABEL_COLORS, type LabelColorSlug } from "@/lib/colors";
 import type { FieldDef } from "@/domain/custom-fields";
 
+import { AutomationsEditor } from "./p/[projectSlug]/automations-editor";
 import { FieldsEditor } from "./p/[projectSlug]/fields-editor";
 
-type Tab = "general" | "fields";
+type Tab = "general" | "fields" | "automations";
 
 export function ProjectSettingsDialog({
   wsSlug,
@@ -89,6 +90,9 @@ export function ProjectSettingsDialog({
               <TabButton active={tab === "fields"} onClick={() => setTab("fields")}>
                 Поля ({settings.customFields.length})
               </TabButton>
+              <TabButton active={tab === "automations"} onClick={() => setTab("automations")}>
+                Автоматизации ({settings.automationsContext.rules.length})
+              </TabButton>
             </div>
 
             {tab === "general" && (
@@ -108,6 +112,20 @@ export function ProjectSettingsDialog({
                 initialFields={settings.customFields as FieldDef[] as unknown as Parameters<
                   typeof FieldsEditor
                 >[0]["initialFields"]}
+              />
+            )}
+
+            {tab === "automations" && (
+              <AutomationsEditor
+                wsSlug={wsSlug}
+                projectSlug={settings.slug}
+                canEdit={settings.role === "owner" || settings.role === "admin"}
+                initialRules={settings.automationsContext.rules}
+                ctx={{
+                  columns: settings.automationsContext.columns,
+                  labels: settings.automationsContext.labels,
+                  members: settings.automationsContext.members,
+                }}
               />
             )}
           </div>

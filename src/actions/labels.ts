@@ -8,6 +8,7 @@ import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as labels from "@/services/labels";
 import * as activity from "@/services/activity";
+import { runAutomations } from "@/services/automations";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 
@@ -111,6 +112,14 @@ export async function attachLabelAction(
     actorId: session.user.id,
     type: "label.attach",
     payload: { labelId },
+  });
+  await runAutomations({
+    type: "task.label_added",
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    labelId,
   });
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   notifyBoard(project.boardId);

@@ -11,6 +11,7 @@ import {
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
+import { runAutomations } from "@/services/automations";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 import { sanitizeText } from "@/lib/sanitize";
@@ -75,6 +76,13 @@ export async function createTaskAction(
     actorId: session.user.id,
     type: "task.create",
     payload: { title: created.title },
+  });
+  await runAutomations({
+    type: "task.created",
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId: created.id,
+    actorId: session.user.id,
   });
   refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
@@ -226,6 +234,14 @@ export async function moveTaskAction(
     actorId: session.user.id,
     type: "task.move",
     payload: { toColumnId, orderKey },
+  });
+  await runAutomations({
+    type: "task.moved",
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    toColumnId,
   });
   refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true, orderKey };

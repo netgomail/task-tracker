@@ -7,11 +7,15 @@ import { z } from "zod";
 import { requireUser } from "@/lib/rbac";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { sanitizeText } from "@/lib/sanitize";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
+import { getBySlug as getWorkspaceBySlug, listMembers } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as projects from "@/services/projects";
 import * as activity from "@/services/activity";
+import * as automationsService from "@/services/automations";
+import { listForBoard } from "@/services/columns";
+import { listForWorkspace as listLabelsForWorkspace } from "@/services/labels";
 import { listForProject as listCustomFieldsForProject } from "@/services/custom-fields";
+import type { AutomationRow } from "@/domain/automations";
 
 const NameSchema = z.string().trim().min(1, "Введите название").max(80, "Слишком длинное");
 
@@ -105,6 +109,11 @@ export async function setProjectDescriptionAction(
   return { ok: true };
 }
 
+export type SerializedAutomation = Omit<AutomationRow, "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProjectSettings = {
   id: string;
   slug: string;
@@ -119,6 +128,13 @@ export type ProjectSettings = {
     options: Array<{ value: string; label: string }>;
     required: boolean;
   }>;
+  // Контекст для редактора автоматизаций (колонки / метки / участники / правила).
+  automationsContext: {
+    columns: Array<{ id: string; name: string; color: string }>;
+    labels: Array<{ id: string; name: string; color: string }>;
+    members: Array<{ id: string; name: string }>;
+    rules: SerializedAutomation[];
+  };
 };
 
 export type GetProjectSettingsResult =
@@ -135,7 +151,13 @@ export async function getProjectSettingsAction(
     if (!project) return { ok: false, error: "Проект не найден" };
     const full = await projects.getById(ws.workspaceId, project.id);
     if (!full) return { ok: false, error: "Проект не найден" };
-    const fields = await listCustomFieldsForProject(project.id);
+    const [fields, columns, labels, members, rules] = await Promise.all([
+      listCustomFieldsForProject(project.id),
+      listForBoard(project.boardId),
+      listLabelsForWorkspace(ws.workspaceId),
+      listMembers(ws.workspaceId),
+      automationsService.listForProject(project.id),
+    ]);
     return {
       ok: true,
       data: {
@@ -152,6 +174,16 @@ export async function getProjectSettingsAction(
           options: f.options,
           required: f.required,
         })),
+        automationsContext: {
+          columns: columns.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+          labels: labels.map((l) => ({ id: l.id, name: l.name, color: l.color })),
+          members: members.map((m) => ({ id: m.id, name: m.name })),
+          rules: rules.map((r) => ({
+            ...r,
+            createdAt: r.createdAt.toISOString(),
+            updatedAt: r.updatedAt.toISOString(),
+          })),
+        },
       },
     };
   } catch (e) {
