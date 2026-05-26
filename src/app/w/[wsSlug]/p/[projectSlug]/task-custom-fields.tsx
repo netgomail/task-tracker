@@ -7,7 +7,7 @@ import { setFieldValueAction } from "@/actions/custom-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { FieldDef } from "@/services/custom-fields";
+import type { FieldDef } from "@/domain/custom-fields";
 
 export function TaskCustomFields({
   wsSlug,

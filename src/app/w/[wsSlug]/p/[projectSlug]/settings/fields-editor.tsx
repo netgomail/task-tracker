@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { FIELD_TYPES, type FieldType, type SelectOption } from "@/services/custom-fields";
+import { FIELD_TYPES, type FieldType, type SelectOption } from "@/domain/custom-fields";
 
 type FieldView = {
   id: string;

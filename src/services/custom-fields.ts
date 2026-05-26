@@ -4,23 +4,18 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { customFieldDefs, customFieldValues } from "@/db/schema/custom-fields";
+import {
+  FIELD_TYPES,
+  type FieldDef,
+  type FieldType,
+  type SelectOption,
+} from "@/domain/custom-fields";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
 
-export const FIELD_TYPES = ["text", "number", "select", "date", "url", "checkbox"] as const;
-export type FieldType = (typeof FIELD_TYPES)[number];
-
-export type SelectOption = { value: string; label: string };
-
-export type FieldDef = {
-  id: string;
-  projectId: string;
-  name: string;
-  type: FieldType;
-  options: SelectOption[];
-  required: boolean;
-  orderKey: string;
-};
+// Реэкспорт для backward-compat: server-импортёрам не приходится менять путь.
+export { FIELD_TYPES };
+export type { FieldDef, FieldType, SelectOption };
 
 function isFieldType(value: string): value is FieldType {
   return (FIELD_TYPES as readonly string[]).includes(value);

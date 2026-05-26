@@ -75,7 +75,7 @@ import {
   detachLabelAction,
 } from "@/actions/labels";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
-import type { FieldDef } from "@/services/custom-fields";
+import type { FieldDef } from "@/domain/custom-fields";
 
 import { TaskAttachments } from "./task-attachments";
 import { TaskCustomFields } from "./task-custom-fields";
