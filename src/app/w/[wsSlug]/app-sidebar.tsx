@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,12 +8,15 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Settings,
   Tag,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -22,8 +25,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { archiveProjectAction, deleteProjectAction } from "@/actions/projects";
+import { colorHex, isLabelColor } from "@/lib/colors";
 import { NewProjectForm } from "./new-project-form";
 import { NewWorkspaceForm } from "@/app/workspaces/new-workspace-form";
+import { ProjectSettingsDialog } from "./project-settings-dialog";
 import type { Workspace } from "@/services/workspaces";
 import type { ProjectSummary } from "@/services/projects";
 
@@ -55,6 +68,7 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([wsSlug]));
   const [newProjectWsSlug, setNewProjectWsSlug] = useState<string | null>(null);
   const [newWsOpen, setNewWsOpen] = useState(false);
+  const [settingsProjectSlug, setSettingsProjectSlug] = useState<string | null>(null);
 
   const projectSlug = pathname.match(/\/p\/([^/]+)/)?.[1];
 
@@ -207,21 +221,16 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
                     {projects.map((p) => {
                       const isActive = isCurrentWs && p.slug === projectSlug;
                       return (
-                        <Link
+                        <ProjectRow
                           key={p.id}
-                          href={`/w/${ws.slug}/p/${p.slug}`}
-                          className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                            isActive
-                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          }`}
-                        >
-                          <span
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ background: p.color ?? color }}
-                          />
-                          <span className="truncate">{p.name}</span>
-                        </Link>
+                          wsSlug={ws.slug}
+                          slug={p.slug}
+                          id={p.id}
+                          name={p.name}
+                          dot={isLabelColor(p.color) ? colorHex(p.color) : color}
+                          active={isActive}
+                          onOpenSettings={() => setSettingsProjectSlug(p.slug)}
+                        />
                       );
                     })}
                     {isCurrentWs && (
@@ -317,6 +326,100 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
           <NewWorkspaceForm />
         </DialogContent>
       </Dialog>
+
+      <ProjectSettingsDialog
+        wsSlug={wsSlug}
+        projectSlug={settingsProjectSlug}
+        open={settingsProjectSlug !== null}
+        onOpenChange={(open) => !open && setSettingsProjectSlug(null)}
+      />
     </>
+  );
+}
+
+function ProjectRow({
+  wsSlug,
+  slug,
+  id,
+  name,
+  dot,
+  active,
+  onOpenSettings,
+}: {
+  wsSlug: string;
+  slug: string;
+  id: string;
+  name: string;
+  dot: string;
+  active: boolean;
+  onOpenSettings: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function onArchive() {
+    startTransition(async () => {
+      const res = await archiveProjectAction(wsSlug, id);
+      if (!res.ok) toast.error(res.error);
+      else
+        toast.success(`Проект «${name}» в архиве`, {
+          action: {
+            label: "Открыть архив",
+            onClick: () => {
+              window.location.href = `/w/${wsSlug}/archive`;
+            },
+          },
+        });
+    });
+  }
+
+  function onDelete() {
+    if (!window.confirm(`Удалить проект «${name}» со всеми задачами?`)) return;
+    startTransition(async () => {
+      const res = await deleteProjectAction(wsSlug, id);
+      if (!res.ok) toast.error(res.error);
+      else toast.success(`Проект «${name}» удалён`);
+    });
+  }
+
+  return (
+    <div
+      className={`group relative flex items-center gap-2 rounded-md pr-1 transition-colors ${
+        active
+          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      }`}
+    >
+      <Link
+        href={`/w/${wsSlug}/p/${slug}`}
+        className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-sm"
+      >
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: dot }} />
+        <span className="truncate">{name}</span>
+      </Link>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={pending}
+            aria-label="Действия с проектом"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100 data-[state=open]:opacity-100"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={onOpenSettings}>
+            <Settings className="size-4" /> Настройки
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onArchive} disabled={pending}>
+            <ArchiveIcon className="size-4" /> В архив
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onDelete} disabled={pending} variant="destructive">
+            <Trash2 className="size-4" /> Удалить
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

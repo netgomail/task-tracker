@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Settings } from "lucide-react";
 
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
@@ -169,13 +167,6 @@ export default async function ProjectBoardPage({
             members={members}
             currentUserId={session.user.id}
           />
-          <Link
-            href={`/w/${wsSlug}/p/${projectSlug}/settings`}
-            title="Настройки проекта"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Settings className="size-4" />
-          </Link>
         </div>
       </header>
       {view === "table" ? (

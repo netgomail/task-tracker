@@ -124,6 +124,58 @@ export async function rename(workspaceId: string, projectId: string, name: strin
     .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)));
 }
 
+export async function setColor(
+  workspaceId: string,
+  projectId: string,
+  color: LabelColorSlug,
+): Promise<void> {
+  await db
+    .update(projects)
+    .set({ color, updatedAt: new Date() })
+    .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)));
+}
+
+export async function setDescription(
+  workspaceId: string,
+  projectId: string,
+  description: string | null,
+): Promise<void> {
+  await db
+    .update(projects)
+    .set({ description, updatedAt: new Date() })
+    .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)));
+}
+
+export async function getById(
+  workspaceId: string,
+  projectId: string,
+): Promise<(ProjectSummary & { description: string | null }) | null> {
+  const [row] = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      name: projects.name,
+      color: projects.color,
+      description: projects.description,
+      archivedAt: projects.archivedAt,
+      createdAt: projects.createdAt,
+      workspaceId: projects.workspaceId,
+    })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!row || row.workspaceId !== workspaceId) return null;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    color: row.color,
+    description: row.description,
+    archivedAt: row.archivedAt,
+    createdAt: row.createdAt,
+  };
+}
+
 export async function archive(workspaceId: string, projectId: string): Promise<void> {
   await db
     .update(projects)
