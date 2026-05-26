@@ -67,7 +67,7 @@ export function ProjectSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
+      <DialogContent className="flex max-h-[85vh] max-w-4xl flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>Настройки проекта</DialogTitle>
           <DialogDescription className="sr-only">

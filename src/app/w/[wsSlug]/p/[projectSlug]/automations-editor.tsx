@@ -168,7 +168,7 @@ export function AutomationsEditor({ wsSlug, projectSlug, canEdit, initialRules, 
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex w-full min-w-0 flex-col gap-3">
       {canEdit ? (
         <div className="flex justify-end">
           <Button size="sm" onClick={openCreate} disabled={pending}>
@@ -189,11 +189,11 @@ export function AutomationsEditor({ wsSlug, projectSlug, canEdit, initialRules, 
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex w-full flex-col gap-2">
           {rules.map((r) => (
             <li
               key={r.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background p-3"
+              className="flex min-w-0 items-start justify-between gap-3 rounded-lg border border-border bg-background p-3"
             >
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex items-center gap-2">
