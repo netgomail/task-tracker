@@ -386,13 +386,14 @@ automation_runs (
 - Экспорт CSV (одна кнопка → server action → blob).
 
 ### 8.5 Чек-лист
-- [ ] Миграция 0009 (projects.due_at, опц.).
-- [ ] services/reports.ts с throughput/velocity/load/cycleTime.
-- [ ] Установить recharts.
-- [ ] Страница /w/[wsSlug]/reports.
-- [ ] Страница /w/[wsSlug]/p/[projectKey]/reports.
-- [ ] Экспорт CSV.
-- [ ] Коммит «этап 15: отчёты и аналитика».
+- [ ] Миграция 0009 (projects.due_at) — отложено: burndown не делаем без явной даты дедлайна на проекте.
+- [x] services/reports.ts: throughput (понедельные бакеты через unixepoch math), velocityByAssignee, loadByAssignee, cycleTime (avg+median+sample), summary.
+- [x] Установить recharts.
+- [x] Страница /w/[wsSlug]/reports с фильтрами date-range + проект.
+- [ ] Страница /w/[wsSlug]/p/[projectKey]/reports — отложено: фильтр проекта на workspace-странице покрывает use-case.
+- [x] Экспорт CSV (на клиенте: Blob + URL.createObjectURL).
+- [x] Пункт «Отчёты» в sidebar (collapsed + expanded).
+- [x] Коммит «этап 15: отчёты и аналитика».
 
 ### 8.6 Подводные камни
 - Активити `task.move` — наш единственный источник для cycle/lead time. Старые задачи (до Этапа 4) могут не иметь полной истории — в отчёт включаем «есть данные с …».

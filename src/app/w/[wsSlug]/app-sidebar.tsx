@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Archive as ArchiveIcon,
+  BarChart3,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -126,6 +127,13 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
                 {archivedCount > 99 ? "99+" : archivedCount}
               </span>
             )}
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/reports`}
+            title="Отчёты"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <BarChart3 className="h-4 w-4" />
           </Link>
           <Link
             href={`/w/${wsSlug}/settings/templates`}
@@ -272,6 +280,13 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
                 {archivedCount > 99 ? "99+" : archivedCount}
               </span>
             )}
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/reports`}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Отчёты</span>
           </Link>
           <Link
             href={`/w/${wsSlug}/settings/templates`}
