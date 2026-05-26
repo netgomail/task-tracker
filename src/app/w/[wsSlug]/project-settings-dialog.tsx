@@ -67,8 +67,8 @@ export function ProjectSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Настройки проекта</DialogTitle>
           <DialogDescription className="sr-only">
             Имя, цвет, описание и кастомные поля проекта.
@@ -78,12 +78,12 @@ export function ProjectSettingsDialog({
         {loadError ? (
           <p className="text-sm text-destructive">{loadError}</p>
         ) : !settings ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : (
-          <div className="flex flex-col gap-0">
-            <div className="flex border-b border-border">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex shrink-0 border-b border-border">
               <TabButton active={tab === "general"} onClick={() => setTab("general")}>
                 Общие
               </TabButton>
@@ -95,7 +95,7 @@ export function ProjectSettingsDialog({
               </TabButton>
             </div>
 
-            <div className="max-h-[65vh] overflow-y-auto pt-4">
+            <div className="min-h-0 flex-1 overflow-y-auto pt-4">
               {tab === "general" && (
                 <GeneralTab
                   wsSlug={wsSlug}
