@@ -7,6 +7,7 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  FileText,
   GitBranchPlus,
   MoreHorizontal,
   Pencil,
@@ -54,6 +55,7 @@ import {
   setTaskTypeAction,
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
+import { saveTaskAsTemplateAction } from "@/actions/templates";
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
@@ -89,6 +91,8 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const [pending, startTransition] = useTransition();
   const [subtaskOpen, setSubtaskOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [subtreeExpanded, setSubtreeExpanded] = useState(false);
   const [titleExpanded, setTitleExpanded] = useState(false);
   const [titleOverflows, setTitleOverflows] = useState(false);
@@ -208,6 +212,25 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     startTransition(async () => {
       const res = await deleteTaskAction(wsSlug, projectSlug, task.id);
       if (!res.ok) toast.error(res.error);
+    });
+  }
+
+  function openSaveAsTemplate() {
+    setTemplateName(task.title);
+    setTemplateOpen(true);
+  }
+
+  function submitSaveAsTemplate() {
+    const next = templateName.trim();
+    if (!next) return;
+    startTransition(async () => {
+      const res = await saveTaskAsTemplateAction(wsSlug, task.id, next);
+      if (!res.ok) toast.error(res.error);
+      else {
+        toast.success("Шаблон сохранён");
+        setTemplateOpen(false);
+        setTemplateName("");
+      }
     });
   }
 
@@ -378,6 +401,9 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             <DropdownMenuItem onSelect={openSubtaskDialog} disabled={pending}>
               <GitBranchPlus className="size-4" /> Подзадача
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={openSaveAsTemplate} disabled={pending}>
+              <FileText className="size-4" /> Сохранить как шаблон…
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={onArchive} disabled={pending}>
               <Archive className="size-4" /> В архив
             </DropdownMenuItem>
@@ -525,6 +551,36 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             </Button>
             <Button onClick={submitSubtask} disabled={pending || !subtaskTitle.trim()}>
               {pending ? "Создаём…" : "Создать"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+        <DialogContent>
+          <DialogTitle>Сохранить как шаблон</DialogTitle>
+          <DialogDescription>
+            Будут сохранены: описание, тип, приоритет, цвет, метки и подзадачи.
+            Дедлайн и исполнитель не копируются.
+          </DialogDescription>
+          <Input
+            autoFocus
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitSaveAsTemplate();
+              }
+            }}
+            placeholder="Название шаблона"
+            maxLength={120}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTemplateOpen(false)} disabled={pending}>
+              Отмена
+            </Button>
+            <Button onClick={submitSaveAsTemplate} disabled={pending || !templateName.trim()}>
+              {pending ? "Сохраняем…" : "Сохранить"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -38,7 +38,7 @@ import {
 
 import type { WorkspaceMember } from "@/services/membership";
 import type { BoardColumn, BoardTask } from "./board";
-import { NewTaskForm } from "./new-task-form";
+import { NewTaskForm, type NewTaskTemplate } from "./new-task-form";
 import { SortableTaskCard } from "./sortable-task-card";
 
 type Props = {
@@ -47,9 +47,10 @@ type Props = {
   column: BoardColumn;
   tasks: BoardTask[];
   members: WorkspaceMember[];
+  templates: NewTaskTemplate[];
 };
 
-export function ColumnView({ wsSlug, projectSlug, column, tasks, members }: Props) {
+export function ColumnView({ wsSlug, projectSlug, column, tasks, members, templates }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
     data: { type: "column" },
@@ -183,7 +184,7 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks, members }: Prop
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <NewTaskForm wsSlug={wsSlug} projectSlug={projectSlug} columnId={column.id} members={members} />
+      <NewTaskForm wsSlug={wsSlug} projectSlug={projectSlug} columnId={column.id} members={members} templates={templates} />
       <div
         ref={setBodyRef}
         className={cn(

@@ -4,8 +4,10 @@
 //   Этап 3 → ./tasks (tasks + tasks_fts)
 //   Этап 5 → ./comments / ./activity
 //   Этап 6 → ./labels
+//   Этап 11 → ./templates (task_templates)
 export * from "./auth";
 export * from "./projects";
 export * from "./tasks";
 export * from "./activity";
 export * from "./labels";
+export * from "./templates";

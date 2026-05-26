@@ -31,6 +31,7 @@ import type { WorkspaceMember } from "@/services/membership";
 import { BoardLiveSync } from "./board-live-sync";
 import { ColumnView } from "./column-view";
 import { NewColumnForm } from "./new-column-form";
+import type { NewTaskTemplate } from "./new-task-form";
 import { TaskCard } from "./task-card";
 import { TaskDialog } from "./task-dialog";
 
@@ -82,6 +83,7 @@ type Props = {
   initialColumns: BoardColumn[];
   initialTasks: BoardTask[];
   members: WorkspaceMember[];
+  templates: NewTaskTemplate[];
 };
 
 type Active =
@@ -117,7 +119,7 @@ const detectCollisions: CollisionDetection = (args) => {
   return rectIntersection(args);
 };
 
-export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTasks, members }: Props) {
+export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTasks, members, templates }: Props) {
   const dndId = useId();
   const router = useRouter();
   const pathname = usePathname();
@@ -444,6 +446,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
                 column={c}
                 tasks={tasksByColumn.get(c.id) ?? []}
                 members={members}
+                templates={templates}
               />
             ))}
           </SortableContext>

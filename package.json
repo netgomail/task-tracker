@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:migrate": "tsx --env-file=.env.local src/scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push"
   },

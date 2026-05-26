@@ -7,6 +7,7 @@ import {
   Archive as ArchiveIcon,
   ChevronDown,
   ChevronRight,
+  FileText,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -111,6 +112,13 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
                 {archivedCount > 99 ? "99+" : archivedCount}
               </span>
             )}
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/settings/templates`}
+            title="Шаблоны"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <FileText className="h-4 w-4" />
           </Link>
           <Link
             href={`/w/${wsSlug}/settings/labels`}
@@ -255,6 +263,13 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
                 {archivedCount > 99 ? "99+" : archivedCount}
               </span>
             )}
+          </Link>
+          <Link
+            href={`/w/${wsSlug}/settings/templates`}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Шаблоны</span>
           </Link>
           <Link
             href={`/w/${wsSlug}/settings/labels`}

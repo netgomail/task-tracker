@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, UserRound, Check } from "lucide-react";
+import { Plus, UserRound, Check, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,29 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { colorHex, isLabelColor } from "@/lib/colors";
 import type { WorkspaceMember } from "@/services/membership";
 import { createTaskAction } from "@/actions/tasks";
+import { createTaskFromTemplateAction } from "@/actions/templates";
+
+export type NewTaskTemplate = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 export function NewTaskForm({
   wsSlug,
   projectSlug,
   columnId,
   members,
+  templates,
 }: {
   wsSlug: string;
   projectSlug: string;
   columnId: string;
   members: WorkspaceMember[];
+  templates: NewTaskTemplate[];
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -54,16 +64,62 @@ export function NewTaskForm({
     });
   }
 
+  function applyTemplate(templateId: string) {
+    startTransition(async () => {
+      const res = await createTaskFromTemplateAction(wsSlug, projectSlug, columnId, templateId);
+      if (!res.ok) toast.error(res.error);
+      else toast.success("Задача создана из шаблона");
+    });
+  }
+
   if (!open) {
     return (
-      <button
-        type="button"
-        data-board-newtask=""
-        onClick={() => setOpen(true)}
-        className="mx-2.5 mb-1 flex items-center gap-1 self-start rounded-sm py-0.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline dark:text-sky-400 dark:hover:text-sky-300"
-      >
-        <Plus className="size-3.5" /> Добавить задачу
-      </button>
+      <div className="mx-2.5 mb-1 flex items-center gap-2 self-start">
+        <button
+          type="button"
+          data-board-newtask=""
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1 rounded-sm py-0.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline dark:text-sky-400 dark:hover:text-sky-300"
+        >
+          <Plus className="size-3.5" /> Добавить задачу
+        </button>
+        {templates.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={pending}
+                className="flex items-center gap-1 rounded-sm py-0.5 text-xs text-muted-foreground transition hover:text-foreground"
+                title="Из шаблона"
+              >
+                <FileText className="size-3.5" /> Из шаблона
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-1">
+              <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+                {templates.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate(t.id)}
+                      disabled={pending}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+                    >
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{
+                          background: isLabelColor(t.color) ? colorHex(t.color) : "#64748b",
+                        }}
+                      />
+                      <span className="truncate">{t.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
     );
   }
 

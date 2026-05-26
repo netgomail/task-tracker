@@ -18,6 +18,7 @@ import {
 import type { LabelRow } from "@/services/labels";
 import { listMembers, type WorkspaceMember } from "@/services/membership";
 import { searchTaskIds } from "@/services/search";
+import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
 import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
 
 import {
@@ -27,6 +28,7 @@ import {
   type BoardTaskAssignee,
 } from "./board";
 import { BoardFilters } from "./board-filters";
+import type { NewTaskTemplate } from "./new-task-form";
 import { TaskTable, type TaskTableRow } from "./task-table";
 import { ViewToggle, type ViewMode } from "./view-toggle";
 
@@ -112,12 +114,18 @@ export default async function ProjectBoardPage({
     assignee: assigneeFilter,
   };
 
-  const [cols, taskRows, wsLabels, members] = await Promise.all([
+  const [cols, taskRows, wsLabels, members, wsTemplates] = await Promise.all([
     listForBoard(project.boardId),
     listForProject(project.id, filter),
     listLabelsForWorkspace(ws.workspaceId),
     listMembers(ws.workspaceId),
+    listTemplatesForWorkspace(ws.workspaceId),
   ]);
+  const templates: NewTaskTemplate[] = wsTemplates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+  }));
   const taskIds = taskRows.map((t) => t.id);
   const [labelMap, subtaskMap] = await Promise.all([
     listLabelsForTasks(ws.workspaceId, taskIds),
@@ -177,6 +185,7 @@ export default async function ProjectBoardPage({
           initialColumns={columns}
           initialTasks={tasks}
           members={members}
+          templates={templates}
         />
       )}
     </div>

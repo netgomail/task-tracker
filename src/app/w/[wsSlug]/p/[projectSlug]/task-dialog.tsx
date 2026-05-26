@@ -74,6 +74,7 @@ import {
   attachLabelAction,
   detachLabelAction,
 } from "@/actions/labels";
+import { saveTaskAsTemplateAction } from "@/actions/templates";
 
 type Props = {
   wsSlug: string;
@@ -816,6 +817,13 @@ function Sidebar({
     if (!res.ok) toast.error(res.error);
     else onClose();
   }
+  async function onSaveAsTemplate() {
+    const name = window.prompt("Название шаблона:", task.title);
+    if (!name || !name.trim()) return;
+    const res = await saveTaskAsTemplateAction(wsSlug, task.id, name.trim());
+    if (!res.ok) toast.error(res.error);
+    else toast.success("Шаблон сохранён");
+  }
 
   return (
     <>
@@ -923,6 +931,9 @@ function Sidebar({
       </SidebarBlock>
       <Separator />
       <div className="flex flex-col gap-1.5">
+        <Button variant="ghost" size="sm" onClick={onSaveAsTemplate} disabled={pending}>
+          Сохранить как шаблон…
+        </Button>
         <Button variant="ghost" size="sm" onClick={onArchive} disabled={pending}>
           В архив
         </Button>
