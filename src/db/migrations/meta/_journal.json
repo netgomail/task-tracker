@@ -1,68 +1,19 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1779452171186,
-      "tag": "0000_rare_nuke",
+      "version": "7",
+      "when": 1780591455674,
+      "tag": "0000_smart_killer_shrike",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "6",
-      "when": 1779453425888,
-      "tag": "0001_cloudy_kang",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1779454228419,
-      "tag": "0002_chemical_magus",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1779455367247,
-      "tag": "0003_colorful_sister_grimm",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1779476495955,
-      "tag": "0004_warm_ultimo",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1779765185452,
-      "tag": "0005_lucky_monster_badoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1779766072855,
-      "tag": "0006_bizarre_alex_wilder",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1779767242052,
-      "tag": "0007_light_abomination",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1779769093843,
-      "tag": "0008_fresh_proemial_gods",
+      "version": "7",
+      "when": 1780591464495,
+      "tag": "0001_task_search",
       "breakpoints": true
     }
   ]

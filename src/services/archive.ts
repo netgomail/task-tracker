@@ -2,13 +2,14 @@ import "server-only";
 
 import { and, asc, count, desc, eq, inArray, isNotNull, type SQL } from "drizzle-orm";
 
-import { db, sqlite } from "@/db";
+import { client, db } from "@/db";
 import { activityEvents } from "@/db/schema/activity";
 import { user } from "@/db/schema/auth";
 import { boards, columns, projects } from "@/db/schema/projects";
 import { tasks } from "@/db/schema/tasks";
 import { keyBetween } from "@/domain/ordering";
 import * as attachments from "@/services/attachments";
+import { buildTsQuery } from "@/services/search";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 export type ArchivedTaskRow = {
@@ -45,43 +46,30 @@ function isPriority(value: string): value is TaskPriority {
  * `services/search.ts:searchTaskIds`, поиск может ограничиваться одним проектом
  * или искать по всем — поэтому он живёт здесь.
  */
-function searchArchivedIds(
+async function searchArchivedIds(
   workspaceId: string,
   query: string,
   projectId: string | undefined,
-): string[] | null {
-  const fts = query
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `"${t.replace(/"/g, '""')}"*`)
-    .join(" ");
-  if (!fts) return null;
+): Promise<string[] | null> {
+  const tsq = buildTsQuery(query);
+  if (!tsq) return null;
 
   if (projectId) {
-    const rows = sqlite
-      .prepare<[string, string, string], { id: string }>(
-        `SELECT t.id
-         FROM tasks t
-         JOIN tasks_fts f ON f.rowid = t.rowid
-         WHERE tasks_fts MATCH ?
-           AND t.workspace_id = ?
-           AND t.project_id = ?
-           AND t.archived_at IS NOT NULL`,
-      )
-      .all(fts, workspaceId, projectId);
+    const rows = await client<{ id: string }[]>`
+      SELECT t.id
+      FROM tasks t
+      WHERE t.search_vector @@ to_tsquery('simple', ${tsq})
+        AND t.workspace_id = ${workspaceId}
+        AND t.project_id = ${projectId}
+        AND t.archived_at IS NOT NULL`;
     return rows.map((r) => r.id);
   }
-  const rows = sqlite
-    .prepare<[string, string], { id: string }>(
-      `SELECT t.id
-       FROM tasks t
-       JOIN tasks_fts f ON f.rowid = t.rowid
-       WHERE tasks_fts MATCH ?
-         AND t.workspace_id = ?
-         AND t.archived_at IS NOT NULL`,
-    )
-    .all(fts, workspaceId);
+  const rows = await client<{ id: string }[]>`
+    SELECT t.id
+    FROM tasks t
+    WHERE t.search_vector @@ to_tsquery('simple', ${tsq})
+      AND t.workspace_id = ${workspaceId}
+      AND t.archived_at IS NOT NULL`;
   return rows.map((r) => r.id);
 }
 
@@ -99,7 +87,7 @@ export async function listArchivedTasks(
   if (opts.projectId) conditions.push(eq(tasks.projectId, opts.projectId));
 
   if (opts.query && opts.query.trim()) {
-    const matching = searchArchivedIds(workspaceId, opts.query, opts.projectId);
+    const matching = await searchArchivedIds(workspaceId, opts.query, opts.projectId);
     if (!matching || matching.length === 0) return { rows: [], total: 0 };
     conditions.push(inArray(tasks.id, matching));
   }

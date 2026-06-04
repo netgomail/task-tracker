@@ -1,13 +1,13 @@
-import { relations, sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 import { projects } from "./projects";
 import { tasks } from "./tasks";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const comments = sqliteTable(
+export const comments = pgTable(
   "comments",
   {
     id: text("id").primaryKey(),
@@ -18,17 +18,17 @@ export const comments = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     body: text("body").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    createdAt: ts("created_at").defaultNow().notNull(),
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    deletedAt: ts("deleted_at"),
   },
   (t) => [index("comments_task_idx").on(t.taskId, t.createdAt)],
 );
 
-export const activityEvents = sqliteTable(
+export const activityEvents = pgTable(
   "activity_events",
   {
     id: text("id").primaryKey(),
@@ -43,7 +43,7 @@ export const activityEvents = sqliteTable(
     type: text("type").notNull(),
     /** JSON-encoded payload, schema depends on `type`. */
     payload: text("payload"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [
     index("activity_task_idx").on(t.taskId, t.createdAt),

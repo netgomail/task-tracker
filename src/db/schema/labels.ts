@@ -1,19 +1,12 @@
-import { relations, sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { index, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
 import { tasks } from "./tasks";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const labels = sqliteTable(
+export const labels = pgTable(
   "labels",
   {
     id: text("id").primaryKey(),
@@ -22,7 +15,7 @@ export const labels = sqliteTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     color: text("color").notNull().default("slate"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [
     index("labels_ws_idx").on(t.workspaceId),
@@ -30,7 +23,7 @@ export const labels = sqliteTable(
   ],
 );
 
-export const taskLabels = sqliteTable(
+export const taskLabels = pgTable(
   "task_labels",
   {
     taskId: text("task_id")
@@ -39,7 +32,7 @@ export const taskLabels = sqliteTable(
     labelId: text("label_id")
       .notNull()
       .references(() => labels.id, { onDelete: "cascade" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.taskId, t.labelId] }),

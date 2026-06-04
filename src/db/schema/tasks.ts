@@ -1,12 +1,12 @@
 import { relations, sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, foreignKey, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 import { columns, projects } from "./projects";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const tasks = sqliteTable(
+export const tasks = pgTable(
   "tasks",
   {
     id: text("id").primaryKey(),
@@ -25,17 +25,17 @@ export const tasks = sqliteTable(
     type: text("type").notNull().default("task"),
     priority: text("priority").notNull().default("normal"),
     color: text("color").notNull().default("slate"),
-    dueAt: integer("due_at", { mode: "timestamp_ms" }),
-    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    dueAt: ts("due_at"),
+    completedAt: ts("completed_at"),
     orderKey: text("order_key").notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
-    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    archivedAt: ts("archived_at"),
+    createdAt: ts("created_at").defaultNow().notNull(),
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },

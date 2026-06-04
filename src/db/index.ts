@@ -1,3 +1,3 @@
 import "server-only";
 
-export { db, sqlite, type DB } from "./client";
+export { db, client, type DB } from "./client";

@@ -1,11 +1,11 @@
-import { relations, sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const projects = sqliteTable(
+export const projects = pgTable(
   "projects",
   {
     id: text("id").primaryKey(),
@@ -16,13 +16,13 @@ export const projects = sqliteTable(
     name: text("name").notNull(),
     description: text("description"),
     color: text("color").notNull().default("slate"),
-    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    archivedAt: ts("archived_at"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    createdAt: ts("created_at").defaultNow().notNull(),
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -32,7 +32,7 @@ export const projects = sqliteTable(
   ],
 );
 
-export const boards = sqliteTable(
+export const boards = pgTable(
   "boards",
   {
     id: text("id").primaryKey(),
@@ -40,12 +40,12 @@ export const boards = sqliteTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Board"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [index("boards_project_idx").on(t.projectId)],
 );
 
-export const columns = sqliteTable(
+export const columns = pgTable(
   "columns",
   {
     id: text("id").primaryKey(),
@@ -56,7 +56,7 @@ export const columns = sqliteTable(
     color: text("color").notNull().default("slate"),
     orderKey: text("order_key").notNull(),
     wipLimit: integer("wip_limit"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [index("columns_board_order_idx").on(t.boardId, t.orderKey)],
 );

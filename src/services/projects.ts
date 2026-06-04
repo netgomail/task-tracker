@@ -76,34 +76,28 @@ export async function create(input: CreateProjectInput): Promise<ProjectSummary 
 
   const orderKeys = keysBetween(null, null, DEFAULT_COLUMNS.length);
 
-  db.transaction((tx) => {
-    tx.insert(projects)
-      .values({
-        id: projectId,
-        workspaceId: input.workspaceId,
-        slug,
-        name: input.name,
-        color,
-        createdBy: input.createdBy,
+  await db.transaction(async (tx) => {
+    await tx.insert(projects).values({
+      id: projectId,
+      workspaceId: input.workspaceId,
+      slug,
+      name: input.name,
+      color,
+      createdBy: input.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tx.insert(boards).values({ id: boardId, projectId, name: "Board", createdAt: now });
+    await tx.insert(columns).values(
+      DEFAULT_COLUMNS.map((c, i) => ({
+        id: newId(),
+        boardId,
+        name: c.name,
+        color: c.color,
+        orderKey: orderKeys[i],
         createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-    tx.insert(boards)
-      .values({ id: boardId, projectId, name: "Board", createdAt: now })
-      .run();
-    tx.insert(columns)
-      .values(
-        DEFAULT_COLUMNS.map((c, i) => ({
-          id: newId(),
-          boardId,
-          name: c.name,
-          color: c.color,
-          orderKey: orderKeys[i],
-          createdAt: now,
-        })),
-      )
-      .run();
+      })),
+    );
   });
 
   return {

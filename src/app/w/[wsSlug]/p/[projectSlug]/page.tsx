@@ -109,7 +109,7 @@ export default async function ProjectBoardPage({
   else if (assigneeParam) assigneeFilter = { userId: assigneeParam };
 
   const matchingIds = qParam
-    ? (searchTaskIds(ws.workspaceId, project.id, qParam) ?? undefined)
+    ? ((await searchTaskIds(ws.workspaceId, project.id, qParam)) ?? undefined)
     : undefined;
 
   const filter: TaskFilter = {

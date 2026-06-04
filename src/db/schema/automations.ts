@@ -1,13 +1,13 @@
-import { relations, sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 import { projects } from "./projects";
 import { tasks } from "./tasks";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const automations = sqliteTable(
+export const automations = pgTable(
   "automations",
   {
     id: text("id").primaryKey(),
@@ -18,7 +18,7 @@ export const automations = sqliteTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    enabled: integer("enabled", { mode: "boolean" }).default(true).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
     /** JSON: { type: 'task.created' | 'task.moved' | 'task.label_added', params: {...} } */
     trigger: text("trigger").notNull(),
     /** JSON: [{ key, op, value }] — AND. */
@@ -28,16 +28,16 @@ export const automations = sqliteTable(
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    createdAt: ts("created_at").defaultNow().notNull(),
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (t) => [index("automations_project_idx").on(t.projectId, t.enabled)],
 );
 
-export const automationRuns = sqliteTable(
+export const automationRuns = pgTable(
   "automation_runs",
   {
     id: text("id").primaryKey(),
@@ -51,7 +51,7 @@ export const automationRuns = sqliteTable(
     status: text("status").notNull(),
     /** JSON: { actionsRun: number, errors: string[] } */
     details: text("details"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [index("automation_runs_automation_idx").on(t.automationId, t.createdAt)],
 );

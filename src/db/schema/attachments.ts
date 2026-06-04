@@ -1,12 +1,12 @@
-import { relations, sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 import { tasks } from "./tasks";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const attachments = sqliteTable(
+export const attachments = pgTable(
   "attachments",
   {
     id: text("id").primaryKey(),
@@ -23,7 +23,7 @@ export const attachments = sqliteTable(
     uploadedBy: text("uploaded_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [index("attachments_task_idx").on(t.workspaceId, t.taskId)],
 );

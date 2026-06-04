@@ -1,42 +1,40 @@
 import "server-only";
 
-import { sqlite } from "@/db";
+import { client } from "@/db";
 
 /**
- * Превращает пользовательскую строку в безопасный FTS5-запрос:
- * каждый токен → префиксный фразовый поиск `"token"*`. Так пользователь не может
- * сломать синтаксис FTS5 и одновременно получает удобный «type-as-you-search».
+ * Превращает пользовательскую строку в безопасный Postgres-`tsquery`:
+ * каждый токен → префиксный матч `token:*`, токены объединяются через `&`.
+ * Не-буквенно-цифровые символы выкидываем, чтобы пользователь не мог сломать
+ * синтаксис tsquery и при этом сохранялся удобный «type-as-you-search».
  */
-function buildFtsQuery(raw: string): string {
+export function buildTsQuery(raw: string): string {
   return raw
     .trim()
     .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}]+/gu, ""))
     .filter(Boolean)
-    .map((t) => `"${t.replace(/"/g, '""')}"*`)
-    .join(" ");
+    .map((t) => `${t}:*`)
+    .join(" & ");
 }
 
 /**
- * Возвращает id задач workspace/project, попавших в FTS5-индекс по строке `q`.
+ * Возвращает id задач workspace/project, попавших в FTS-индекс по строке `q`.
  * Если строка пустая или содержит только пробелы — возвращает null,
  * показывая вызывающему «фильтр не применялся».
  */
-export function searchTaskIds(
+export async function searchTaskIds(
   workspaceId: string,
   projectId: string,
   q: string,
-): string[] | null {
-  const fts = buildFtsQuery(q);
-  if (!fts) return null;
-  const rows = sqlite
-    .prepare<[string, string, string], { id: string }>(
-      `SELECT t.id
-       FROM tasks t
-       JOIN tasks_fts f ON f.rowid = t.rowid
-       WHERE tasks_fts MATCH ?
-         AND t.workspace_id = ?
-         AND t.project_id = ?`,
-    )
-    .all(fts, workspaceId, projectId);
+): Promise<string[] | null> {
+  const tsq = buildTsQuery(q);
+  if (!tsq) return null;
+  const rows = await client<{ id: string }[]>`
+    SELECT t.id
+    FROM tasks t
+    WHERE t.search_vector @@ to_tsquery('simple', ${tsq})
+      AND t.workspace_id = ${workspaceId}
+      AND t.project_id = ${projectId}`;
   return rows.map((r) => r.id);
 }

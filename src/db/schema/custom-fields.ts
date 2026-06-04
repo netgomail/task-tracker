@@ -1,13 +1,13 @@
 import { relations, sql } from "drizzle-orm";
-import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { boolean, check, index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
 import { projects } from "./projects";
 import { tasks } from "./tasks";
 
-const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const customFieldDefs = sqliteTable(
+export const customFieldDefs = pgTable(
   "custom_field_defs",
   {
     id: text("id").primaryKey(),
@@ -21,11 +21,11 @@ export const customFieldDefs = sqliteTable(
     type: text("type").notNull(),
     /** JSON для type='select': [{ value, label, color }]. */
     options: text("options"),
-    required: integer("required", { mode: "boolean" }).default(false).notNull(),
+    required: boolean("required").default(false).notNull(),
     orderKey: text("order_key").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    createdAt: ts("created_at").defaultNow().notNull(),
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -38,7 +38,7 @@ export const customFieldDefs = sqliteTable(
   ],
 );
 
-export const customFieldValues = sqliteTable(
+export const customFieldValues = pgTable(
   "custom_field_values",
   {
     taskId: text("task_id")
@@ -48,8 +48,8 @@ export const customFieldValues = sqliteTable(
       .notNull()
       .references(() => customFieldDefs.id, { onDelete: "cascade" }),
     valueText: text("value_text"),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(nowMs)
+    updatedAt: ts("updated_at")
+      .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
