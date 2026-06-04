@@ -20,8 +20,7 @@ export type ThroughputBucket = {
 };
 
 /**
- * Закрытые задачи в неделю. Бакеты — недели по понедельникам.
- * Запрос на стороне SQLite через strftime + day-of-week math.
+ * Закрытые задачи в неделю. Бакеты — недели по понедельникам (UTC).
  */
 export async function throughput(
   workspaceId: string,
@@ -37,10 +36,9 @@ export async function throughput(
   ];
   if (opts.projectId) conditions.push(eq(tasks.projectId, opts.projectId));
 
-  // SQLite не имеет date_trunc; считаем «начало недели» через арифметику с
-  // unixepoch: понедельник 00:00 UTC = floor((ts - 345600)/604800)*604800+345600
-  // (4 дня смещение от четверга 1970-01-01).
-  const bucketExpr = sql<number>`(((unixepoch(${tasks.completedAt}/1000.0, 'unixepoch') - 345600) / 604800) * 604800 + 345600) * 1000`;
+  // date_trunc('week', ...) даёт понедельник 00:00. Считаем в UTC, чтобы
+  // совпадало с границами интервала [from, to). Возвращаем сразу 'YYYY-MM-DD'.
+  const bucketExpr = sql<string>`to_char(date_trunc('week', ${tasks.completedAt} AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
@@ -53,7 +51,7 @@ export async function throughput(
     .orderBy(bucketExpr);
 
   return rows.map((r) => ({
-    bucket: new Date(Number(r.bucket)).toISOString().slice(0, 10),
+    bucket: r.bucket,
     done: Number(r.done),
   }));
 }
