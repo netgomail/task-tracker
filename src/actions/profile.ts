@@ -33,7 +33,9 @@ export async function getProfileAction(): Promise<ProfileData | null> {
     .from(account)
     .where(eq(account.userId, session.user.id));
 
-  const providers = accounts.map((a) => a.providerId);
+  // dedupe: у пользователя может оказаться несколько строк account с одним
+  // providerId (напр. дубль из старой базы) — в списке провайдер нужен один раз.
+  const providers = [...new Set(accounts.map((a) => a.providerId))];
 
   return {
     id: session.user.id,
