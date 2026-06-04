@@ -43,12 +43,11 @@ next-env.d.ts
 
 .claude
 
-# local data (sqlite)
-# /data
-# *.db
-# *.db-journal
-# *.db-wal
-# *.db-shm
+# local data (sqlite) — legacy, мигрировали на Postgres
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # attachments uploaded by users — локальные файлы, не должны попадать в git
 /data/attachments/
