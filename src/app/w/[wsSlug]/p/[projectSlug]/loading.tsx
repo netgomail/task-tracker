@@ -16,7 +16,7 @@ export default function BoardLoading() {
         {Array.from({ length: 3 }).map((_, c) => (
           <div
             key={c}
-            className="flex w-72 shrink-0 flex-col gap-2 rounded-lg border border-border bg-card p-2"
+            className="flex w-80 shrink-0 flex-col gap-2 rounded-lg border border-border bg-card p-2"
           >
             <div className="flex items-center justify-between p-1">
               <Skeleton className="h-4 w-24" />

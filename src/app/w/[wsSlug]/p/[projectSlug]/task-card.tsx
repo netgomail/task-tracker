@@ -415,6 +415,15 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {task.description && (
+        <button
+          type="button"
+          onClick={openDialog}
+          className="text-muted-foreground line-clamp-3 cursor-pointer text-left text-xs leading-snug whitespace-pre-wrap break-words"
+        >
+          {task.description}
+        </button>
+      )}
       <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
         <span
           className="inline-flex items-center gap-1"

@@ -113,7 +113,7 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks, members, templa
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex h-full w-72 shrink-0 flex-col overflow-hidden rounded-lg border",
+        "flex h-full w-80 shrink-0 flex-col overflow-hidden rounded-lg border",
         isDragging && "opacity-50",
       )}
     >

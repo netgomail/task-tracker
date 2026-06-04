@@ -44,7 +44,7 @@ export function NewColumnForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-12 w-72 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+        className="flex h-12 w-80 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
       >
         <Plus className="size-4" /> Добавить колонку
       </button>
@@ -52,7 +52,7 @@ export function NewColumnForm({
   }
 
   return (
-    <div className="flex h-12 w-72 shrink-0 items-center gap-2 rounded-lg border border-border bg-card p-2">
+    <div className="flex h-12 w-80 shrink-0 items-center gap-2 rounded-lg border border-border bg-card p-2">
       <Input
         autoFocus
         value={name}

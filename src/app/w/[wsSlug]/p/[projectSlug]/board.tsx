@@ -64,6 +64,7 @@ export type BoardTask = {
   id: string;
   columnId: string;
   title: string;
+  description: string | null;
   color: string;
   type: TaskType;
   priority: TaskPriority;
@@ -455,7 +456,7 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
         )}
         <DragOverlay>
           {activeColumn ? (
-            <div className="w-72 rounded-lg border border-border bg-card opacity-90 shadow-md">
+            <div className="w-80 rounded-lg border border-border bg-card opacity-90 shadow-md">
               <div className="flex items-center gap-2 p-3">
                 <span
                   className="block size-2 rounded-sm"

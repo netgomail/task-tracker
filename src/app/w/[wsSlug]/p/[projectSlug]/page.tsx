@@ -47,6 +47,7 @@ function toBoardTask(
     id: t.id,
     columnId: t.columnId,
     title: t.title,
+    description: t.description,
     color: t.color,
     type: t.type,
     priority: t.priority,
