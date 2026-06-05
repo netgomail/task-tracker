@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # На Synology шаги RUN при сборке не видят DNS — даём сборке host-сеть
+      network: host
     image: task-tracker:latest
     container_name: task-tracker
     restart: unless-stopped
