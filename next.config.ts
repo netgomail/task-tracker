@@ -46,6 +46,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Минимальный self-contained сервер для Docker: .next/standalone/server.js
+  output: "standalone",
   async headers() {
     return [
       {

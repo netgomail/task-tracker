@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: task-tracker:latest
+    container_name: task-tracker
+    restart: unless-stopped
+    ports:
+      # host:container — открываем приложение на http://NAS_IP:3000
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    # Доступ к Postgres-контейнеру, который публикует порт 5433 на хосте NAS.
+    # В DATABASE_URL используй host.docker.internal:5433 (см. .env.docker).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Вложения задач. На Synology можно указать абсолютный путь, например:
+      #   /volume1/docker/task-tracker/attachments:/app/data/attachments
+      - ./data/attachments:/app/data/attachments
