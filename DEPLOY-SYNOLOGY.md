@@ -1,14 +1,16 @@
 # Запуск на Synology (Docker / Container Manager)
 
-Приложение собирается в минимальный self-contained образ (Next.js `output: standalone`),
-подключается к **уже существующему** Postgres-контейнеру на этом же NAS и хранит
-вложения в смонтированном томе. Миграции БД применяются автоматически при старте.
+Один `docker-compose.yml` поднимает **оба** сервиса: Postgres (`tasktracker-db`) и
+само приложение (`task-tracker`). Приложение собирается в минимальный self-contained
+образ (Next.js `output: standalone`) и хранит вложения в смонтированном томе.
+Миграции БД применяются автоматически при старте (после того как Postgres станет
+healthy).
 
 ## 0. Предпосылки
 
 - На NAS установлен **Container Manager** (DSM 7.2+) или пакет **Docker**.
-- Уже работает Postgres-контейнер с базой `tasktracker` (данные мигрированы из SQLite),
-  публикующий порт на хост (в текущей конфигурации — `5433`).
+- Каталог для данных БД на NAS: `/volume1/docker/tasktracker-db` (создаётся при
+  первом запуске; туда складывается PGDATA тома Postgres 18).
 
 ## 1. Подготовить переменные окружения
 
@@ -18,17 +20,14 @@ cp .env.docker.example .env.docker
 
 Заполни `.env.docker`:
 
-- `DATABASE_URL` — пароль URL-кодируй (`@`→`%40`, `?`→`%3F`, `+`→`%2B`, …).
-  Хост `host.docker.internal` указывает на сам NAS (через `extra_hosts` в compose),
-  порт `5433` — публикуемый порт Postgres-контейнера.
+- `POSTGRES_PASSWORD` — пароль БД **как есть** (его получит контейнер Postgres).
+- `DATABASE_URL` — тот же пароль, но **URL-кодированный** (`@`→`%40`, `?`→`%3F`,
+  `+`→`%2B`, …). Хост `127.0.0.1`, порт `5433`: приложение в host-сети достаёт
+  Postgres по опубликованному порту через loopback самого NAS.
 - `BETTER_AUTH_SECRET` — `openssl rand -base64 32`.
 - `BETTER_AUTH_URL` — `http://NAS_IP:3000` (ровно тот URL, по которому открываешь).
 - `GOOGLE_CLIENT_ID/SECRET` — опционально; в Google Cloud Console добавь redirect URI
   `http://NAS_IP:3000/api/auth/callback/google`.
-
-> Если `host.docker.internal` не резолвится на твоём DSM — впиши в `DATABASE_URL`
-> прямой LAN-IP NAS вместо `host.docker.internal`, либо подключи оба контейнера
-> в одну docker-сеть и используй имя сервиса Postgres.
 
 ## 2. Собрать и запустить
 
@@ -36,7 +35,7 @@ cp .env.docker.example .env.docker
 
 ```bash
 docker compose build
-docker compose up -d
+docker compose up -d          # поднимет postgres, дождётся healthy, затем app
 docker compose logs -f        # видно "✔ migrations applied" и старт сервера
 ```
 
