@@ -13,11 +13,17 @@ services:
       - "3000:3000"
     env_file:
       - .env.docker
-    # Доступ к Postgres-контейнеру, который публикует порт 5433 на хосте NAS.
-    # В DATABASE_URL используй host.docker.internal:5433 (см. .env.docker).
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      # Сеть Postgres-контейнера (tasktracker-db). Обращаемся к БД по имени
+      # контейнера на внутреннем порту: DATABASE_URL=...@tasktracker-db:5432/...
+      - db
     volumes:
       # Вложения задач. На Synology можно указать абсолютный путь, например:
       #   /volume1/docker/task-tracker/attachments:/app/data/attachments
       - ./data/attachments:/app/data/attachments
+
+networks:
+  db:
+    external: true
+    name: tasktracker-db_default
