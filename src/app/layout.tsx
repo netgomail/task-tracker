@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: "Лёгкая доска задач для проектов и команд",
 };
 
+// CSP с nonce требует динамического рендера: nonce проставляется при SSR из
+// CSP-заголовка запроса (см. proxy.ts). У статически сгенерированных страниц
+// nonce нет — их inline-скрипты заблокировал бы браузер.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

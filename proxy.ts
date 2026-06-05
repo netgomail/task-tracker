@@ -4,6 +4,27 @@ import { getSessionCookie } from "better-auth/cookies";
 const PROTECTED_PREFIXES = ["/w", "/workspaces"];
 const AUTH_PAGES = ["/login", "/register"];
 
+const isDev = process.env.NODE_ENV === "development";
+
+// CSP с per-request nonce. В script-src нет 'unsafe-inline': inline-скрипты
+// бутстрапа Next.js исполняются только при совпадении nonce, а 'strict-dynamic'
+// распространяет доверие на чанки, которые они подгружают. style-src оставляет
+// 'unsafe-inline' (Tailwind/Next вставляют inline-стили без nonce). Без
+// upgrade-insecure-requests — приложение работает по http://NAS_IP:3000.
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+
 export function proxy(request: NextRequest) {
   // CVE-2025-29927: блокируем заголовок, который позволял обходить middleware
   // в Next.js 11–15. Версия 16 не уязвима, но блокируем для защиты в глубину.
@@ -33,7 +54,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // Генерируем nonce на каждый запрос и кладём его в CSP-заголовок запроса:
+  // Next.js при динамическом рендере читает 'nonce-...' из него и проставляет
+  // своим <script>. x-nonce — на случай чтения через headers() в коде.
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
 
 export const config = {
