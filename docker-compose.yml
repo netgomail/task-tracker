@@ -8,22 +8,16 @@ services:
     image: task-tracker:latest
     container_name: task-tracker
     restart: unless-stopped
-    ports:
-      # host:container — открываем приложение на http://NAS_IP:3000
-      - "3000:3000"
+    # Host-сеть: фаервол DSM режет трафик между контейнерами по docker-мосту.
+    # В host-режиме приложение живёт в сети самого NAS и достаёт Postgres через
+    # опубликованный порт по loopback (DATABASE_URL=...@127.0.0.1:5433/...),
+    # который фаервол не фильтрует. Сервер слушает 0.0.0.0:3000 (PORT/HOSTNAME
+    # заданы в образе) → http://NAS_IP:3000; доступ к :3000 ограничивается
+    # правилом фаервола DSM (только локальная подсеть).
+    network_mode: host
     env_file:
       - .env.docker
-    networks:
-      - default
-      # Сеть Postgres-контейнера (tasktracker-db). Обращаемся к БД по имени
-      # контейнера на внутреннем порту: DATABASE_URL=...@tasktracker-db:5432/...
-      - db
     volumes:
       # Вложения задач. На Synology можно указать абсолютный путь, например:
       #   /volume1/docker/task-tracker/attachments:/app/data/attachments
       - ./data/attachments:/app/data/attachments
-
-networks:
-  db:
-    external: true
-    name: tasktracker-db_default
