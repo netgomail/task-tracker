@@ -136,7 +136,7 @@ export function TaskAttachments({
           type="file"
           className="hidden"
           onChange={onPick}
-          accept="image/*,application/pdf,text/*,application/zip,application/json"
+          accept="image/*,application/pdf,text/*,application/zip,application/json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf"
         />
       </div>
 

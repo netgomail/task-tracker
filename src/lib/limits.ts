@@ -13,10 +13,26 @@ const MIME_ALLOWLIST = new Set<string>([
   "image/gif",
   "image/webp",
   "image/svg+xml",
+  "image/bmp",
+  "image/tiff",
+  "image/heic",
+  "image/heif",
   "application/pdf",
   "application/zip",
   "application/json",
   "application/x-zip-compressed",
+  // Office-документы (Word/Excel/PowerPoint) — для ОРД, журналов, инструкций.
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  // OpenDocument (LibreOffice/OnlyOffice).
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  "application/rtf",
 ]);
 
 const MIME_PREFIX_ALLOWLIST = ["text/"];
