@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
+import * as taskLinks from "@/services/task-links";
 import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
 import * as labels from "@/services/labels";
@@ -16,7 +17,21 @@ import type { CommentRow } from "@/services/comments";
 import type { LabelRow } from "@/services/labels";
 import type { TaskRow } from "@/services/tasks";
 import type { FieldDef } from "@/services/custom-fields";
-import type { MembershipRole } from "@/domain/types";
+import type { MembershipRole, TaskLinkType, TaskType } from "@/domain/types";
+
+export type SerializedLink = {
+  linkId: string;
+  direction: "outgoing" | "incoming";
+  type: TaskLinkType;
+  task: {
+    id: string;
+    title: string;
+    type: TaskType;
+    completed: boolean;
+    columnName: string;
+    projectSlug: string;
+  };
+};
 
 export type TaskDetailsResult =
   | { ok: false; error: string }
@@ -33,6 +48,7 @@ export type TaskDetailsResult =
       attachments: SerializedAttachment[];
       customFields: FieldDef[];
       customFieldValues: Record<string, string>;
+      links: SerializedLink[];
       me: { id: string; name: string; role: MembershipRole };
     };
 
@@ -40,8 +56,12 @@ export type SerializedAttachment = Omit<AttachmentRow, "createdAt"> & {
   createdAt: string;
 };
 
-export type SerializedTask = Omit<TaskRow, "dueAt" | "completedAt" | "archivedAt" | "createdAt"> & {
+export type SerializedTask = Omit<
+  TaskRow,
+  "dueAt" | "reviewAt" | "completedAt" | "archivedAt" | "createdAt"
+> & {
   dueAt: string | null;
+  reviewAt: string | null;
   completedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
@@ -60,6 +80,7 @@ function serializeTask(t: TaskRow): SerializedTask {
   return {
     ...t,
     dueAt: t.dueAt?.toISOString() ?? null,
+    reviewAt: t.reviewAt?.toISOString() ?? null,
     completedAt: t.completedAt?.toISOString() ?? null,
     archivedAt: t.archivedAt?.toISOString() ?? null,
     createdAt: t.createdAt.toISOString(),
@@ -91,6 +112,7 @@ export async function getTaskDetailsAction(
       attachmentRows,
       customFieldDefs,
       customFieldValues,
+      linkRows,
     ] = await Promise.all([
       tasks.listSubtasks(ws.workspaceId, taskId),
       comments.listForTask(ws.workspaceId, taskId),
@@ -101,6 +123,7 @@ export async function getTaskDetailsAction(
       attachmentsService.listForTask(ws.workspaceId, taskId),
       customFieldsService.listForProject(project.id),
       customFieldsService.getValuesForTask(ws.workspaceId, taskId),
+      taskLinks.listForTask(ws.workspaceId, taskId),
     ]);
 
     const assignee = task.assigneeId
@@ -130,6 +153,19 @@ export async function getTaskDetailsAction(
       })),
       customFields: customFieldDefs,
       customFieldValues,
+      links: linkRows.map((l) => ({
+        linkId: l.linkId,
+        direction: l.direction,
+        type: l.type,
+        task: {
+          id: l.task.id,
+          title: l.task.title,
+          type: l.task.type,
+          completed: l.task.completedAt != null,
+          columnName: l.task.columnName,
+          projectSlug: l.task.projectSlug,
+        },
+      })),
       me: { id: session.user.id, name: session.user.name, role: ws.role },
     };
   } catch (e) {

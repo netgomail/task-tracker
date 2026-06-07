@@ -28,6 +28,7 @@ export type TaskRow = {
   priority: TaskPriority;
   color: string;
   dueAt: Date | null;
+  reviewAt: Date | null;
   completedAt: Date | null;
   orderKey: string;
   assigneeId: string | null;
@@ -83,6 +84,7 @@ export async function listForProject(
       priority: tasks.priority,
       color: tasks.color,
       dueAt: tasks.dueAt,
+      reviewAt: tasks.reviewAt,
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
@@ -100,7 +102,7 @@ export async function listForProject(
   const rows = await query.where(and(...conditions)).orderBy(asc(tasks.orderKey));
   return rows.map((r) => ({
     ...r,
-    type: isTaskType(r.type) ? r.type : "task",
+    type: isTaskType(r.type) ? r.type : "order",
     priority: isPriority(r.priority) ? r.priority : "normal",
   }));
 }
@@ -159,7 +161,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
   const orderKey = keyBetween(null, first?.orderKey ?? null);
   const color = input.color ?? DEFAULT_COLOR;
   const priority = input.priority ?? "normal";
-  const type = input.type ?? "task";
+  const type = input.type ?? "order";
   const id = newId();
   const now = new Date();
   await db.insert(tasks).values({
@@ -187,6 +189,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
     priority,
     color,
     dueAt: null,
+    reviewAt: null,
     completedAt: null,
     orderKey,
     assigneeId: input.assigneeId ?? null,
@@ -266,6 +269,7 @@ export async function getById(workspaceId: string, taskId: string): Promise<Task
       priority: tasks.priority,
       color: tasks.color,
       dueAt: tasks.dueAt,
+      reviewAt: tasks.reviewAt,
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
@@ -279,7 +283,7 @@ export async function getById(workspaceId: string, taskId: string): Promise<Task
   if (!row || row.workspaceId !== workspaceId) return null;
   return {
     ...row,
-    type: isTaskType(row.type) ? row.type : "task",
+    type: isTaskType(row.type) ? row.type : "order",
     priority: isPriority(row.priority) ? row.priority : "normal",
   };
 }
@@ -300,6 +304,7 @@ export async function listSubtasks(
       priority: tasks.priority,
       color: tasks.color,
       dueAt: tasks.dueAt,
+      reviewAt: tasks.reviewAt,
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
@@ -311,7 +316,7 @@ export async function listSubtasks(
     .orderBy(asc(tasks.orderKey));
   return rows.map((r) => ({
     ...r,
-    type: isTaskType(r.type) ? r.type : "task",
+    type: isTaskType(r.type) ? r.type : "other",
     priority: isPriority(r.priority) ? r.priority : "normal",
   }));
 }
@@ -342,7 +347,7 @@ export async function createSubtask(
     title,
     color: parent.color,
     priority: "normal",
-    type: "task",
+    type: "other",
     orderKey,
     createdBy,
     createdAt: now,
@@ -354,10 +359,11 @@ export async function createSubtask(
     parentId: parentTaskId,
     title,
     description: null,
-    type: "task",
+    type: "other",
     priority: "normal",
     color: parent.color,
     dueAt: null,
+    reviewAt: null,
     completedAt: null,
     orderKey,
     assigneeId: null,
@@ -387,6 +393,18 @@ export async function setDueAt(
   await db
     .update(tasks)
     .set({ dueAt, updatedAt: new Date() })
+    .where(eq(tasks.id, taskId));
+}
+
+export async function setReviewAt(
+  workspaceId: string,
+  taskId: string,
+  reviewAt: Date | null,
+): Promise<void> {
+  await assertTaskInWorkspace(taskId, workspaceId);
+  await db
+    .update(tasks)
+    .set({ reviewAt, updatedAt: new Date() })
     .where(eq(tasks.id, taskId));
 }
 

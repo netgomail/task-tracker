@@ -126,7 +126,7 @@ export async function listArchivedTasks(
     rows: dataRows.map((r) => ({
       id: r.id,
       title: r.title,
-      type: isTaskType(r.type) ? r.type : "task",
+      type: isTaskType(r.type) ? r.type : "order",
       priority: isPriority(r.priority) ? r.priority : "normal",
       color: r.color,
       archivedAt: r.archivedAt as Date,

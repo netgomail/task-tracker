@@ -51,7 +51,7 @@ const EMPTY: DraftState = {
   id: null,
   name: "",
   description: "",
-  type: "task",
+  type: "order",
   priority: "normal",
   color: "slate",
   labelIds: [],
