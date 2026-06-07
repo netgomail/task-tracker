@@ -51,3 +51,6 @@ next-env.d.ts
 
 # attachments uploaded by users — локальные файлы, не должны попадать в git
 /data/attachments/
+
+# DB backups (содержат токены сессий)
+backups/

@@ -12,6 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local src/scripts/migrate.ts",
     "db:migrate-data": "tsx --env-file=.env.local src/scripts/migrate-data.ts",
+    "db:backup": "node --env-file=.env.local src/scripts/backup-db.mjs",
+    "db:seed-ord": "tsx --env-file=.env.local src/scripts/seed-ord.ts",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push"
   },
