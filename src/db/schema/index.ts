@@ -11,6 +11,7 @@
 export * from "./auth";
 export * from "./projects";
 export * from "./tasks";
+export * from "./task-links";
 export * from "./activity";
 export * from "./labels";
 export * from "./templates";

@@ -3,6 +3,7 @@ import { check, foreignKey, index, pgTable, text, timestamp } from "drizzle-orm/
 
 import { organization, user } from "./auth";
 import { columns, projects } from "./projects";
+import { taskLinks } from "./task-links";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
@@ -22,10 +23,11 @@ export const tasks = pgTable(
     parentId: text("parent_id"),
     title: text("title").notNull(),
     description: text("description"),
-    type: text("type").notNull().default("task"),
+    type: text("type").notNull().default("order"),
     priority: text("priority").notNull().default("normal"),
     color: text("color").notNull().default("slate"),
     dueAt: ts("due_at"),
+    reviewAt: ts("review_at"),
     completedAt: ts("completed_at"),
     orderKey: text("order_key").notNull(),
     createdBy: text("created_by")
@@ -50,7 +52,7 @@ export const tasks = pgTable(
     }).onDelete("cascade"),
     check(
       "tasks_type_chk",
-      sql`${t.type} in ('task','bug','feature','chore')`,
+      sql`${t.type} in ('order','instruction','regulation','policy','plan','journal','list','consent','job_description','act','model','other')`,
     ),
     check(
       "tasks_priority_chk",
@@ -86,4 +88,6 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     relationName: "subtasks",
   }),
   subtasks: many(tasks, { relationName: "subtasks" }),
+  outgoingLinks: many(taskLinks, { relationName: "outgoingLinks" }),
+  incomingLinks: many(taskLinks, { relationName: "incomingLinks" }),
 }));
