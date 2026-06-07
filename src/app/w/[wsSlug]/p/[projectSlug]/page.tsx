@@ -31,6 +31,7 @@ import {
   type BoardTaskAssignee,
 } from "./board";
 import { BoardFilters } from "./board-filters";
+import { SaveAsSetButton } from "./save-as-set-button";
 import type { NewTaskTemplate } from "./new-task-form";
 import { TaskTable, type TaskTableRow } from "./task-table";
 import { ViewToggle, type ViewMode } from "./view-toggle";
@@ -208,6 +209,7 @@ export default async function ProjectBoardPage({
         )}
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <ViewToggle projectSlug={projectSlug} current={view} />
+          <SaveAsSetButton wsSlug={wsSlug} projectSlug={projectSlug} projectName={project.name} />
           <BoardFilters
             labels={wsLabels}
             members={members}

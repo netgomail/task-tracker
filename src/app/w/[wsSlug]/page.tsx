@@ -1,9 +1,11 @@
 import { requireUser } from "@/lib/rbac";
 import { getBySlug } from "@/services/membership";
 import { listForWorkspace } from "@/services/projects";
+import { listForWorkspace as listSets } from "@/services/document-sets";
 
 import { NewProjectForm } from "./new-project-form";
 import { ProjectCard } from "./project-card";
+import { SetLauncher } from "./set-launcher";
 
 export const dynamic = "force-dynamic";
 
@@ -15,20 +17,26 @@ export default async function WorkspaceHomePage({
   const { wsSlug } = await params;
   const session = await requireUser();
   const ws = (await getBySlug(session.user.id, wsSlug))!;
-  const projects = await listForWorkspace(ws.workspaceId);
+  const [projects, sets] = await Promise.all([
+    listForWorkspace(ws.workspaceId),
+    listSets(ws.workspaceId),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Проекты
-        </span>
-        <h1 className="text-2xl font-semibold tracking-tight">{ws.workspaceName}</h1>
-        <p className="text-sm text-muted-foreground">
-          {projects.length === 0
-            ? "Пока ни одного проекта. Создайте первый."
-            : `Активных проектов: ${projects.length}.`}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Проекты
+          </span>
+          <h1 className="text-2xl font-semibold tracking-tight">{ws.workspaceName}</h1>
+          <p className="text-sm text-muted-foreground">
+            {projects.length === 0
+              ? "Пока ни одного проекта. Создайте первый."
+              : `Активных проектов: ${projects.length}.`}
+          </p>
+        </div>
+        <SetLauncher wsSlug={wsSlug} sets={sets} />
       </div>
 
       {projects.length > 0 && (
