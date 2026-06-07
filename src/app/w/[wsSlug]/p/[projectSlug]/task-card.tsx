@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Pencil,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,6 +75,10 @@ type Props = {
   projectSlug: string;
   task: BoardTask;
 };
+
+function isPast(iso: string | null): boolean {
+  return iso != null && new Date(iso).getTime() < Date.now();
+}
 
 function formatDue(iso: string): { label: string; overdue: boolean } {
   const d = new Date(iso);
@@ -499,6 +504,15 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           >
             <CalendarClock className="size-3" />
             {due.label}
+          </span>
+        )}
+        {isPast(task.reviewAt) && (
+          <span
+            className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-1.5 py-0.5 text-rose-600 dark:text-rose-400"
+            title="Срок пересмотра прошёл"
+          >
+            <RefreshCw className="size-3" />
+            пересмотр
           </span>
         )}
         {task.assignee && (

@@ -271,6 +271,31 @@ export async function setTaskDescriptionAction(
   return { ok: true };
 }
 
+export async function setTaskReviewAction(
+  wsSlug: string,
+  projectSlug: string,
+  taskId: string,
+  reviewIso: string,
+): Promise<ActionResult> {
+  if (reviewIso !== "") {
+    const d = new Date(reviewIso);
+    if (Number.isNaN(d.getTime())) return { ok: false, error: "Неверная дата" };
+  }
+  const next = reviewIso === "" ? null : new Date(reviewIso);
+  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  await tasks.setReviewAt(ws.workspaceId, taskId, next);
+  await activity.record({
+    workspaceId: ws.workspaceId,
+    projectId: project.id,
+    taskId,
+    actorId: session.user.id,
+    type: "task.review",
+    payload: { reviewAt: next?.toISOString() ?? null },
+  });
+  refreshBoard(wsSlug, projectSlug, project.boardId);
+  return { ok: true };
+}
+
 const DueSchema = z.union([z.literal(""), z.string().datetime({ offset: true }), z.iso.datetime()]);
 
 export async function setTaskDueAction(

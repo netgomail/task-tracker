@@ -74,6 +74,7 @@ import {
   setTaskDescriptionAction,
   setTaskDueAction,
   setTaskPriorityAction,
+  setTaskReviewAction,
   setTaskTypeAction,
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
@@ -133,6 +134,10 @@ function toLocalDatetime(iso: string | null): string {
 
 function fromLocalDatetime(value: string): string {
   return value ? new Date(value).toISOString() : "";
+}
+
+function isPast(iso: string | null): boolean {
+  return iso != null && new Date(iso).getTime() < Date.now();
 }
 
 export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
@@ -1156,6 +1161,12 @@ function Sidebar({
     if (!res.ok) toast.error(res.error);
     onRefresh();
   }
+  async function setReview(value: string) {
+    const iso = value ? fromLocalDatetime(value) : "";
+    const res = await setTaskReviewAction(wsSlug, projectSlug, task.id, iso);
+    if (!res.ok) toast.error(res.error);
+    onRefresh();
+  }
   async function toggleLabel(labelId: string, attached: boolean) {
     const fn = attached ? detachLabelAction : attachLabelAction;
     const res = await fn(wsSlug, projectSlug, task.id, labelId);
@@ -1289,6 +1300,18 @@ function Sidebar({
           onChange={(e) => setDue(e.target.value)}
           disabled={pending}
           className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+        />
+      </SidebarBlock>
+      <SidebarBlock title="Срок пересмотра">
+        <input
+          type="datetime-local"
+          value={toLocalDatetime(task.reviewAt)}
+          onChange={(e) => setReview(e.target.value)}
+          disabled={pending}
+          className={cn(
+            "h-8 w-full rounded-md border border-input bg-background px-2 text-xs",
+            isPast(task.reviewAt) && "border-rose-400 text-rose-600 dark:text-rose-400",
+          )}
         />
       </SidebarBlock>
       <SidebarBlock title="Исполнитель">
