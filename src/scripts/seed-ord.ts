@@ -12,6 +12,9 @@ import { randomUUID } from "node:crypto";
 import { generateNKeysBetween } from "fractional-indexing";
 import postgres from "postgres";
 
+import { ORD_DESCRIPTIONS } from "./ord-descriptions";
+import { ORD_SUBTASKS } from "./ord-subtasks";
+
 const ORG_ID = process.env.SEED_ORG_ID ?? "3Mv7NfvJWKMYakcEppMKObf6AlV5tBQy";
 const USER_ID = process.env.SEED_USER_ID ?? "kZWBRa3XBfPVkWfKfnShEl5nA5s1uq65";
 
@@ -280,6 +283,7 @@ async function main() {
         project_id: projectId,
         column_id: firstColumn,
         title,
+        description: ORD_DESCRIPTIONS[title] ?? null,
         type,
         priority: "normal",
         color: "slate",
@@ -289,6 +293,29 @@ async function main() {
         created_at: now,
         updated_at: now,
       })}`;
+
+      // Осмысленные подзадачи (только у документов с разнородной работой).
+      const subs = ORD_SUBTASKS[title];
+      if (subs?.length) {
+        const subKeys = generateNKeysBetween(null, null, subs.length);
+        for (let s = 0; s < subs.length; s++) {
+          await sql`insert into tasks ${sql({
+            id: randomUUID(),
+            workspace_id: ORG_ID,
+            project_id: projectId,
+            column_id: firstColumn,
+            parent_id: taskId,
+            title: subs[s],
+            type: "other",
+            priority: "normal",
+            color: "slate",
+            order_key: subKeys[s],
+            created_by: USER_ID,
+            created_at: now,
+            updated_at: now,
+          })}`;
+        }
+      }
     }
   }
 
