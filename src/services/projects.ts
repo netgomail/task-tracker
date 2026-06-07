@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
+import { tasks } from "@/db/schema/tasks";
 import { keysBetween } from "@/domain/ordering";
 import { newId, randomSlug } from "@/lib/ids";
-import { DEFAULT_COLUMN_COLORS, type LabelColorSlug } from "@/lib/colors";
+import { type LabelColorSlug } from "@/lib/colors";
 
 export type ProjectSummary = {
   id: string;
@@ -17,10 +18,19 @@ export type ProjectSummary = {
   createdAt: Date;
 };
 
-const DEFAULT_COLUMNS = [
-  { name: "Задача", color: DEFAULT_COLUMN_COLORS[0] as LabelColorSlug },
-  { name: "В работе", color: DEFAULT_COLUMN_COLORS[1] as LabelColorSlug },
-  { name: "Готово", color: DEFAULT_COLUMN_COLORS[2] as LabelColorSlug },
+/**
+ * Колонки доски = стадии жизненного цикла документа ОРД.
+ * WIP-лимиты стоят на «бутылочных горлышках» — согласовании и утверждении,
+ * где обычно ждут руководителя; превышение подсветит затор.
+ */
+const DEFAULT_COLUMNS: { name: string; color: LabelColorSlug; wipLimit: number | null }[] = [
+  { name: "Не начато", color: "slate", wipLimit: null },
+  { name: "Разработка проекта", color: "blue", wipLimit: null },
+  { name: "Согласование", color: "amber", wipLimit: 3 },
+  { name: "Утверждение", color: "violet", wipLimit: 2 },
+  { name: "Ввод в действие", color: "cyan", wipLimit: null },
+  { name: "Ознакомление", color: "teal", wipLimit: null },
+  { name: "Готово", color: "green", wipLimit: null },
 ];
 
 export async function listForWorkspace(workspaceId: string): Promise<ProjectSummary[]> {
@@ -60,6 +70,25 @@ export async function getBySlug(
   return row ?? null;
 }
 
+export type ProjectProgress = { done: number; total: number };
+
+/**
+ * Готовность комплекта (проекта-темы): доля завершённых документов среди
+ * корневых, неархивных задач. Считается без учёта фильтров доски.
+ */
+export async function progress(projectId: string): Promise<ProjectProgress> {
+  const [row] = await db
+    .select({
+      total: count(),
+      done: count(tasks.completedAt),
+    })
+    .from(tasks)
+    .where(
+      and(eq(tasks.projectId, projectId), isNull(tasks.parentId), isNull(tasks.archivedAt)),
+    );
+  return { done: Number(row?.done ?? 0), total: Number(row?.total ?? 0) };
+}
+
 export type CreateProjectInput = {
   workspaceId: string;
   name: string;
@@ -94,6 +123,7 @@ export async function create(input: CreateProjectInput): Promise<ProjectSummary 
         boardId,
         name: c.name,
         color: c.color,
+        wipLimit: c.wipLimit,
         orderKey: orderKeys[i],
         createdAt: now,
       })),

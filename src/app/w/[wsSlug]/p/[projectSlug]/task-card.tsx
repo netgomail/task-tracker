@@ -59,7 +59,12 @@ import {
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
-import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
+import {
+  PRIORITY_TONE_CLASSES,
+  TASK_PRIORITY_META,
+  TASK_TYPE_META,
+  TYPE_TONE_CLASSES,
+} from "@/lib/task-meta";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 import type { BoardTask, BoardTaskSubtask } from "./board";
@@ -427,11 +432,15 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
       )}
       <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
         <span
-          className="inline-flex items-center gap-1"
+          className={cn(
+            "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium",
+            TYPE_TONE_CLASSES[typeMeta.tone],
+          )}
           aria-label={typeMeta.label}
           title={typeMeta.label}
         >
           <typeMeta.Icon className="size-3.5" />
+          {typeMeta.short}
         </span>
         {task.commentsCount > 0 && (
           <span

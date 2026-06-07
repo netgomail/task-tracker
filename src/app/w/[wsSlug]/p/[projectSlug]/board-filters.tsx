@@ -16,8 +16,13 @@ import { cn } from "@/lib/utils";
 import { colorHex, isLabelColor } from "@/lib/colors";
 import type { LabelRow } from "@/services/labels";
 import type { WorkspaceMember } from "@/services/membership";
-import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
-import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META } from "@/lib/task-meta";
+import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
+import {
+  PRIORITY_TONE_CLASSES,
+  TASK_PRIORITY_META,
+  TASK_TYPE_META,
+  TYPE_TONE_CLASSES,
+} from "@/lib/task-meta";
 
 type Props = {
   labels: LabelRow[];
@@ -33,6 +38,7 @@ export function BoardFilters({ labels, members, currentUserId }: Props) {
 
   const currentQ = searchParams.get("q") ?? "";
   const currentPriority = searchParams.get("priority");
+  const currentType = searchParams.get("type");
   const currentLabel = searchParams.get("label");
   const currentAssignee = searchParams.get("assignee");
   const [draftQ, setDraftQ] = useState(currentQ);
@@ -74,7 +80,9 @@ export function BoardFilters({ labels, members, currentUserId }: Props) {
       : currentAssignee === "none"
         ? "Без исполнителя"
         : "Исполнитель";
-  const hasActive = Boolean(currentQ || currentPriority || currentLabel || currentAssignee);
+  const hasActive = Boolean(
+    currentQ || currentPriority || currentType || currentLabel || currentAssignee,
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -144,6 +152,59 @@ export function BoardFilters({ labels, members, currentUserId }: Props) {
                     )}
                   >
                     <Icon className={cn("size-3.5", PRIORITY_TONE_CLASSES[meta.tone])} />
+                    {meta.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5", currentType && "ring-1 ring-foreground/40")}
+            disabled={pending}
+          >
+            <Filter className="size-3.5" />
+            {currentType
+              ? TASK_TYPE_META[currentType as TaskType].label
+              : "Тип"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56">
+          <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+            <li>
+              <button
+                type="button"
+                onClick={() => setParam("type", null)}
+                className={cn(
+                  "flex w-full items-center rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                  !currentType && "bg-accent",
+                )}
+              >
+                Все
+              </button>
+            </li>
+            {TASK_TYPES.map((t) => {
+              const meta = TASK_TYPE_META[t];
+              const Icon = meta.Icon;
+              return (
+                <li key={t}>
+                  <button
+                    type="button"
+                    onClick={() => setParam("type", t)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                      currentType === t && "bg-accent",
+                    )}
+                  >
+                    <span className={cn("rounded p-0.5", TYPE_TONE_CLASSES[meta.tone])}>
+                      <Icon className="size-3.5" />
+                    </span>
                     {meta.label}
                   </button>
                 </li>

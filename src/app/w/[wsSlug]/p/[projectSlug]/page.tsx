@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
+import { getBySlug as getProjectBySlug, progress as projectProgress } from "@/services/projects";
 import { listForBoard } from "@/services/columns";
 import {
   listForProject,
@@ -22,7 +22,7 @@ import type { LabelRow } from "@/services/labels";
 import { listMembers, type WorkspaceMember } from "@/services/membership";
 import { searchTaskIds } from "@/services/search";
 import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
-import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
+import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 import {
   Board,
@@ -84,6 +84,11 @@ function pickPriority(value: string | undefined): TaskPriority | undefined {
     : undefined;
 }
 
+function pickType(value: string | undefined): TaskType | undefined {
+  if (!value) return undefined;
+  return (TASK_TYPES as readonly string[]).includes(value) ? (value as TaskType) : undefined;
+}
+
 function pickString(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
@@ -106,6 +111,7 @@ export default async function ProjectBoardPage({
 
   const qParam = pickString(sp.q)?.trim() ?? "";
   const priorityParam = pickPriority(pickString(sp.priority));
+  const typeParam = pickType(pickString(sp.type));
   const labelParam = pickString(sp.label);
   const assigneeParam = pickString(sp.assignee);
 
@@ -120,18 +126,21 @@ export default async function ProjectBoardPage({
 
   const filter: TaskFilter = {
     priority: priorityParam,
+    type: typeParam,
     labelId: labelParam,
     matchingIds,
     assignee: assigneeFilter,
   };
 
-  const [cols, taskRows, wsLabels, members, wsTemplates] = await Promise.all([
+  const [cols, taskRows, wsLabels, members, wsTemplates, progress] = await Promise.all([
     listForBoard(project.boardId),
     listForProject(project.id, filter),
     listLabelsForWorkspace(ws.workspaceId),
     listMembers(ws.workspaceId),
     listTemplatesForWorkspace(ws.workspaceId),
+    projectProgress(project.id),
   ]);
+  const progressPct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const templates: NewTaskTemplate[] = wsTemplates.map((t) => ({
     id: t.id,
     name: t.name,
@@ -151,6 +160,7 @@ export default async function ProjectBoardPage({
     name: c.name,
     color: c.color,
     orderKey: c.orderKey,
+    wipLimit: c.wipLimit,
   }));
   const tasks: BoardTask[] = taskRows.map((t) => {
     const m = t.assigneeId ? membersById.get(t.assigneeId) ?? null : null;
@@ -180,6 +190,22 @@ export default async function ProjectBoardPage({
           <h1 className="text-base font-semibold tracking-tight">{project.name}</h1>
           <span className="text-xs text-muted-foreground">/{project.slug}</span>
         </div>
+        {progress.total > 0 && (
+          <div
+            className="flex items-center gap-2"
+            title={`Готовность комплекта: ${progress.done} из ${progress.total}`}
+          >
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
+              <div
+                className={progressPct === 100 ? "h-full bg-green-500" : "h-full bg-blue-500"}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {progress.done}/{progress.total}
+            </span>
+          </div>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <ViewToggle projectSlug={projectSlug} current={view} />
           <BoardFilters

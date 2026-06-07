@@ -40,6 +40,7 @@ export type BoardColumn = {
   name: string;
   color: string;
   orderKey: string;
+  wipLimit: number | null;
 };
 
 export type BoardTaskLabel = {

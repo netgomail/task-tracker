@@ -151,16 +151,28 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks, members, templa
             {column.name}
           </button>
         )}
-        {!editing && (
-          <span
-            className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
-            style={{ backgroundColor: badgeBg, color: badgeFg }}
-            aria-label={`Задач в колонке: ${tasks.length}`}
-            title={`Задач: ${tasks.length}`}
-          >
-            {tasks.length}
-          </span>
-        )}
+        {!editing &&
+          (() => {
+            const overWip = column.wipLimit != null && tasks.length > column.wipLimit;
+            return (
+              <span
+                className={cn(
+                  "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
+                  overWip && "bg-red-500/15 text-red-600 dark:text-red-400 ring-1 ring-red-500/40",
+                )}
+                style={overWip ? undefined : { backgroundColor: badgeBg, color: badgeFg }}
+                aria-label={`Задач в колонке: ${tasks.length}${column.wipLimit != null ? ` из лимита ${column.wipLimit}` : ""}`}
+                title={
+                  column.wipLimit != null
+                    ? `Задач: ${tasks.length} (WIP-лимит ${column.wipLimit})`
+                    : `Задач: ${tasks.length}`
+                }
+              >
+                {tasks.length}
+                {column.wipLimit != null && `/${column.wipLimit}`}
+              </span>
+            );
+          })()}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

@@ -45,6 +45,7 @@ function isPriority(value: string): value is TaskPriority {
 
 export type TaskFilter = {
   priority?: TaskPriority;
+  type?: TaskType;
   labelId?: string;
   /** Список id из FTS5; если undefined — поиск не применялся, если [] — пусто. */
   matchingIds?: string[];
@@ -63,6 +64,9 @@ export async function listForProject(
   ];
   if (filter?.priority) {
     conditions.push(eq(tasks.priority, filter.priority));
+  }
+  if (filter?.type) {
+    conditions.push(eq(tasks.type, filter.type));
   }
   if (filter?.matchingIds) {
     if (filter.matchingIds.length === 0) return [];
