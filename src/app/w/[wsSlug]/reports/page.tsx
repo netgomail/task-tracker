@@ -12,6 +12,7 @@ import {
   velocityByAssignee,
 } from "@/services/reports";
 
+import { PageShell } from "../page-shell";
 import { ReportsFilters } from "./reports-filters";
 import { ReportsView } from "./reports-view";
 
@@ -63,7 +64,7 @@ export default async function ReportsPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <Link href={`/w/${wsSlug}`} className="text-xs text-muted-foreground hover:text-foreground">
           {ws.workspaceName}
@@ -89,6 +90,6 @@ export default async function ReportsPage({
         load={loadData}
         rangeLabel={`${from.toLocaleDateString("ru")} — ${to.toLocaleDateString("ru")}`}
       />
-    </div>
+    </PageShell>
   );
 }

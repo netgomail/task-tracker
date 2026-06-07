@@ -4,6 +4,7 @@ import { listForWorkspace } from "@/services/projects";
 import { listForWorkspace as listSets } from "@/services/document-sets";
 
 import { NewProjectForm } from "./new-project-form";
+import { PageShell } from "./page-shell";
 import { ProjectCard } from "./project-card";
 import { SetLauncher } from "./set-launcher";
 
@@ -23,7 +24,7 @@ export default async function WorkspaceHomePage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
+    <PageShell>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -58,6 +59,6 @@ export default async function WorkspaceHomePage({
         <h2 className="text-sm font-medium text-foreground">Создать проект</h2>
         <NewProjectForm wsSlug={wsSlug} />
       </section>
-    </div>
+    </PageShell>
   );
 }

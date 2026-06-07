@@ -7,6 +7,7 @@ import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listForWorkspace } from "@/services/projects";
 import { listArchivedProjects, listArchivedTasks } from "@/services/archive";
 
+import { PageShell } from "../page-shell";
 import { ArchiveFilters } from "./archive-filters";
 import { ArchiveProjects } from "./archive-projects";
 import { ArchiveTable } from "./archive-table";
@@ -47,7 +48,7 @@ export default async function ArchivePage({
   const grandTotal = total + archivedProjects.length;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <Link
           href={`/w/${wsSlug}`}
@@ -132,7 +133,7 @@ export default async function ArchivePage({
           <Pager wsSlug={wsSlug} page={page} totalPages={totalPages} sp={sp} />
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 

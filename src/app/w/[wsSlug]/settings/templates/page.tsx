@@ -6,6 +6,7 @@ import { listForWorkspace as listLabelsForWorkspace } from "@/services/labels";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
 
+import { PageShell } from "../../page-shell";
 import { TemplatesManager } from "./templates-manager";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function TemplatesSettingsPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <Link href={`/w/${wsSlug}`} className="text-xs text-muted-foreground hover:text-foreground">
           {ws.workspaceName}
@@ -52,6 +53,6 @@ export default async function TemplatesSettingsPage({
         }))}
         labels={labels}
       />
-    </div>
+    </PageShell>
   );
 }

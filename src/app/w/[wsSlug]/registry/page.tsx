@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listRegistry } from "@/services/registry";
 
+import { PageShell } from "../page-shell";
 import { RegistryView } from "./registry-view";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function RegistryPage({
   const rows = await listRegistry(ws.workspaceId);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-6 py-8">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Реестр ОРД
@@ -32,6 +33,6 @@ export default async function RegistryPage({
         </p>
       </div>
       <RegistryView wsSlug={wsSlug} rows={rows} />
-    </div>
+    </PageShell>
   );
 }

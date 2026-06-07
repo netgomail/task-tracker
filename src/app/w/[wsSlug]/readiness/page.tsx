@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { themesReadiness } from "@/services/readiness";
 
+import { PageShell } from "../page-shell";
 import { ReadinessView } from "./readiness-view";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function ReadinessPage({
   const themes = await themesReadiness(ws.workspaceId);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Готовность комплектов
@@ -32,6 +33,6 @@ export default async function ReadinessPage({
         </p>
       </div>
       <ReadinessView wsSlug={wsSlug} themes={themes} />
-    </div>
+    </PageShell>
   );
 }

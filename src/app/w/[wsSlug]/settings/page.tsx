@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/rbac";
 import { getBySlug, listMembers } from "@/services/membership";
 
+import { PageShell } from "../page-shell";
 import { MembersList, RenameForm } from "./settings-client";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function WorkspaceSettingsPage({
   const members = await listMembers(ws.workspaceId);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-10">
+    <PageShell>
       <div className="flex flex-col gap-1">
         <Link href={`/w/${wsSlug}`} className="text-xs text-muted-foreground hover:text-foreground">
           {ws.workspaceName}
@@ -47,6 +48,6 @@ export default async function WorkspaceSettingsPage({
           initialMembers={members}
         />
       </section>
-    </div>
+    </PageShell>
   );
 }
