@@ -9,6 +9,7 @@ import {
   ChevronDown,
   FileText,
   GitBranchPlus,
+  Link2,
   MessageSquare,
   MoreHorizontal,
   Paperclip,
@@ -450,6 +451,23 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
           >
             <Paperclip className="size-3.5" />
             <span className="tabular-nums">{task.attachmentsCount}</span>
+          </span>
+        )}
+        {task.linksTotal > 0 && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-md px-1 py-0.5",
+              task.linksDone === task.linksTotal
+                ? "text-green-600 dark:text-green-400"
+                : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+            )}
+            title={`Комплект: ${task.linksDone}/${task.linksTotal} готово`}
+            aria-label={`Комплект: ${task.linksDone} из ${task.linksTotal} готово`}
+          >
+            <Link2 className="size-3.5" />
+            <span className="tabular-nums">
+              {task.linksDone}/{task.linksTotal}
+            </span>
           </span>
         )}
         {task.priority !== "normal" && (

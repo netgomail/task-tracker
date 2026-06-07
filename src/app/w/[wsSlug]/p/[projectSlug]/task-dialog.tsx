@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import {
   Dialog,
@@ -35,24 +35,35 @@ import type { WorkspaceMember } from "@/services/membership";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/relative-time";
 import {
+  TASK_LINK_TYPES,
   TASK_PRIORITIES,
   TASK_TYPES,
+  type TaskLinkType,
   type TaskPriority,
   type TaskType,
 } from "@/domain/types";
 import {
   PRIORITY_TONE_CLASSES,
+  TASK_LINK_META,
   TASK_PRIORITY_META,
   TASK_TYPE_META,
+  TYPE_TONE_CLASSES,
 } from "@/lib/task-meta";
 
 import {
   getTaskDetailsAction,
   type SerializedActivity,
   type SerializedComment,
+  type SerializedLink,
   type SerializedTask,
   type TaskDetailsResult,
 } from "@/actions/task-details";
+import {
+  createLinkAction,
+  deleteLinkAction,
+  searchLinkableAction,
+} from "@/actions/task-links";
+import type { LinkableTask } from "@/services/task-links";
 import {
   archiveTaskAction,
   createSubtaskAction,
@@ -108,6 +119,9 @@ const TYPE_LABELS: Record<string, string> = {
   "label.attach": "добавил(а) метку",
   "label.detach": "снял(а) метку",
   "task.assignee": "сменил(а) исполнителя",
+  "task.review": "обновил(а) срок пересмотра",
+  "link.create": "связал(а) документ",
+  "link.delete": "убрал(а) связь",
 };
 
 function toLocalDatetime(iso: string | null): string {
@@ -197,6 +211,13 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 projectSlug={projectSlug}
                 taskId={task.id}
                 subtasks={details.subtasks}
+                onRefresh={refresh}
+              />
+              <Separator className="my-4" />
+              <DocumentSet
+                wsSlug={wsSlug}
+                taskId={task.id}
+                links={details.links}
                 onRefresh={refresh}
               />
               <Separator className="my-4" />
@@ -650,6 +671,256 @@ function SubtaskItem({
         <Trash2 className="size-3.5" />
       </Button>
     </li>
+  );
+}
+
+function TypeBadge({ type }: { type: TaskType }) {
+  const meta = TASK_TYPE_META[type];
+  const Icon = meta.Icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium",
+        TYPE_TONE_CLASSES[meta.tone],
+      )}
+    >
+      <Icon className="size-3" />
+      {meta.short}
+    </span>
+  );
+}
+
+function DocumentSet({
+  wsSlug,
+  taskId,
+  links,
+  onRefresh,
+}: {
+  wsSlug: string;
+  taskId: string;
+  links: SerializedLink[];
+  onRefresh: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const done = links.filter((l) => l.task.completed).length;
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Комплект
+          {links.length > 0 && (
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[11px] font-semibold normal-case tracking-normal",
+                done === links.length
+                  ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+              )}
+            >
+              {done}/{links.length} готово
+            </span>
+          )}
+        </h3>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 text-xs"
+          onClick={() => setAdding((v) => !v)}
+        >
+          <Plus className="size-3.5" />
+          Связать
+        </Button>
+      </div>
+
+      {adding && (
+        <LinkPicker
+          wsSlug={wsSlug}
+          taskId={taskId}
+          onDone={() => {
+            setAdding(false);
+            onRefresh();
+          }}
+        />
+      )}
+
+      {links.length === 0 && !adding ? (
+        <p className="text-sm text-muted-foreground">
+          Свяжите документы, которые нужно подготовить вместе с этим (приказ → инструкция, журнал, перечень).
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {links.map((l) => (
+            <LinkRow key={l.linkId} wsSlug={wsSlug} taskId={taskId} link={l} onRefresh={onRefresh} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function LinkRow({
+  wsSlug,
+  taskId,
+  link,
+  onRefresh,
+}: {
+  wsSlug: string;
+  taskId: string;
+  link: SerializedLink;
+  onRefresh: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const verb =
+    link.direction === "outgoing"
+      ? TASK_LINK_META[link.type].forward
+      : TASK_LINK_META[link.type].reverse;
+
+  function removeLink() {
+    start(async () => {
+      const res = await deleteLinkAction(wsSlug, link.linkId, [taskId, link.task.id]);
+      if (!res.ok) toast.error(res.error);
+      onRefresh();
+    });
+  }
+
+  return (
+    <li
+      className={cn(
+        "group flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm",
+        link.task.completed
+          ? "border-border bg-transparent"
+          : "border-amber-300/60 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20",
+      )}
+    >
+      <span className="w-24 shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
+        {verb}
+      </span>
+      <TypeBadge type={link.task.type} />
+      <Link
+        href={`/w/${wsSlug}/p/${link.task.projectSlug}?task=${link.task.id}`}
+        className="flex-1 truncate hover:underline"
+        title={link.task.title}
+      >
+        {link.task.title}
+      </Link>
+      <span
+        className={cn(
+          "shrink-0 text-xs",
+          link.task.completed ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+        )}
+      >
+        {link.task.completed ? "✓ готово" : link.task.columnName}
+      </span>
+      <button
+        type="button"
+        onClick={removeLink}
+        disabled={pending}
+        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        aria-label="Убрать связь"
+      >
+        <X className="size-3.5" />
+      </button>
+    </li>
+  );
+}
+
+function LinkPicker({
+  wsSlug,
+  taskId,
+  onDone,
+}: {
+  wsSlug: string;
+  taskId: string;
+  onDone: () => void;
+}) {
+  const [relType, setRelType] = useState<TaskLinkType>("requires");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<LinkableTask[]>([]);
+  const [searching, startSearch] = useTransition();
+  const [creating, startCreate] = useTransition();
+
+  useEffect(() => {
+    const q = query.trim();
+    const id = setTimeout(
+      () => {
+        if (!q) {
+          setResults([]);
+          return;
+        }
+        startSearch(async () => {
+          const res = await searchLinkableAction(wsSlug, q, taskId);
+          if (res.ok) setResults(res.results);
+        });
+      },
+      q ? 200 : 0,
+    );
+    return () => clearTimeout(id);
+  }, [query, wsSlug, taskId]);
+
+  function pick(target: LinkableTask) {
+    startCreate(async () => {
+      const res = await createLinkAction(wsSlug, taskId, target.id, relType);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-2">
+      <div className="flex flex-wrap gap-1">
+        {TASK_LINK_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setRelType(t)}
+            className={cn(
+              "rounded px-2 py-0.5 text-xs transition-colors",
+              relType === t
+                ? "bg-foreground text-background"
+                : "bg-background text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {TASK_LINK_META[t].forward}
+          </button>
+        ))}
+      </div>
+      <Input
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Найти документ по названию…"
+        className="h-8 text-sm"
+      />
+      {query.trim() && (
+        <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+          {searching && results.length === 0 ? (
+            <li className="px-2 py-1 text-xs text-muted-foreground">Поиск…</li>
+          ) : results.length === 0 ? (
+            <li className="px-2 py-1 text-xs text-muted-foreground">Ничего не найдено</li>
+          ) : (
+            results.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  disabled={creating}
+                  onClick={() => pick(r)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
+                >
+                  <TypeBadge type={r.type} />
+                  <span className="flex-1 truncate">{r.title}</span>
+                  <Link2 className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
   );
 }
 

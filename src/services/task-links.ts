@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, isNull, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { taskLinks } from "@/db/schema/task-links";
@@ -132,6 +132,52 @@ export async function linkAggregates(
     if (wanted.has(r.targetId)) bump(r.targetId, completed);
   }
   return out;
+}
+
+export type LinkableTask = {
+  id: string;
+  title: string;
+  type: TaskType;
+  projectSlug: string;
+};
+
+/**
+ * Кросс-проектный поиск документов для связывания: по подстроке названия,
+ * только корневые задачи (не подзадачи), не архив, исключая текущую.
+ */
+export async function searchLinkable(
+  workspaceId: string,
+  query: string,
+  excludeTaskId: string,
+  limit = 8,
+): Promise<LinkableTask[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      docType: tasks.type,
+      projectSlug: projects.slug,
+    })
+    .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .where(
+      and(
+        eq(tasks.workspaceId, workspaceId),
+        isNull(tasks.parentId),
+        isNull(tasks.archivedAt),
+        ne(tasks.id, excludeTaskId),
+        ilike(tasks.title, `%${q}%`),
+      ),
+    )
+    .limit(limit);
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    type: asTaskType(r.docType),
+    projectSlug: r.projectSlug,
+  }));
 }
 
 async function workspaceOf(taskId: string): Promise<string | null> {

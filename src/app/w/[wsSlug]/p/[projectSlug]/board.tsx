@@ -77,6 +77,9 @@ export type BoardTask = {
   subtasksDone: number;
   commentsCount: number;
   attachmentsCount: number;
+  reviewAt: string | null;
+  linksDone: number;
+  linksTotal: number;
 };
 
 type Props = {

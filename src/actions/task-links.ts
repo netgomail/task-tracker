@@ -65,6 +65,16 @@ export async function createLinkAction(
   return { ok: true };
 }
 
+export async function searchLinkableAction(
+  wsSlug: string,
+  query: string,
+  excludeTaskId: string,
+): Promise<{ ok: true; results: taskLinks.LinkableTask[] } | { ok: false; error: string }> {
+  const { ws } = await authorizeWorkspace(wsSlug);
+  const results = await taskLinks.searchLinkable(ws.workspaceId, query, excludeTaskId);
+  return { ok: true, results };
+}
+
 export async function deleteLinkAction(
   wsSlug: string,
   linkId: string,
