@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, ilike, inArray, isNull, ne, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { taskLinks } from "@/db/schema/task-links";
@@ -102,34 +103,38 @@ export async function linkAggregates(
   const out = new Map<string, LinkAggregate>();
   if (taskIds.length === 0) return out;
 
+  // Джойним оба конца связи отдельными алиасами, чтобы каждая связь была одной
+  // строкой (иначе при обоих концах в наборе OR-джойн удваивает строки).
+  const src = alias(tasks, "src");
+  const tgt = alias(tasks, "tgt");
   const rows = await db
     .select({
       sourceId: taskLinks.sourceTaskId,
       targetId: taskLinks.targetTaskId,
-      neighborId: tasks.id,
-      completedAt: tasks.completedAt,
+      sourceCompleted: src.completedAt,
+      targetCompleted: tgt.completedAt,
     })
     .from(taskLinks)
-    .innerJoin(
-      tasks,
-      or(
-        and(inArray(taskLinks.sourceTaskId, taskIds), eq(tasks.id, taskLinks.targetTaskId)),
-        and(inArray(taskLinks.targetTaskId, taskIds), eq(tasks.id, taskLinks.sourceTaskId)),
+    .innerJoin(src, eq(src.id, taskLinks.sourceTaskId))
+    .innerJoin(tgt, eq(tgt.id, taskLinks.targetTaskId))
+    .where(
+      and(
+        eq(taskLinks.workspaceId, workspaceId),
+        or(inArray(taskLinks.sourceTaskId, taskIds), inArray(taskLinks.targetTaskId, taskIds)),
       ),
-    )
-    .where(eq(taskLinks.workspaceId, workspaceId));
+    );
 
-  const bump = (ownerId: string, completed: boolean) => {
+  const bump = (ownerId: string, neighborCompleted: boolean) => {
     const bucket = out.get(ownerId) ?? { done: 0, total: 0 };
     bucket.total += 1;
-    if (completed) bucket.done += 1;
+    if (neighborCompleted) bucket.done += 1;
     out.set(ownerId, bucket);
   };
   const wanted = new Set(taskIds);
   for (const r of rows) {
-    const completed = r.completedAt != null;
-    if (wanted.has(r.sourceId)) bump(r.sourceId, completed);
-    if (wanted.has(r.targetId)) bump(r.targetId, completed);
+    // Каждая связь начисляется владельцу один раз; «готовность» — у соседа.
+    if (wanted.has(r.sourceId)) bump(r.sourceId, r.targetCompleted != null);
+    if (wanted.has(r.targetId)) bump(r.targetId, r.sourceCompleted != null);
   }
   return out;
 }
