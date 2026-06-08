@@ -187,7 +187,7 @@ export default async function ProjectBoardPage({
         {progress.total > 0 && (
           <div
             className="flex items-center gap-2"
-            title={`Готовность комплекта: ${progress.done} из ${progress.total}`}
+            title={`Готовность проекта: ${progress.done} из ${progress.total}`}
           >
             <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
               <div

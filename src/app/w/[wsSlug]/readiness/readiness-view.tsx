@@ -27,7 +27,7 @@ export function ReadinessView({
   if (withDocs.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-        Пока нет тем с документами. Создайте комплект на главной странице.
+        Пока нет проектов с задачами. Создайте проект на главной странице.
       </p>
     );
   }
@@ -51,13 +51,13 @@ export function ReadinessView({
     <div className="flex flex-col gap-6">
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Готовность" value={`${overallPct}%`} tone="blue" />
-        <Stat label="Документов" value={String(totals.total)} tone="slate" />
+        <Stat label="Задач" value={String(totals.total)} tone="slate" />
         <Stat label="Не начато" value={String(totals.notStarted)} tone="amber" />
         <Stat label="Просрочен пересмотр" value={String(totals.overdue)} tone="rose" />
       </div>
 
       <div className="rounded-lg border border-border p-4">
-        <h2 className="mb-3 text-sm font-medium">Готовность по темам</h2>
+        <h2 className="mb-3 text-sm font-medium">Готовность по проектам</h2>
         <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 24 }}>
             <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />

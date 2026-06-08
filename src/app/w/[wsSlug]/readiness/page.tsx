@@ -25,11 +25,11 @@ export default async function ReadinessPage({
     <PageShell>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Готовность комплектов
+          Готовность проектов
         </span>
         <h1 className="text-2xl font-semibold tracking-tight">Что готово и что делать дальше</h1>
         <p className="text-sm text-muted-foreground">
-          Прогресс по каждой теме и список пробелов — документов, к которым ещё не приступили.
+          Прогресс по каждому проекту и список незавершённых задач, к которым ещё не приступили.
         </p>
       </div>
       <ReadinessView wsSlug={wsSlug} themes={themes} />
