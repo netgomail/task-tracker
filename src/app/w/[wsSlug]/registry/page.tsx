@@ -29,11 +29,11 @@ export default async function RegistryPage({
     <PageShell>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Реестр ОРД
+          Реестр задач
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight">Сводный реестр документов</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Сводный реестр</h1>
         <p className="text-sm text-muted-foreground">
-          Все документы по темам со стадией, исполнителем и сроками. Экспорт для проверок.
+          Все задачи по проектам — со стадией, метками, исполнителем и сроками. Экспорт в CSV.
         </p>
       </div>
       <RegistryView wsSlug={wsSlug} rows={rows} labels={labels} />

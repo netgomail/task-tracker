@@ -27,8 +27,8 @@ function isOverdue(iso: string | null): boolean {
 
 function buildCsv(rows: RegistryRow[]): string {
   const header = [
-    "Тема",
-    "Документ",
+    "Проект",
+    "Задача",
     "Метки",
     "Стадия",
     "Приоритет",
@@ -83,7 +83,7 @@ export function RegistryView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `реестр-орд-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `реестр-задач-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -96,7 +96,7 @@ export function RegistryView({
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Поиск по документу или теме…"
+            placeholder="Поиск по задаче или проекту…"
             className="h-8 w-64 pl-7 text-sm"
           />
         </div>
@@ -125,8 +125,8 @@ export function RegistryView({
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 font-medium">Тема</th>
-              <th className="px-3 py-2 font-medium">Документ</th>
+              <th className="px-3 py-2 font-medium">Проект</th>
+              <th className="px-3 py-2 font-medium">Задача</th>
               <th className="px-3 py-2 font-medium">Метки</th>
               <th className="px-3 py-2 font-medium">Стадия</th>
               <th className="px-3 py-2 font-medium">Исполнитель</th>

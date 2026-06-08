@@ -139,7 +139,7 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
           </Link>
           <Link
             href={`/w/${wsSlug}/registry`}
-            title="Реестр ОРД"
+            title="Реестр задач"
             className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <Table2 className="h-4 w-4" />
@@ -309,7 +309,7 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <Table2 className="h-4 w-4" />
-            <span>Реестр ОРД</span>
+            <span>Реестр задач</span>
           </Link>
           <Link
             href={`/w/${wsSlug}/reports`}
