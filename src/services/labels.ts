@@ -12,6 +12,7 @@ export type LabelRow = {
   id: string;
   name: string;
   color: LabelColorSlug;
+  icon: string | null;
 };
 
 function normalizeColor(value: string): LabelColorSlug {
@@ -20,7 +21,7 @@ function normalizeColor(value: string): LabelColorSlug {
 
 export async function listForWorkspace(workspaceId: string): Promise<LabelRow[]> {
   const rows = await db
-    .select({ id: labels.id, name: labels.name, color: labels.color })
+    .select({ id: labels.id, name: labels.name, color: labels.color, icon: labels.icon })
     .from(labels)
     .where(eq(labels.workspaceId, workspaceId))
     .orderBy(asc(labels.name));
@@ -31,6 +32,7 @@ export async function create(
   workspaceId: string,
   name: string,
   color: LabelColorSlug,
+  icon?: string | null,
 ): Promise<LabelRow> {
   const id = newId();
   await db.insert(labels).values({
@@ -38,9 +40,10 @@ export async function create(
     workspaceId,
     name,
     color,
+    icon: icon ?? null,
     createdAt: new Date(),
   });
-  return { id, name, color };
+  return { id, name, color, icon: icon ?? null };
 }
 
 async function assertLabelInWorkspace(workspaceId: string, labelId: string): Promise<void> {
@@ -65,6 +68,15 @@ export async function setColor(
   if (!isLabelColor(color)) throw new Error("Unknown color");
   await assertLabelInWorkspace(workspaceId, labelId);
   await db.update(labels).set({ color }).where(eq(labels.id, labelId));
+}
+
+export async function setIcon(
+  workspaceId: string,
+  labelId: string,
+  icon: string | null,
+): Promise<void> {
+  await assertLabelInWorkspace(workspaceId, labelId);
+  await db.update(labels).set({ icon }).where(eq(labels.id, labelId));
 }
 
 export async function remove(workspaceId: string, labelId: string): Promise<void> {
@@ -108,7 +120,7 @@ export async function detach(
 export async function listForTask(workspaceId: string, taskId: string): Promise<LabelRow[]> {
   await assertTaskInWorkspace(workspaceId, taskId);
   const rows = await db
-    .select({ id: labels.id, name: labels.name, color: labels.color })
+    .select({ id: labels.id, name: labels.name, color: labels.color, icon: labels.icon })
     .from(taskLabels)
     .innerJoin(labels, eq(labels.id, taskLabels.labelId))
     .where(eq(taskLabels.taskId, taskId))
@@ -132,6 +144,7 @@ export async function listForTasks(
       id: labels.id,
       name: labels.name,
       color: labels.color,
+      icon: labels.icon,
       workspaceId: labels.workspaceId,
     })
     .from(taskLabels)
@@ -140,7 +153,7 @@ export async function listForTasks(
   for (const r of rows) {
     if (r.workspaceId !== workspaceId) continue;
     const list = out.get(r.taskId) ?? [];
-    list.push({ id: r.id, name: r.name, color: normalizeColor(r.color) });
+    list.push({ id: r.id, name: r.name, color: normalizeColor(r.color), icon: r.icon });
     out.set(r.taskId, list);
   }
   return out;

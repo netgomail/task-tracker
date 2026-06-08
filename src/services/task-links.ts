@@ -14,7 +14,7 @@ function isLinkType(value: string): value is TaskLinkType {
   return (TASK_LINK_TYPES as readonly string[]).includes(value);
 }
 function asTaskType(value: string): TaskType {
-  return (TASK_TYPES as readonly string[]).includes(value) ? (value as TaskType) : "other";
+  return (TASK_TYPES as readonly string[]).includes(value) ? (value as TaskType) : "task";
 }
 
 /** Связанный документ — сосед задачи по комплекту, со стадией и темой. */

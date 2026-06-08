@@ -45,7 +45,6 @@ function isPriority(value: string): value is TaskPriority {
 
 export type TaskFilter = {
   priority?: TaskPriority;
-  type?: TaskType;
   labelId?: string;
   /** Список id из FTS5; если undefined — поиск не применялся, если [] — пусто. */
   matchingIds?: string[];
@@ -64,9 +63,6 @@ export async function listForProject(
   ];
   if (filter?.priority) {
     conditions.push(eq(tasks.priority, filter.priority));
-  }
-  if (filter?.type) {
-    conditions.push(eq(tasks.type, filter.type));
   }
   if (filter?.matchingIds) {
     if (filter.matchingIds.length === 0) return [];
@@ -106,7 +102,7 @@ export async function listForProject(
   const rows = await query.where(and(...conditions)).orderBy(asc(tasks.orderKey));
   return rows.map((r) => ({
     ...r,
-    type: isTaskType(r.type) ? r.type : "order",
+    type: isTaskType(r.type) ? r.type : "task",
     priority: isPriority(r.priority) ? r.priority : "normal",
   }));
 }
@@ -165,7 +161,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
   const orderKey = keyBetween(null, first?.orderKey ?? null);
   const color = input.color ?? DEFAULT_COLOR;
   const priority = input.priority ?? "normal";
-  const type = input.type ?? "order";
+  const type = input.type ?? "task";
   const id = newId();
   const now = new Date();
   await db.insert(tasks).values({
@@ -287,7 +283,7 @@ export async function getById(workspaceId: string, taskId: string): Promise<Task
   if (!row || row.workspaceId !== workspaceId) return null;
   return {
     ...row,
-    type: isTaskType(row.type) ? row.type : "order",
+    type: isTaskType(row.type) ? row.type : "task",
     priority: isPriority(row.priority) ? row.priority : "normal",
   };
 }
@@ -320,7 +316,7 @@ export async function listSubtasks(
     .orderBy(asc(tasks.orderKey));
   return rows.map((r) => ({
     ...r,
-    type: isTaskType(r.type) ? r.type : "other",
+    type: isTaskType(r.type) ? r.type : "task",
     priority: isPriority(r.priority) ? r.priority : "normal",
   }));
 }
@@ -351,7 +347,7 @@ export async function createSubtask(
     title,
     color: parent.color,
     priority: "normal",
-    type: "other",
+    type: "task",
     orderKey,
     createdBy,
     createdAt: now,
@@ -363,7 +359,7 @@ export async function createSubtask(
     parentId: parentTaskId,
     title,
     description: null,
-    type: "other",
+    type: "task",
     priority: "normal",
     color: parent.color,
     dueAt: null,

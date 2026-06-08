@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { documentSetTemplates } from "@/db/schema/templates";
 import { tasks } from "@/db/schema/tasks";
 import { taskLinks } from "@/db/schema/task-links";
+import { labels as labelsTable, taskLabels } from "@/db/schema/labels";
 import { boards, columns } from "@/db/schema/projects";
+import { listForTasks as listLabelsForTasks } from "@/services/labels";
 import { keysBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
 import { create as createProject } from "@/services/projects";
@@ -28,6 +30,8 @@ export type SetItem = {
   priority?: TaskPriority;
   color?: string;
   description?: string;
+  /** Имена меток (напр. тип документа) — навешиваются при разворачивании. */
+  labels?: string[];
 };
 
 export type SetLink = {
@@ -45,7 +49,7 @@ export type DocumentSetSummary = {
 };
 
 function asType(v: string): TaskType {
-  return (TASK_TYPES as readonly string[]).includes(v) ? (v as TaskType) : "other";
+  return (TASK_TYPES as readonly string[]).includes(v) ? (v as TaskType) : "task";
 }
 function asPriority(v: string | undefined): TaskPriority {
   return v && (TASK_PRIORITIES as readonly string[]).includes(v) ? (v as TaskPriority) : "normal";
@@ -63,10 +67,11 @@ function parseItems(raw: string): SetItem[] {
       .map((x) => ({
         key: String(x.key ?? ""),
         title: String(x.title ?? ""),
-        type: asType(String(x.type ?? "other")),
+        type: asType(String(x.type ?? "task")),
         priority: asPriority(x.priority as string | undefined),
         color: typeof x.color === "string" ? x.color : undefined,
         description: typeof x.description === "string" ? x.description : undefined,
+        labels: Array.isArray(x.labels) ? x.labels.map(String).filter(Boolean) : undefined,
       }))
       .filter((i) => i.key && i.title);
   } catch {
@@ -170,10 +175,14 @@ export async function createFromProject(
     .where(and(eq(tasks.projectId, projectId), isNull(tasks.parentId), isNull(tasks.archivedAt)))
     .orderBy(asc(tasks.orderKey));
 
+  const ids = rootTasks.map((t) => t.id);
+  const labelMap = await listLabelsForTasks(workspaceId, ids);
+
   const idToKey = new Map<string, string>();
   const items: SetItem[] = rootTasks.map((t, i) => {
     const key = `k${i}`;
     idToKey.set(t.id, key);
+    const names = (labelMap.get(t.id) ?? []).map((l) => l.name);
     return {
       key,
       title: t.title,
@@ -181,10 +190,10 @@ export async function createFromProject(
       priority: asPriority(t.priority),
       color: t.color,
       description: t.description ?? undefined,
+      labels: names.length ? names : undefined,
     };
   });
 
-  const ids = rootTasks.map((t) => t.id);
   let links: SetLink[] = [];
   if (ids.length > 0) {
     const linkRows = await db
@@ -277,6 +286,40 @@ export async function instantiate(
         };
       }),
     );
+  }
+
+  // Метки документов: find-or-create по имени в воркспейсе, затем навесить.
+  const allNames = [...new Set(items.flatMap((it) => it.labels ?? []))];
+  if (allNames.length > 0) {
+    const nameToLabelId = new Map<string, string>();
+    for (const name of allNames) {
+      const [existing] = await db
+        .select({ id: labelsTable.id })
+        .from(labelsTable)
+        .where(and(eq(labelsTable.workspaceId, workspaceId), eq(labelsTable.name, name)))
+        .limit(1);
+      if (existing) {
+        nameToLabelId.set(name, existing.id);
+      } else {
+        const id = newId();
+        await db
+          .insert(labelsTable)
+          .values({ id, workspaceId, name, color: DEFAULT_COLOR, createdAt: now })
+          .onConflictDoNothing();
+        nameToLabelId.set(name, id);
+      }
+    }
+    const labelRows = items.flatMap((it) => {
+      const taskId = keyToId.get(it.key);
+      if (!taskId || !it.labels?.length) return [];
+      return it.labels
+        .map((n) => nameToLabelId.get(n))
+        .filter((id): id is string => !!id)
+        .map((labelId) => ({ taskId, labelId, createdAt: now }));
+    });
+    if (labelRows.length > 0) {
+      await db.insert(taskLabels).values(labelRows).onConflictDoNothing();
+    }
   }
 
   const linkValues = links

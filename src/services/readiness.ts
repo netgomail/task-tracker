@@ -5,12 +5,9 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks } from "@/db/schema/tasks";
 import { boards, columns, projects } from "@/db/schema/projects";
-import { asTaskType } from "@/domain/type-guards";
-import type { TaskType } from "@/domain/types";
-
 const NOT_STARTED_COLUMN = "Не начато";
 
-export type ReadinessGap = { id: string; title: string; type: TaskType };
+export type ReadinessGap = { id: string; title: string };
 
 export type ThemeReadiness = {
   projectId: string;
@@ -39,7 +36,6 @@ export async function themesReadiness(workspaceId: string): Promise<ThemeReadine
       color: projects.color,
       taskId: tasks.id,
       title: tasks.title,
-      type: tasks.type,
       completedAt: tasks.completedAt,
       reviewAt: tasks.reviewAt,
       columnName: columns.name,
@@ -82,7 +78,7 @@ export async function themesReadiness(workspaceId: string): Promise<ThemeReadine
       if (r.reviewAt && r.reviewAt.getTime() < now) theme.overdueReview += 1;
     } else if (r.columnName === NOT_STARTED_COLUMN) {
       theme.notStarted += 1;
-      theme.gaps.push({ id: r.taskId, title: r.title ?? "", type: asTaskType(r.type ?? "other") });
+      theme.gaps.push({ id: r.taskId, title: r.title ?? "" });
     } else {
       theme.inProgress += 1;
     }

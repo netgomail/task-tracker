@@ -40,9 +40,11 @@ export async function createLabelAction(
   const colorRaw = formData.get("color");
   const color: LabelColorSlug =
     typeof colorRaw === "string" && isLabelColor(colorRaw) ? colorRaw : "slate";
+  const iconRaw = formData.get("icon");
+  const icon = typeof iconRaw === "string" && iconRaw ? iconRaw : null;
   const { ws } = await authorizeWorkspace(wsSlug);
   try {
-    await labels.create(ws.workspaceId, name.data, color);
+    await labels.create(ws.workspaceId, name.data, color, icon);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ошибка";
     if (msg.includes("UNIQUE")) return { ok: false, error: "Метка с таким именем уже есть" };
@@ -81,6 +83,17 @@ export async function setLabelColorAction(
   if (!isLabelColor(color)) return { ok: false, error: "Неизвестный цвет" };
   const { ws } = await authorizeWorkspace(wsSlug);
   await labels.setColor(ws.workspaceId, labelId, color);
+  refreshLabels(wsSlug);
+  return { ok: true };
+}
+
+export async function setLabelIconAction(
+  wsSlug: string,
+  labelId: string,
+  icon: string | null,
+): Promise<ActionResult> {
+  const { ws } = await authorizeWorkspace(wsSlug);
+  await labels.setIcon(ws.workspaceId, labelId, icon);
   refreshLabels(wsSlug);
   return { ok: true };
 }

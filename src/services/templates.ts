@@ -48,7 +48,7 @@ function rowToTemplate(r: typeof taskTemplates.$inferSelect): TemplateRow {
     id: r.id,
     name: r.name,
     description: r.description,
-    type: isTaskType(r.type) ? r.type : "order",
+    type: isTaskType(r.type) ? r.type : "task",
     priority: isPriority(r.priority) ? r.priority : "normal",
     color: isLabelColor(r.color) ? r.color : DEFAULT_COLOR,
     labels: parseStringArray(r.labels),
@@ -101,7 +101,7 @@ export async function create(input: CreateTemplateInput): Promise<TemplateRow> {
     createdBy: input.createdBy,
     name: input.name,
     description: input.description ?? null,
-    type: input.type ?? "order",
+    type: input.type ?? "task",
     priority: input.priority ?? "normal",
     color: input.color ?? DEFAULT_COLOR,
     labels: input.labels ? JSON.stringify(input.labels) : null,
@@ -113,7 +113,7 @@ export async function create(input: CreateTemplateInput): Promise<TemplateRow> {
     id,
     name: input.name,
     description: input.description ?? null,
-    type: input.type ?? "order",
+    type: input.type ?? "task",
     priority: input.priority ?? "normal",
     color: input.color ?? DEFAULT_COLOR,
     labels: input.labels ?? [],
@@ -248,7 +248,7 @@ export async function createTaskFromTemplate(
         columnId: input.columnId,
         parentId: taskId,
         title,
-        type: "order" as const,
+        type: "task" as const,
         priority: "normal" as const,
         color: tpl.color,
         orderKey: subKeys[i],
@@ -307,7 +307,7 @@ export async function createTemplateFromTask(input: {
     .from(taskLabels)
     .where(eq(taskLabels.taskId, input.taskId));
 
-  const type = isTaskType(taskRow.type) ? taskRow.type : "order";
+  const type = isTaskType(taskRow.type) ? taskRow.type : "task";
   const priority = isPriority(taskRow.priority) ? taskRow.priority : "normal";
   const color = isLabelColor(taskRow.color) ? taskRow.color : DEFAULT_COLOR;
 

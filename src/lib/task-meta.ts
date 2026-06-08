@@ -1,16 +1,8 @@
 import {
-  ScrollText,
-  BookText,
-  BookMarked,
-  ShieldCheck,
-  CalendarDays,
-  NotebookPen,
-  ListChecks,
-  FileSignature,
-  IdCard,
-  FileCheck,
-  ShieldAlert,
-  FileText,
+  Bug,
+  CheckSquare,
+  Wrench,
+  Sparkles,
   ArrowDown,
   ArrowUp,
   AlertTriangle,
@@ -20,32 +12,11 @@ import {
 
 import type { TaskLinkType, TaskPriority, TaskType } from "@/domain/types";
 
-/** Тон бейджа типа документа — используется в чипах на карточке/в таблице. */
-export type TypeTone = "slate" | "blue" | "violet" | "amber" | "green" | "rose" | "cyan";
-
-export const TYPE_TONE_CLASSES: Record<TypeTone, string> = {
-  slate: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  blue: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  violet: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  green: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  rose: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  cyan: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300",
-};
-
-export const TASK_TYPE_META: Record<TaskType, { label: string; short: string; Icon: LucideIcon; tone: TypeTone }> = {
-  order: { label: "Приказ", short: "Приказ", Icon: ScrollText, tone: "blue" },
-  instruction: { label: "Инструкция", short: "Инстр.", Icon: BookText, tone: "violet" },
-  regulation: { label: "Положение / Правила", short: "Положение", Icon: BookMarked, tone: "cyan" },
-  policy: { label: "Политика", short: "Политика", Icon: ShieldCheck, tone: "green" },
-  plan: { label: "План", short: "План", Icon: CalendarDays, tone: "amber" },
-  journal: { label: "Журнал", short: "Журнал", Icon: NotebookPen, tone: "slate" },
-  list: { label: "Перечень", short: "Перечень", Icon: ListChecks, tone: "slate" },
-  consent: { label: "Согласие", short: "Согласие", Icon: FileSignature, tone: "rose" },
-  job_description: { label: "Должностная инструкция", short: "Должн.", Icon: IdCard, tone: "violet" },
-  act: { label: "Акт", short: "Акт", Icon: FileCheck, tone: "green" },
-  model: { label: "Модель угроз", short: "Модель", Icon: ShieldAlert, tone: "rose" },
-  other: { label: "Форма / Иное", short: "Иное", Icon: FileText, tone: "slate" },
+export const TASK_TYPE_META: Record<TaskType, { label: string; Icon: LucideIcon }> = {
+  task: { label: "Задача", Icon: CheckSquare },
+  bug: { label: "Баг", Icon: Bug },
+  feature: { label: "Фича", Icon: Sparkles },
+  chore: { label: "Рутина", Icon: Wrench },
 };
 
 /**

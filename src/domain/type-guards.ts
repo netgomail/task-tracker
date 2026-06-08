@@ -10,7 +10,7 @@ import {
 export function isTaskType(value: string): value is TaskType {
   return (TASK_TYPES as readonly string[]).includes(value);
 }
-export function asTaskType(value: string, fallback: TaskType = "other"): TaskType {
+export function asTaskType(value: string, fallback: TaskType = "task"): TaskType {
   return isTaskType(value) ? value : fallback;
 }
 

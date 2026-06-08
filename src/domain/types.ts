@@ -1,21 +1,8 @@
 // Доменные литералы для задач. Хранятся как TEXT в Postgres с CHECK-констрейнтами.
 
-// Типы документов ОРД (организационно-распорядительная документация по ИБ/ПДн).
-// Поле tasks.type. Метаданные (ярлык/цвет/иконка) — в TASK_TYPE_META (UI-слой).
-export const TASK_TYPES = [
-  "order", // Приказ
-  "instruction", // Инструкция
-  "regulation", // Положение / Правила
-  "policy", // Политика
-  "plan", // План
-  "journal", // Журнал
-  "list", // Перечень
-  "consent", // Согласие
-  "job_description", // Должностная инструкция
-  "act", // Акт
-  "model", // Модель угроз
-  "other", // Форма / Иное
-] as const;
+// Типовые типы задач (универсальный таск-менеджер). Доменная классификация
+// (напр. типы документов ОРД) живёт в МЕТКАХ воркспейса, а не здесь.
+export const TASK_TYPES = ["task", "bug", "feature", "chore"] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;

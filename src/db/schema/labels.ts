@@ -15,6 +15,8 @@ export const labels = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     color: text("color").notNull().default("slate"),
+    /** Имя иконки lucide из LABEL_ICONS; null — без иконки. */
+    icon: text("icon"),
     createdAt: ts("created_at").defaultNow().notNull(),
   },
   (t) => [

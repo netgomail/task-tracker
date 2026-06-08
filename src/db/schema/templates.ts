@@ -14,7 +14,7 @@ export const taskTemplates = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
-    type: text("type").notNull().default("order"),
+    type: text("type").notNull().default("task"),
     priority: text("priority").notNull().default("normal"),
     color: text("color").notNull().default("slate"),
     // JSON-снэпшоты: id-массивы / массивы {title} — храним строкой, разбираем
@@ -34,7 +34,7 @@ export const taskTemplates = pgTable(
     index("task_templates_ws_idx").on(t.workspaceId),
     check(
       "task_templates_type_chk",
-      sql`${t.type} in ('order','instruction','regulation','policy','plan','journal','list','consent','job_description','act','model','other')`,
+      sql`${t.type} in ('task','bug','feature','chore')`,
     ),
     check(
       "task_templates_priority_chk",

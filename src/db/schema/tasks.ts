@@ -23,7 +23,7 @@ export const tasks = pgTable(
     parentId: text("parent_id"),
     title: text("title").notNull(),
     description: text("description"),
-    type: text("type").notNull().default("order"),
+    type: text("type").notNull().default("task"),
     priority: text("priority").notNull().default("normal"),
     color: text("color").notNull().default("slate"),
     dueAt: ts("due_at"),
@@ -52,7 +52,7 @@ export const tasks = pgTable(
     }).onDelete("cascade"),
     check(
       "tasks_type_chk",
-      sql`${t.type} in ('order','instruction','regulation','policy','plan','journal','list','consent','job_description','act','model','other')`,
+      sql`${t.type} in ('task','bug','feature','chore')`,
     ),
     check(
       "tasks_priority_chk",

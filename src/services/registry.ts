@@ -6,15 +6,16 @@ import { db } from "@/db";
 import { user } from "@/db/schema/auth";
 import { tasks } from "@/db/schema/tasks";
 import { boards, columns, projects } from "@/db/schema/projects";
-import { asPriority, asTaskType } from "@/domain/type-guards";
-import type { TaskPriority, TaskType } from "@/domain/types";
+import { asPriority } from "@/domain/type-guards";
+import type { TaskPriority } from "@/domain/types";
+import { listForTasks as listLabelsForTasks, type LabelRow } from "@/services/labels";
 
 export type RegistryRow = {
   id: string;
   projectSlug: string;
   theme: string;
   title: string;
-  type: TaskType;
+  labels: LabelRow[];
   stage: string;
   priority: TaskPriority;
   assignee: string | null;
@@ -34,7 +35,6 @@ export async function listRegistry(workspaceId: string): Promise<RegistryRow[]> 
       projectSlug: projects.slug,
       theme: projects.name,
       title: tasks.title,
-      type: tasks.type,
       stage: columns.name,
       priority: tasks.priority,
       assignee: user.name,
@@ -59,12 +59,17 @@ export async function listRegistry(workspaceId: string): Promise<RegistryRow[]> 
     )
     .orderBy(asc(projects.createdAt), asc(tasks.orderKey));
 
+  const labelMap = await listLabelsForTasks(
+    workspaceId,
+    rows.map((r) => r.id),
+  );
+
   return rows.map((r) => ({
     id: r.id,
     projectSlug: r.projectSlug,
     theme: r.theme,
     title: r.title,
-    type: asTaskType(r.type),
+    labels: labelMap.get(r.id) ?? [],
     stage: r.stage,
     priority: asPriority(r.priority),
     assignee: r.assignee ?? null,
