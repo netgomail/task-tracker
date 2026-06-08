@@ -47,6 +47,7 @@ export type BoardTaskLabel = {
   id: string;
   name: string;
   color: string;
+  icon: string | null;
 };
 
 export type BoardTaskAssignee = {

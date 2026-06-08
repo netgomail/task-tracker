@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { LABEL_COLORS, type LabelColorSlug } from "@/lib/colors";
+import { LABEL_COLORS, colorHex, type LabelColorSlug } from "@/lib/colors";
+import { LABEL_ICONS, LABEL_ICON_NAMES } from "@/lib/label-icons";
+import { LabelBadge } from "@/components/label-badge";
 import type { LabelRow } from "@/services/labels";
 import {
   createLabelAction,
   deleteLabelAction,
   renameLabelAction,
   setLabelColorAction,
+  setLabelIconAction,
 } from "@/actions/labels";
 
 type Props = {
@@ -30,6 +33,7 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [color, setColor] = useState<LabelColorSlug>("blue");
+  const [icon, setIcon] = useState<string | null>(null);
 
   function submitCreate() {
     const next = name.trim();
@@ -38,10 +42,12 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
       const fd = new FormData();
       fd.set("name", next);
       fd.set("color", color);
+      if (icon) fd.set("icon", icon);
       const res = await createLabelAction(wsSlug, fd);
       if (!res.ok) toast.error(res.error);
       else {
         setName("");
+        setIcon(null);
         toast.success("Метка создана");
       }
     });
@@ -56,6 +62,7 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
           </label>
           <div className="flex items-center gap-2">
             <ColorPicker value={color} onChange={setColor} disabled={pending} />
+            <IconPicker value={icon} color={color} onChange={setIcon} disabled={pending} />
             <Input
               id="label-name"
               value={name}
@@ -70,6 +77,9 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
               maxLength={40}
               disabled={pending}
             />
+            {name.trim() && (
+              <LabelBadge label={{ name: name.trim(), color, icon }} className="shrink-0" />
+            )}
           </div>
         </div>
         <Button onClick={submitCreate} disabled={pending || !name.trim()}>
@@ -142,6 +152,72 @@ function ColorPicker({
   );
 }
 
+function IconPicker({
+  value,
+  color,
+  onChange,
+  disabled,
+}: {
+  value: string | null;
+  color: LabelColorSlug;
+  onChange: (next: string | null) => void;
+  disabled?: boolean;
+}) {
+  const hex = colorHex(color);
+  const Current = value ? (LABEL_ICONS[value] ?? null) : null;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className="flex size-9 items-center justify-center rounded-md ring-1 ring-inset ring-border transition hover:ring-foreground/40 disabled:opacity-50"
+          aria-label="Иконка метки"
+          title="Иконка"
+        >
+          {Current ? (
+            <Current className="size-4" style={{ color: hex }} />
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2">
+        <div className="grid grid-cols-8 gap-1">
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className={cn(
+              "flex size-7 items-center justify-center rounded hover:bg-accent",
+              !value && "bg-accent ring-1 ring-foreground/40",
+            )}
+            title="Без иконки"
+          >
+            <X className="size-3.5 text-muted-foreground" />
+          </button>
+          {LABEL_ICON_NAMES.map((n) => {
+            const Icon = LABEL_ICONS[n];
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onChange(n)}
+                className={cn(
+                  "flex size-7 items-center justify-center rounded hover:bg-accent",
+                  value === n && "bg-accent ring-1 ring-foreground/40",
+                )}
+                title={n}
+              >
+                <Icon className="size-4" />
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -171,6 +247,14 @@ function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
     });
   }
 
+  function changeIcon(next: string | null) {
+    if (next === label.icon) return;
+    startTransition(async () => {
+      const res = await setLabelIconAction(wsSlug, label.id, next);
+      if (!res.ok) toast.error(res.error);
+    });
+  }
+
   function remove() {
     if (!window.confirm(`Удалить метку «${label.name}»? Она снимется со всех задач.`)) return;
     startTransition(async () => {
@@ -182,6 +266,7 @@ function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
   return (
     <li className="flex items-center gap-2 px-3 py-2">
       <ColorPicker value={label.color} onChange={changeColor} disabled={pending} />
+      <IconPicker value={label.icon} color={label.color} onChange={changeIcon} disabled={pending} />
       {editing ? (
         <Input
           autoFocus
@@ -205,9 +290,10 @@ function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="flex-1 text-left text-sm hover:underline"
+          className="flex flex-1 items-center text-left"
+          title="Переименовать"
         >
-          {label.name}
+          <LabelBadge label={label} />
         </button>
       )}
       <Button

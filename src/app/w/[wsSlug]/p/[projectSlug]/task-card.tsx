@@ -60,12 +60,8 @@ import {
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
-import {
-  PRIORITY_TONE_CLASSES,
-  TASK_PRIORITY_META,
-  TASK_TYPE_META,
-  TYPE_TONE_CLASSES,
-} from "@/lib/task-meta";
+import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
+import { LabelBadge } from "@/components/label-badge";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 
 import type { BoardTask, BoardTaskSubtask } from "./board";
@@ -437,15 +433,11 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
       )}
       <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
         <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium",
-            TYPE_TONE_CLASSES[typeMeta.tone],
-          )}
+          className="inline-flex items-center gap-1"
           aria-label={typeMeta.label}
           title={typeMeta.label}
         >
           <typeMeta.Icon className="size-3.5" />
-          {typeMeta.short}
         </span>
         {task.commentsCount > 0 && (
           <span
@@ -532,22 +524,9 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
       </div>
       {task.labels.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {task.labels.map((l) => {
-            const hex = isLabelColor(l.color) ? colorHex(l.color) : "#64748b";
-            return (
-              <span
-                key={l.id}
-                className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset"
-                style={{
-                  background: `${hex}1a`,
-                  color: hex,
-                  borderColor: `${hex}55`,
-                }}
-              >
-                {l.name}
-              </span>
-            );
-          })}
+          {task.labels.map((l) => (
+            <LabelBadge key={l.id} label={l} />
+          ))}
         </div>
       )}
       {task.subtasks.length > 0 && (

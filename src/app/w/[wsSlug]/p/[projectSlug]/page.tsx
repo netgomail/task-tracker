@@ -22,7 +22,7 @@ import type { LabelRow } from "@/services/labels";
 import { listMembers, type WorkspaceMember } from "@/services/membership";
 import { searchTaskIds } from "@/services/search";
 import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
-import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
+import { TASK_PRIORITIES, type TaskPriority } from "@/domain/types";
 
 import {
   Board,
@@ -85,11 +85,6 @@ function pickPriority(value: string | undefined): TaskPriority | undefined {
     : undefined;
 }
 
-function pickType(value: string | undefined): TaskType | undefined {
-  if (!value) return undefined;
-  return (TASK_TYPES as readonly string[]).includes(value) ? (value as TaskType) : undefined;
-}
-
 function pickString(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
@@ -112,7 +107,6 @@ export default async function ProjectBoardPage({
 
   const qParam = pickString(sp.q)?.trim() ?? "";
   const priorityParam = pickPriority(pickString(sp.priority));
-  const typeParam = pickType(pickString(sp.type));
   const labelParam = pickString(sp.label);
   const assigneeParam = pickString(sp.assignee);
 
@@ -127,7 +121,6 @@ export default async function ProjectBoardPage({
 
   const filter: TaskFilter = {
     priority: priorityParam,
-    type: typeParam,
     labelId: labelParam,
     matchingIds,
     assignee: assigneeFilter,

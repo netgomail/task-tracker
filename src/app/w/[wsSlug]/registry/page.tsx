@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listRegistry } from "@/services/registry";
+import { listForWorkspace as listLabels } from "@/services/labels";
 
 import { PageShell } from "../page-shell";
 import { RegistryView } from "./registry-view";
@@ -19,7 +20,10 @@ export default async function RegistryPage({
   const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
   if (!ws) notFound();
 
-  const rows = await listRegistry(ws.workspaceId);
+  const [rows, labels] = await Promise.all([
+    listRegistry(ws.workspaceId),
+    listLabels(ws.workspaceId),
+  ]);
 
   return (
     <PageShell>
@@ -32,7 +36,7 @@ export default async function RegistryPage({
           Все документы по темам со стадией, исполнителем и сроками. Экспорт для проверок.
         </p>
       </div>
-      <RegistryView wsSlug={wsSlug} rows={rows} />
+      <RegistryView wsSlug={wsSlug} rows={rows} labels={labels} />
     </PageShell>
   );
 }

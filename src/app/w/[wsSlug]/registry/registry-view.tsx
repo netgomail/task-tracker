@@ -7,8 +7,8 @@ import { Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { TASK_TYPE_META, TYPE_TONE_CLASSES } from "@/lib/task-meta";
-import { TASK_TYPES, type TaskType } from "@/domain/types";
+import { LabelBadge } from "@/components/label-badge";
+import type { LabelRow } from "@/services/labels";
 import type { RegistryRow } from "@/services/registry";
 
 function fmtDate(iso: string | null): string {
@@ -29,7 +29,7 @@ function buildCsv(rows: RegistryRow[]): string {
   const header = [
     "Тема",
     "Документ",
-    "Тип",
+    "Метки",
     "Стадия",
     "Приоритет",
     "Исполнитель",
@@ -42,7 +42,7 @@ function buildCsv(rows: RegistryRow[]): string {
     [
       r.theme,
       r.title,
-      TASK_TYPE_META[r.type].label,
+      r.labels.map((l) => l.name).join(", "),
       r.stage,
       r.priority,
       r.assignee ?? "",
@@ -56,18 +56,26 @@ function buildCsv(rows: RegistryRow[]): string {
   return [header.map(esc).join(";"), ...lines].join("\r\n");
 }
 
-export function RegistryView({ wsSlug, rows }: { wsSlug: string; rows: RegistryRow[] }) {
+export function RegistryView({
+  wsSlug,
+  rows,
+  labels,
+}: {
+  wsSlug: string;
+  rows: RegistryRow[];
+  labels: LabelRow[];
+}) {
   const [q, setQ] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TaskType | "">("");
+  const [labelFilter, setLabelFilter] = useState<string>("");
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (typeFilter && r.type !== typeFilter) return false;
+      if (labelFilter && !r.labels.some((l) => l.id === labelFilter)) return false;
       if (needle && !`${r.title} ${r.theme}`.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [rows, q, typeFilter]);
+  }, [rows, q, labelFilter]);
 
   function exportCsv() {
     const csv = "﻿" + buildCsv(filtered);
@@ -93,14 +101,14 @@ export function RegistryView({ wsSlug, rows }: { wsSlug: string; rows: RegistryR
           />
         </div>
         <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as TaskType | "")}
+          value={labelFilter}
+          onChange={(e) => setLabelFilter(e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-sm"
         >
-          <option value="">Все типы</option>
-          {TASK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {TASK_TYPE_META[t].label}
+          <option value="">Все метки</option>
+          {labels.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
             </option>
           ))}
         </select>
@@ -119,7 +127,7 @@ export function RegistryView({ wsSlug, rows }: { wsSlug: string; rows: RegistryR
             <tr>
               <th className="px-3 py-2 font-medium">Тема</th>
               <th className="px-3 py-2 font-medium">Документ</th>
-              <th className="px-3 py-2 font-medium">Тип</th>
+              <th className="px-3 py-2 font-medium">Метки</th>
               <th className="px-3 py-2 font-medium">Стадия</th>
               <th className="px-3 py-2 font-medium">Исполнитель</th>
               <th className="px-3 py-2 font-medium">Срок</th>
@@ -128,8 +136,6 @@ export function RegistryView({ wsSlug, rows }: { wsSlug: string; rows: RegistryR
           </thead>
           <tbody>
             {filtered.map((r) => {
-              const meta = TASK_TYPE_META[r.type];
-              const Icon = meta.Icon;
               return (
                 <tr key={r.id} className="border-t border-border hover:bg-accent/40">
                   <td className="px-3 py-2 text-muted-foreground">{r.theme}</td>
@@ -142,15 +148,11 @@ export function RegistryView({ wsSlug, rows }: { wsSlug: string; rows: RegistryR
                     </Link>
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
-                        TYPE_TONE_CLASSES[meta.tone],
-                      )}
-                    >
-                      <Icon className="size-3" />
-                      {meta.short}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {r.labels.map((l) => (
+                        <LabelBadge key={l.id} label={l} />
+                      ))}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <span

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileText } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -13,7 +13,6 @@ import {
 } from "recharts";
 
 import { cn } from "@/lib/utils";
-import { TASK_TYPE_META, TYPE_TONE_CLASSES } from "@/lib/task-meta";
 import type { ThemeReadiness } from "@/services/readiness";
 
 export function ReadinessView({
@@ -157,23 +156,17 @@ function ThemeCard({ wsSlug, theme }: { wsSlug: string; theme: ThemeReadiness })
         <div className="flex flex-col gap-1 border-t border-border pt-2">
           <div className="text-xs font-medium text-muted-foreground">Что делать дальше:</div>
           <ul className="flex flex-col gap-1">
-            {theme.gaps.slice(0, 6).map((g) => {
-              const meta = TASK_TYPE_META[g.type];
-              const Icon = meta.Icon;
-              return (
-                <li key={g.id}>
-                  <Link
-                    href={`/w/${wsSlug}/p/${theme.slug}?task=${g.id}`}
-                    className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-accent"
-                  >
-                    <span className={cn("rounded p-0.5", TYPE_TONE_CLASSES[meta.tone])}>
-                      <Icon className="size-3" />
-                    </span>
-                    <span className="truncate">{g.title}</span>
-                  </Link>
-                </li>
-              );
-            })}
+            {theme.gaps.slice(0, 6).map((g) => (
+              <li key={g.id}>
+                <Link
+                  href={`/w/${wsSlug}/p/${theme.slug}?task=${g.id}`}
+                  className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-accent"
+                >
+                  <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{g.title}</span>
+                </Link>
+              </li>
+            ))}
             {theme.gaps.length > 6 && (
               <li className="px-1 text-xs text-muted-foreground">
                 …и ещё {theme.gaps.length - 6}

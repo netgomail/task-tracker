@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/popover";
 import {
   LABEL_COLORS,
-  colorHex,
   colorSwatchHex,
   colorSwatchLabel,
   isDefaultColor,
@@ -47,8 +46,8 @@ import {
   TASK_LINK_META,
   TASK_PRIORITY_META,
   TASK_TYPE_META,
-  TYPE_TONE_CLASSES,
 } from "@/lib/task-meta";
+import { LabelBadge } from "@/components/label-badge";
 
 import {
   getTaskDetailsAction,
@@ -679,21 +678,6 @@ function SubtaskItem({
   );
 }
 
-function TypeBadge({ type }: { type: TaskType }) {
-  const meta = TASK_TYPE_META[type];
-  const Icon = meta.Icon;
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium",
-        TYPE_TONE_CLASSES[meta.tone],
-      )}
-    >
-      <Icon className="size-3" />
-      {meta.short}
-    </span>
-  );
-}
 
 function DocumentSet({
   wsSlug,
@@ -802,7 +786,6 @@ function LinkRow({
       <span className="w-24 shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
         {verb}
       </span>
-      <TypeBadge type={link.task.type} />
       <Link
         href={`/w/${wsSlug}/p/${link.task.projectSlug}?task=${link.task.id}`}
         className="flex-1 truncate hover:underline"
@@ -916,7 +899,6 @@ function LinkPicker({
                   onClick={() => pick(r)}
                   className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
                 >
-                  <TypeBadge type={r.type} />
                   <span className="flex-1 truncate">{r.title}</span>
                   <Link2 className="size-3.5 shrink-0 text-muted-foreground" />
                 </button>
@@ -1486,19 +1468,7 @@ function LabelsPicker({
         {attached.length === 0 ? (
           <span className="text-xs text-muted-foreground/70">—</span>
         ) : (
-          attached.map((l) => (
-            <span
-              key={l.id}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-foreground/90 ring-1 ring-inset"
-              style={{
-                background: `${colorHex(l.color)}1f`,
-                color: colorHex(l.color),
-                borderColor: `${colorHex(l.color)}66`,
-              }}
-            >
-              {l.name}
-            </span>
-          ))
+          attached.map((l) => <LabelBadge key={l.id} label={l} />)
         )}
       </div>
       <Popover>
@@ -1530,11 +1500,8 @@ function LabelsPicker({
                       disabled={disabled}
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent disabled:opacity-50"
                     >
-                      <span
-                        className="block size-3 rounded-full ring-1 ring-inset ring-black/10"
-                        style={{ background: colorHex(l.color) }}
-                      />
-                      <span className="flex-1">{l.name}</span>
+                      <LabelBadge label={l} />
+                      <span className="flex-1" />
                       {isOn && <Check className="size-3.5 text-muted-foreground" />}
                     </button>
                   </li>

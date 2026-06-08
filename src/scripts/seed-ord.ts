@@ -14,6 +14,7 @@ import postgres from "postgres";
 
 import { ORD_DESCRIPTIONS } from "./ord-descriptions";
 import { ORD_SUBTASKS } from "./ord-subtasks";
+import { ORD_TYPE_LABELS } from "./ord-type-labels";
 
 const ORG_ID = process.env.SEED_ORG_ID ?? "3Mv7NfvJWKMYakcEppMKObf6AlV5tBQy";
 const USER_ID = process.env.SEED_USER_ID ?? "kZWBRa3XBfPVkWfKfnShEl5nA5s1uq65";
@@ -238,6 +239,28 @@ async function main() {
 
   const globalKeyToId = new Map<string, string>(); // title -> taskId
 
+  // Метки типов документов (find-or-create по имени), тип-ключ → labelId.
+  const typeToLabelId = new Map<string, string>();
+  for (const [typeKey, cfg] of Object.entries(ORD_TYPE_LABELS)) {
+    const [existing] = await sql<{ id: string }[]>`
+      select id from labels where workspace_id = ${ORG_ID} and name = ${cfg.name} limit 1`;
+    let id = existing?.id;
+    if (!id) {
+      id = randomUUID();
+      await sql`insert into labels ${sql({
+        id,
+        workspace_id: ORG_ID,
+        name: cfg.name,
+        color: cfg.color,
+        icon: cfg.icon,
+        created_at: now,
+      })} on conflict do nothing`;
+    } else {
+      await sql`update labels set color = ${cfg.color}, icon = ${cfg.icon} where id = ${id}`;
+    }
+    typeToLabelId.set(typeKey, id);
+  }
+
   for (const theme of THEMES) {
     const projectId = randomUUID();
     const boardId = randomUUID();
@@ -274,7 +297,7 @@ async function main() {
 
     const taskKeys = generateNKeysBetween(null, null, Math.max(theme.docs.length, 1));
     for (let i = 0; i < theme.docs.length; i++) {
-      const [title, type] = theme.docs[i];
+      const [title, docType] = theme.docs[i];
       const taskId = randomUUID();
       globalKeyToId.set(title, taskId);
       await sql`insert into tasks ${sql({
@@ -284,15 +307,25 @@ async function main() {
         column_id: firstColumn,
         title,
         description: ORD_DESCRIPTIONS[title] ?? null,
-        type,
+        type: "task",
         priority: "normal",
         color: "slate",
         order_key: taskKeys[i],
-        review_at: REVIEW_TYPES.has(type) ? reviewAt : null,
+        review_at: REVIEW_TYPES.has(docType) ? reviewAt : null,
         created_by: USER_ID,
         created_at: now,
         updated_at: now,
       })}`;
+
+      // Тип документа — метка.
+      const labelId = typeToLabelId.get(docType);
+      if (labelId) {
+        await sql`insert into task_labels ${sql({
+          task_id: taskId,
+          label_id: labelId,
+          created_at: now,
+        })} on conflict do nothing`;
+      }
 
       // Осмысленные подзадачи (только у документов с разнородной работой).
       const subs = ORD_SUBTASKS[title];
@@ -306,7 +339,7 @@ async function main() {
             column_id: firstColumn,
             parent_id: taskId,
             title: subs[s],
-            type: "other",
+            type: "task",
             priority: "normal",
             color: "slate",
             order_key: subKeys[s],
@@ -346,7 +379,12 @@ async function main() {
   let setCount = 0;
   for (const theme of THEMES) {
     if (!SET_TEMPLATE_THEMES.has(theme.name)) continue;
-    const items = theme.docs.map(([title, type]) => ({ key: title, title, type }));
+    const items = theme.docs.map(([title, docType]) => ({
+      key: title,
+      title,
+      type: "task",
+      labels: ORD_TYPE_LABELS[docType] ? [ORD_TYPE_LABELS[docType].name] : [],
+    }));
     const links = theme.links.map(([sourceKey, targetKey, type]) => ({ sourceKey, targetKey, type }));
     await sql`insert into document_set_templates ${sql({
       id: randomUUID(),
