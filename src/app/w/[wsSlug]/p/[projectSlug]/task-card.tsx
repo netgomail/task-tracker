@@ -467,8 +467,8 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
                 ? "text-green-600 dark:text-green-400"
                 : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
             )}
-            title={`Комплект: ${task.linksDone}/${task.linksTotal} готово`}
-            aria-label={`Комплект: ${task.linksDone} из ${task.linksTotal} готово`}
+            title={`Связанные задачи: ${task.linksDone}/${task.linksTotal} готово`}
+            aria-label={`Связанные задачи: ${task.linksDone} из ${task.linksTotal} готово`}
           >
             <Link2 className="size-3.5" />
             <span className="tabular-nums">

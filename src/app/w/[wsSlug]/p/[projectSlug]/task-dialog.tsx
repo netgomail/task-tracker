@@ -697,7 +697,7 @@ function DocumentSet({
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Комплект
+          Связанные задачи
           {links.length > 0 && (
             <span
               className={cn(
@@ -736,7 +736,7 @@ function DocumentSet({
 
       {links.length === 0 && !adding ? (
         <p className="text-sm text-muted-foreground">
-          Свяжите документы, которые нужно подготовить вместе с этим (приказ → инструкция, журнал, перечень).
+          Свяжите задачи, которые нужно сделать вместе с этой.
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
