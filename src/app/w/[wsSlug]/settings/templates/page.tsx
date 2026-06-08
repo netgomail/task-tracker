@@ -5,9 +5,10 @@ import { requireUser } from "@/lib/rbac";
 import { listForWorkspace as listLabelsForWorkspace } from "@/services/labels";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
+import { listForWorkspace as listSetsForWorkspace } from "@/services/document-sets";
 
 import { PageShell } from "../../page-shell";
-import { TemplatesManager } from "./templates-manager";
+import { TemplatesTabs } from "./templates-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,10 @@ export default async function TemplatesSettingsPage({
   const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
   if (!ws) notFound();
 
-  const [templates, labels] = await Promise.all([
+  const [templates, labels, sets] = await Promise.all([
     listTemplatesForWorkspace(ws.workspaceId),
     listLabelsForWorkspace(ws.workspaceId),
+    listSetsForWorkspace(ws.workspaceId),
   ]);
 
   return (
@@ -32,16 +34,16 @@ export default async function TemplatesSettingsPage({
         <Link href={`/w/${wsSlug}`} className="text-xs text-muted-foreground hover:text-foreground">
           {ws.workspaceName}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Шаблоны задач</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Шаблоны</h1>
         <p className="text-sm text-muted-foreground">
-          Шаблон — это снимок задачи с описанием, подзадачами и метками. При создании задачи
-          можно выбрать «Из шаблона», и поля будут заполнены сразу.
+          Шаблон задачи — снимок одной задачи с описанием, подзадачами и метками. Комплект —
+          снимок целой темы со всеми документами и связями. И то и другое можно разворачивать заново.
         </p>
       </div>
 
-      <TemplatesManager
+      <TemplatesTabs
         wsSlug={wsSlug}
-        initialTemplates={templates.map((t) => ({
+        templates={templates.map((t) => ({
           id: t.id,
           name: t.name,
           description: t.description,
@@ -52,6 +54,7 @@ export default async function TemplatesSettingsPage({
           subtasks: t.subtasks,
         }))}
         labels={labels}
+        sets={sets}
       />
     </PageShell>
   );
