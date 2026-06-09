@@ -98,14 +98,9 @@ export default class TrackerSyncPlugin extends Plugin {
         }
       }),
     );
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        if (file instanceof TFile && file.extension === "md") {
-          this.lastInputHash.delete(file.path);
-          void this.deleteNote(file.path);
-        }
-      }),
-    );
+    // Удаление заметки НЕ трогает трекер: Obsidian — редактор/представление,
+    // удаление локальной заметки не должно архивировать/удалять задачу. Чистку
+    // задач делаем явно на доске трекера.
 
     // Видимая кнопка в левой панели — меню всех действий синхронизации.
     this.addRibbonIcon("refresh-cw", "Трекер", (evt) => this.openMenu(evt));
@@ -372,11 +367,6 @@ export default class TrackerSyncPlugin extends Plugin {
     }
     progress.hide();
     new Notice(`Трекер: синхронизировано ${ok}`);
-  }
-
-  private async deleteNote(path: string): Promise<void> {
-    if (!this.configured()) return;
-    await this.api("POST", "/api/obsidian/delete", { path });
   }
 
   private reportError(file: TFile, status: number, json: unknown): void {
