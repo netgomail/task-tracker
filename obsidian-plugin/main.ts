@@ -22,7 +22,7 @@ import {
 /** Имена свойств (Properties) в заметке — на русском, как в трекере. */
 const PROP = {
   theme: "Тема",
-  type: "Тип",
+  labels: "Метки",
   links: "Связи",
   trackerId: "ИД",
   trackerUrl: "Карточка",
@@ -139,12 +139,12 @@ export default class OrdSyncPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "add-type",
-      name: "Добавить тип (метку) из трекера",
+      id: "add-label",
+      name: "Добавить метку из трекера",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         const ok = !!file && file.extension === "md";
-        if (ok && !checking) void this.pickType(file as TFile);
+        if (ok && !checking) void this.pickLabel(file as TFile);
         return ok;
       },
     });
@@ -217,11 +217,11 @@ export default class OrdSyncPlugin extends Plugin {
     );
     menu.addItem((i) =>
       i
-        .setTitle("Добавить тип текущей заметки")
+        .setTitle("Добавить метку текущей заметки")
         .setIcon("tag")
         .onClick(() => {
           const file = this.app.workspace.getActiveFile();
-          if (file) void this.pickType(file);
+          if (file) void this.pickLabel(file);
         }),
     );
     menu.addSeparator();
@@ -304,7 +304,7 @@ export default class OrdSyncPlugin extends Plugin {
       path: file.path,
       title: file.basename,
       theme: String(theme),
-      tags: toList(fm?.[PROP.type]),
+      tags: toList(fm?.[PROP.labels]),
       links: this.extractLinks(fm?.[PROP.links], file),
     };
   }
@@ -414,14 +414,14 @@ export default class OrdSyncPlugin extends Plugin {
         path: file.path,
         title: file.basename,
         theme: name,
-        tags: toList(fm[PROP.type]),
+        tags: toList(fm[PROP.labels]),
         links: this.extractLinks(fm[PROP.links], file),
       });
       new Notice(`Тема: ${name}`);
     }).open();
   }
 
-  private async pickType(file: TFile): Promise<void> {
+  private async pickLabel(file: TFile): Promise<void> {
     if (!this.configured()) {
       new Notice("ОРД Sync: укажите URL и токен в настройках");
       return;
@@ -436,12 +436,12 @@ export default class OrdSyncPlugin extends Plugin {
       new Notice("ОРД Sync: в трекере нет меток");
       return;
     }
-    new ChoiceModal(this.app, labels, "Добавить тип", async (name) => {
+    new ChoiceModal(this.app, labels, "Добавить метку", async (name) => {
       const fmBefore = this.frontmatter(file) ?? {};
-      const tags = toList(fmBefore[PROP.type]);
+      const tags = toList(fmBefore[PROP.labels]);
       if (!tags.includes(name)) tags.push(name);
       await this.app.fileManager.processFrontMatter(file, (fm) => {
-        fm[PROP.type] = tags;
+        fm[PROP.labels] = tags;
       });
       const theme = fmBefore[PROP.theme];
       if (theme) {
@@ -454,7 +454,7 @@ export default class OrdSyncPlugin extends Plugin {
           links: this.extractLinks(fmBefore[PROP.links], file),
         });
       }
-      new Notice(`Тип: ${tags.join(", ")}`);
+      new Notice(`Метки: ${tags.join(", ")}`);
     }).open();
   }
 
@@ -568,7 +568,7 @@ export default class OrdSyncPlugin extends Plugin {
         const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
         await this.app.fileManager.processFrontMatter(file, (fm) => {
           fm[PROP.theme] = d.themeName;
-          if (d.tags.length) fm[PROP.type] = d.tags;
+          if (d.tags.length) fm[PROP.labels] = d.tags;
           if (d.links.length) fm[PROP.links] = d.links.map((t) => `[[${t}]]`);
           for (const [key, value] of Object.entries(d.fields)) {
             if (value !== undefined) fm[key] = value;
@@ -625,14 +625,16 @@ export default class OrdSyncPlugin extends Plugin {
         }
       }
     }
-    const EN_KEYS = [
+    // Источники миграции: английские ключи + ранний русский «Тип» → «Метки».
+    const OLD_KEYS = [
       "theme", "type", "links", "tracker_id", "status", "stage", "priority",
       "due", "review", "completed", "assignee", "tracker_url", "tracker_updated", "archived",
+      "Тип",
     ];
     let migrated = 0;
     for (const file of this.app.vault.getMarkdownFiles()) {
       const fm = this.frontmatter(file);
-      if (!fm || !EN_KEYS.some((k) => k in fm)) continue;
+      if (!fm || !OLD_KEYS.some((k) => k in fm)) continue;
       await this.app.fileManager.processFrontMatter(file, (f) => {
         const move = (en: string, ru: string, map?: (v: unknown) => unknown) => {
           if (!(en in f)) return;
@@ -640,7 +642,8 @@ export default class OrdSyncPlugin extends Plugin {
           delete f[en];
         };
         move("theme", PROP.theme, (v) => slugToName.get(String(v)) ?? v);
-        move("type", PROP.type);
+        move("type", PROP.labels);
+        move("Тип", PROP.labels);
         move("links", PROP.links);
         move("tracker_id", PROP.trackerId);
         move("status", "Статус", (v) => STATUS_VAL[String(v)] ?? v);
