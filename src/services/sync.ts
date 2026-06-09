@@ -417,6 +417,106 @@ export type ChangedNote = {
   fields: NoteFields;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Витрина готовности для MOC в Obsidian (зеркало /readiness).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type VaultDoc = {
+  title: string;
+  status: NoteStatus;
+  stage: string;
+  review: string | null;
+  due: string | null;
+  overdueReview: boolean;
+  /** Vault-относительный путь заметки (для [[ссылки]]); null — ещё не синхронизирована. */
+  path: string | null;
+  url: string;
+};
+
+export type VaultTheme = {
+  slug: string;
+  name: string;
+  total: number;
+  done: number;
+  inProgress: number;
+  notStarted: number;
+  progressPct: number;
+  docs: VaultDoc[];
+};
+
+/**
+ * Готовность всех тем пространства с разбивкой по документам — для генерации
+ * обзорной заметки (MOC) в Obsidian. Только корневые, неархивные задачи.
+ */
+export async function vaultReadiness(workspaceId: string): Promise<VaultTheme[]> {
+  const rows = await db
+    .select({
+      slug: projects.slug,
+      name: projects.name,
+      createdAt: projects.createdAt,
+      wsSlug: organization.slug,
+      taskId: tasks.id,
+      title: tasks.title,
+      priority: tasks.priority,
+      dueAt: tasks.dueAt,
+      reviewAt: tasks.reviewAt,
+      completedAt: tasks.completedAt,
+      obsidianPath: tasks.obsidianPath,
+      columnName: columns.name,
+    })
+    .from(projects)
+    .innerJoin(organization, eq(organization.id, projects.workspaceId))
+    .leftJoin(
+      tasks,
+      and(eq(tasks.projectId, projects.id), isNull(tasks.parentId), isNull(tasks.archivedAt)),
+    )
+    .leftJoin(columns, eq(columns.id, tasks.columnId))
+    .where(and(eq(projects.workspaceId, workspaceId), isNull(projects.archivedAt)))
+    .orderBy(asc(projects.createdAt), asc(tasks.orderKey));
+
+  const now = Date.now();
+  const byTheme = new Map<string, VaultTheme>();
+
+  for (const r of rows) {
+    let theme = byTheme.get(r.slug);
+    if (!theme) {
+      theme = {
+        slug: r.slug,
+        name: r.name,
+        total: 0,
+        done: 0,
+        inProgress: 0,
+        notStarted: 0,
+        progressPct: 0,
+        docs: [],
+      };
+      byTheme.set(r.slug, theme);
+    }
+    if (!r.taskId) continue; // тема без документов
+    const status = deriveStatus(r.completedAt, r.columnName ?? "");
+    theme.total += 1;
+    if (status === "done") theme.done += 1;
+    else if (status === "not_started") theme.notStarted += 1;
+    else theme.inProgress += 1;
+    theme.docs.push({
+      title: r.title ?? "",
+      status,
+      stage: r.columnName ?? "",
+      review: dateOnly(r.reviewAt),
+      due: dateOnly(r.dueAt),
+      overdueReview: status === "done" && r.reviewAt != null && r.reviewAt.getTime() < now,
+      path: r.obsidianPath,
+      url: `${env.BETTER_AUTH_URL}/w/${r.wsSlug}/p/${r.slug}?task=${r.taskId}`,
+    });
+  }
+
+  const result = [...byTheme.values()];
+  for (const t of result) {
+    t.progressPct = t.total > 0 ? Math.round((t.done / t.total) * 100) : 0;
+  }
+  return result;
+}
+
 /**
  * Связанные с заметками задачи (obsidian_path задан), обновлённые после `since`.
  * Плагин по path находит заметку и переписывает трекер-владеемые свойства.

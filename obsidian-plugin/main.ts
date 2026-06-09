@@ -26,6 +26,8 @@ interface OrdSyncSettings {
   pollSeconds: number;
   /** Курсор обратного канала: ISO времени последнего успешного /changes. */
   cursor: string;
+  /** Путь генерируемой обзорной заметки готовности (MOC). */
+  mocPath: string;
 }
 
 const DEFAULT_SETTINGS: OrdSyncSettings = {
@@ -35,6 +37,7 @@ const DEFAULT_SETTINGS: OrdSyncSettings = {
   folder: "",
   pollSeconds: 15,
   cursor: "",
+  mocPath: "ОРД — Готовность.md",
 };
 
 /** Свойства, которыми владеет трекер (пишутся обратно, read-only для человека). */
@@ -125,6 +128,12 @@ export default class OrdSyncPlugin extends Plugin {
       id: "sync-all-notes",
       name: "Синхронизировать все документы ОРД (со свойством theme)",
       callback: () => void this.pushAll(),
+    });
+
+    this.addCommand({
+      id: "generate-readiness-moc",
+      name: "Сгенерировать обзор готовности (MOC)",
+      callback: () => void this.generateReadiness(),
     });
 
     this.addCommand({
@@ -343,6 +352,112 @@ export default class OrdSyncPlugin extends Plugin {
     this.settings.cursor = data.now;
     await this.saveSettings();
   }
+
+  // ── Генерация обзора готовности (MOC) ────────────────────────────────────────
+
+  private async generateReadiness(): Promise<void> {
+    if (!this.configured()) {
+      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      return;
+    }
+    const { status, json } = await this.api("GET", "/api/obsidian/readiness");
+    if (status !== 200) {
+      new Notice(`ОРД Sync: не удалось получить готовность (${status})`);
+      return;
+    }
+    const themes = (json as { themes: VaultTheme[] }).themes ?? [];
+    const md = renderReadiness(themes);
+
+    const path = normalizePath(this.settings.mocPath || "ОРД — Готовность.md");
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) {
+      await this.app.vault.modify(existing, md);
+    } else {
+      const dir = path.split("/").slice(0, -1).join("/");
+      if (dir && !this.app.vault.getAbstractFileByPath(dir)) {
+        await this.app.vault.createFolder(dir).catch(() => {});
+      }
+      await this.app.vault.create(path, md);
+    }
+    new Notice(`ОРД Sync: обзор готовности обновлён (${themes.length} тем)`);
+  }
+}
+
+// ── Рендер MOC готовности ───────────────────────────────────────────────────────
+
+type VaultDoc = {
+  title: string;
+  status: "not_started" | "in_progress" | "done";
+  stage: string;
+  review: string | null;
+  overdueReview: boolean;
+  path: string | null;
+};
+
+type VaultTheme = {
+  slug: string;
+  name: string;
+  total: number;
+  done: number;
+  inProgress: number;
+  notStarted: number;
+  progressPct: number;
+  docs: VaultDoc[];
+};
+
+const STATUS_LABEL: Record<VaultDoc["status"], string> = {
+  not_started: "не начато",
+  in_progress: "в работе",
+  done: "готово",
+};
+
+function basenameLink(doc: VaultDoc): string {
+  if (!doc.path) return escapeCell(doc.title);
+  const base = doc.path.split("/").pop()!.replace(/\.md$/, "");
+  return `[[${base}]]`;
+}
+
+function escapeCell(s: string): string {
+  return s.replace(/\|/g, "\\|");
+}
+
+function renderReadiness(themes: VaultTheme[]): string {
+  const lines: string[] = [];
+  lines.push("# ОРД — Готовность", "");
+  lines.push(`> Сгенерировано ${new Date().toLocaleString("ru-RU")}. Источник: трекер.`, "");
+
+  const total = themes.reduce((a, t) => a + t.total, 0);
+  const done = themes.reduce((a, t) => a + t.done, 0);
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  lines.push(`**Итого:** ${done}/${total} документов готово (${pct}%).`, "");
+
+  for (const t of themes) {
+    lines.push(`## ${t.name} — ${t.progressPct}% (${t.done}/${t.total})`);
+    lines.push(
+      `не начато ${t.notStarted} · в работе ${t.inProgress} · готово ${t.done}`,
+      "",
+    );
+    if (t.docs.length === 0) {
+      lines.push("_Нет документов._", "");
+      continue;
+    }
+    lines.push("| Документ | Статус | Стадия | Пересмотр |", "| --- | --- | --- | --- |");
+    for (const d of t.docs) {
+      const review = d.review ? (d.overdueReview ? `⚠ ${d.review}` : d.review) : "—";
+      lines.push(
+        `| ${basenameLink(d)} | ${STATUS_LABEL[d.status]} | ${escapeCell(d.stage)} | ${review} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push("---", "");
+  lines.push(
+    "> [!tip] Живая таблица",
+    "> Можно заменить статичные таблицы на запрос Bases (ядро) или Dataview по",
+    "> свойствам `theme`/`status`/`stage`/`review` — они синхронизируются в каждую заметку.",
+  );
+  return lines.join("\n");
 }
 
 // ── Утилиты разбора свойств ────────────────────────────────────────────────────
@@ -426,6 +541,19 @@ class OrdSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
           this.plugin.restartPolling();
         }),
+      );
+
+    new Setting(containerEl)
+      .setName("Файл обзора готовности (MOC)")
+      .setDesc("Куда команда «Сгенерировать обзор готовности» пишет таблицу")
+      .addText((t) =>
+        t
+          .setPlaceholder("ОРД — Готовность.md")
+          .setValue(this.plugin.settings.mocPath)
+          .onChange(async (v) => {
+            this.plugin.settings.mocPath = v.trim() || "ОРД — Готовность.md";
+            await this.plugin.saveSettings();
+          }),
       );
 
     new Setting(containerEl)
