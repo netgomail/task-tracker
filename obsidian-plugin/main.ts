@@ -431,14 +431,18 @@ export default class OrdSyncPlugin extends Plugin {
     const docs = (json as { docs: ExportDoc[] }).docs ?? [];
     const existing = this.notesByTrackerId();
     const base = this.settings.folder || "Темы";
-    let created = 0;
-    let skipped = 0;
+    // Создаём только те, у которых ещё нет заметки.
+    const toCreate = docs.filter((d) => !d.hasNote && !existing.has(d.tracker_id));
+    const skipped = docs.length - toCreate.length;
 
-    for (const d of docs) {
-      if (d.hasNote || existing.has(d.tracker_id)) {
-        skipped += 1;
-        continue;
-      }
+    if (toCreate.length === 0) {
+      new Notice(`ОРД Sync: всё уже импортировано (${skipped})`);
+      return;
+    }
+
+    const progress = new Notice(`ОРД Sync: импорт 0/${toCreate.length}…`, 0);
+    let created = 0;
+    for (const d of toCreate) {
       const folder = `${base}/${sanitizeName(d.themeName)}`;
       await this.ensureFolder(folder);
       const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
@@ -456,8 +460,10 @@ export default class OrdSyncPlugin extends Plugin {
       this.lastInputHash.set(path, this.inputHash(this.buildPayload(file)!));
       existing.set(d.tracker_id, file);
       created += 1;
+      progress.setMessage(`ОРД Sync: импорт ${created}/${toCreate.length}…`);
     }
-    new Notice(`ОРД Sync: импорт — создано ${created}, пропущено ${skipped}`);
+    progress.hide();
+    new Notice(`ОРД Sync: импорт завершён — создано ${created}, пропущено ${skipped}`);
   }
 
   /** Уникальный путь: если занят чужим tracker_id — добавляет суффикс. */
