@@ -1,0 +1,9 @@
+{
+  "id": "ord-tracker-sync",
+  "name": "ОРД Tracker Sync",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Синхронизация документов ОРД с таск-трекером: статусы, стадии, сроки и связи через свойства заметок.",
+  "author": "task-tracker",
+  "isDesktopOnly": false
+}
