@@ -13,7 +13,12 @@ export type CreateTokenResult =
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const NameSchema = z.string().trim().min(1, "Введите название").max(60, "Слишком длинное");
+const NameSchema = z.string().trim().max(60, "Слишком длинное");
+
+/** Название по умолчанию, если пользователь не задал своё. */
+function defaultTokenName(): string {
+  return `Obsidian ${new Date().toLocaleDateString("ru-RU")}`;
+}
 
 /** Управление токенами — операция администратора пространства. */
 async function authorizeAdmin(wsSlug: string) {
@@ -32,8 +37,9 @@ export async function createSyncTokenAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
+  const finalName = parsed.data || defaultTokenName();
   const { session, ws } = await authorizeAdmin(wsSlug);
-  const { secret } = await syncTokens.create(ws.workspaceId, session.user.id, parsed.data);
+  const { secret } = await syncTokens.create(ws.workspaceId, session.user.id, finalName);
   revalidatePath(`/w/${wsSlug}/settings/sync`);
   return { ok: true, secret };
 }

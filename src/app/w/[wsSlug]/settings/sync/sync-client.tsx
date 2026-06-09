@@ -45,10 +45,8 @@ export function SyncTokens({ wsSlug, workspaceSlug, baseUrl, canManage, initialT
   const [freshSecret, setFreshSecret] = useState<string | null>(null);
 
   function submitCreate() {
-    const next = name.trim();
-    if (!next) return;
     startTransition(async () => {
-      const res = await createSyncTokenAction(wsSlug, next);
+      const res = await createSyncTokenAction(wsSlug, name.trim());
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -109,6 +107,9 @@ export function SyncTokens({ wsSlug, workspaceSlug, baseUrl, canManage, initialT
           <div className="flex flex-1 flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="token-name">
               Новый токен
+              <span className="ml-1 font-normal text-muted-foreground/70">
+                — название необязательно, секрет сгенерирует приложение
+              </span>
             </label>
             <div className="flex items-center gap-2">
               <Input
@@ -121,12 +122,12 @@ export function SyncTokens({ wsSlug, workspaceSlug, baseUrl, canManage, initialT
                     submitCreate();
                   }
                 }}
-                placeholder="Например, MacBook Obsidian"
+                placeholder="Например, MacBook Obsidian (необязательно)"
                 maxLength={60}
                 disabled={pending}
               />
-              <Button onClick={submitCreate} disabled={pending || !name.trim()}>
-                <Plus className="size-4" /> Создать
+              <Button onClick={submitCreate} disabled={pending}>
+                <Plus className="size-4" /> Сгенерировать
               </Button>
             </div>
           </div>
