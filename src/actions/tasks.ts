@@ -13,7 +13,7 @@ import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
 import { runAutomations } from "@/services/automations";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
-import { notifyBoard } from "@/lib/realtime";
+import { bindBoardWorkspace, notifyBoard } from "@/lib/realtime";
 import { sanitizeText } from "@/lib/sanitize";
 import {
   TASK_PRIORITIES,
@@ -39,6 +39,9 @@ async function authorize(wsSlug: string, projectSlug: string) {
   if (!ws) throw new Error("Workspace not found");
   const project = await getProjectBySlug(ws.workspaceId, projectSlug);
   if (!project) throw new Error("Project not found");
+  // Любое изменение задачи через refreshBoard→notifyBoard заодно разбудит
+  // workspace-канал Obsidian-плагина (синхронизация статуса/стадии).
+  bindBoardWorkspace(project.boardId, ws.workspaceId);
   return { session, ws, project };
 }
 

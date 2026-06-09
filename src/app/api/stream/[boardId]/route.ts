@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/rbac";
 import { authorizeBoardAccess } from "@/services/boards";
-import { subscribe } from "@/lib/realtime";
+import { bindBoardWorkspace, subscribe } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +20,9 @@ export async function GET(
   if (!access) {
     return new Response("Forbidden", { status: 403 });
   }
+  // Привязываем доску к пространству: теперь notifyBoard будет будить и
+  // workspace-канал (Obsidian-плагин), пока открыта доска в UI.
+  bindBoardWorkspace(boardId, access.workspaceId);
 
   const encoder = new TextEncoder();
 
