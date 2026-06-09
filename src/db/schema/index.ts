@@ -8,6 +8,7 @@
 //   Этап 12 → ./attachments
 //   Этап 13 → ./custom-fields
 //   Этап 14 → ./automations
+//   Obsidian-синхронизация → ./sync (sync_tokens)
 export * from "./auth";
 export * from "./projects";
 export * from "./tasks";
@@ -18,3 +19,4 @@ export * from "./templates";
 export * from "./attachments";
 export * from "./custom-fields";
 export * from "./automations";
+export * from "./sync";

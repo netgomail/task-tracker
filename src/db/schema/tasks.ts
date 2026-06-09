@@ -30,6 +30,8 @@ export const tasks = pgTable(
     reviewAt: ts("review_at"),
     completedAt: ts("completed_at"),
     orderKey: text("order_key").notNull(),
+    /** Vault-относительный путь заметки Obsidian (синхронизация); null — не связана. */
+    obsidianPath: text("obsidian_path"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -44,6 +46,7 @@ export const tasks = pgTable(
   (t) => [
     index("tasks_col_order_idx").on(t.workspaceId, t.columnId, t.orderKey),
     index("tasks_project_archived_idx").on(t.workspaceId, t.projectId, t.archivedAt),
+    index("tasks_obsidian_path_idx").on(t.workspaceId, t.obsidianPath),
     index("tasks_parent_idx").on(t.parentId),
     foreignKey({
       name: "tasks_parent_fk",

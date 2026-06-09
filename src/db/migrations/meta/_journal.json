@@ -29,6 +29,13 @@
       "when": 1780861524076,
       "tag": "0003_labels_icon_revert_types",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781014368299,
+      "tag": "0004_crazy_franklin_storm",
+      "breakpoints": true
     }
   ]
 }
