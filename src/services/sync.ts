@@ -535,6 +535,30 @@ export async function changedSince(workspaceId: string, since: Date): Promise<Ch
     }));
 }
 
+/**
+ * Привязывает заметки к задачам пакетом (после импорта): проставляет
+ * obsidian_path, чтобы обратный канал /changes начал отдавать эти задачи.
+ * Возвращает число привязанных.
+ */
+export async function bindPaths(
+  workspaceId: string,
+  pairs: { trackerId: string; path: string }[],
+): Promise<number> {
+  if (pairs.length === 0) return 0;
+  let bound = 0;
+  await db.transaction(async (tx) => {
+    for (const p of pairs) {
+      if (!p.trackerId || !p.path) continue;
+      await tx
+        .update(tasks)
+        .set({ obsidianPath: p.path })
+        .where(and(eq(tasks.id, p.trackerId), eq(tasks.workspaceId, workspaceId)));
+      bound += 1;
+    }
+  });
+  return bound;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Экспорт: задачи трекера → заметки Obsidian (первичный бутстрап).
 // ─────────────────────────────────────────────────────────────────────────────

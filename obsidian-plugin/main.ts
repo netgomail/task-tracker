@@ -441,29 +441,53 @@ export default class OrdSyncPlugin extends Plugin {
     }
 
     const progress = new Notice(`ОРД Sync: импорт 0/${toCreate.length}…`, 0);
+    const pairs: { tracker_id: string; path: string }[] = [];
     let created = 0;
+    let failed = 0;
     for (const d of toCreate) {
-      const folder = `${base}/${sanitizeName(d.themeName)}`;
-      await this.ensureFolder(folder);
-      const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
-      const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
-      await this.app.fileManager.processFrontMatter(file, (fm) => {
-        fm["theme"] = d.themeSlug;
-        if (d.tags.length) fm["type"] = d.tags;
-        if (d.links.length) fm["links"] = d.links.map((t) => `[[${t}]]`);
-        for (const key of TRACKER_FIELDS) {
-          const value = (d.fields as Record<string, unknown>)[key];
-          if (value !== undefined) fm[key] = value;
-        }
-      });
-      // Анти-эхо: входные поля уже отданы трекеру при экспорте — не шлём назад.
-      this.lastInputHash.set(path, this.inputHash(this.buildPayload(file)!));
-      existing.set(d.tracker_id, file);
-      created += 1;
+      try {
+        const folder = `${base}/${sanitizeName(d.themeName)}`;
+        await this.ensureFolder(folder);
+        const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
+        const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
+        await this.app.fileManager.processFrontMatter(file, (fm) => {
+          fm["theme"] = d.themeSlug;
+          if (d.tags.length) fm["type"] = d.tags;
+          if (d.links.length) fm["links"] = d.links.map((t) => `[[${t}]]`);
+          for (const key of TRACKER_FIELDS) {
+            const value = (d.fields as Record<string, unknown>)[key];
+            if (value !== undefined) fm[key] = value;
+          }
+        });
+        // Анти-эхо: считаем хэш из данных экспорта (не из кэша Obsidian, который
+        // ещё не обновился) — чтобы watcher не отправил заметку обратно.
+        this.lastInputHash.set(
+          path,
+          this.inputHash({
+            tracker_id: d.tracker_id,
+            path,
+            title: file.basename,
+            theme: d.themeSlug,
+            tags: d.tags,
+            links: d.links.map((t) => ({ tracker_id: null, title: t })),
+          }),
+        );
+        existing.set(d.tracker_id, file);
+        pairs.push({ tracker_id: d.tracker_id, path });
+        created += 1;
+      } catch (e) {
+        failed += 1;
+        console.error("ОРД Sync: импорт заметки не удался", d.title, e);
+      }
       progress.setMessage(`ОРД Sync: импорт ${created}/${toCreate.length}…`);
     }
+
+    // Пакетная привязка путей к задачам — чтобы обратный канал отдавал статусы.
+    if (pairs.length) await this.api("POST", "/api/obsidian/bind", { pairs });
+
     progress.hide();
-    new Notice(`ОРД Sync: импорт завершён — создано ${created}, пропущено ${skipped}`);
+    const tail = failed ? `, ошибок ${failed}` : "";
+    new Notice(`ОРД Sync: импорт завершён — создано ${created}, пропущено ${skipped}${tail}`);
   }
 
   /** Уникальный путь: если занят чужим tracker_id — добавляет суффикс. */
