@@ -131,6 +131,12 @@ export default class OrdSyncPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "import-from-tracker",
+      name: "Создать заметки из задач трекера (импорт)",
+      callback: () => void this.importFromTracker(),
+    });
+
+    this.addCommand({
       id: "generate-readiness-moc",
       name: "Сгенерировать обзор готовности (MOC)",
       callback: () => void this.generateReadiness(),
@@ -353,6 +359,79 @@ export default class OrdSyncPlugin extends Plugin {
     await this.saveSettings();
   }
 
+  // ── Импорт: задачи трекера → заметки ─────────────────────────────────────────
+
+  /** Карта tracker_id → заметка (по frontmatter) — чтобы не дублировать. */
+  private notesByTrackerId(): Map<string, TFile> {
+    const map = new Map<string, TFile>();
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      const id = this.frontmatter(f)?.tracker_id;
+      if (id) map.set(String(id), f);
+    }
+    return map;
+  }
+
+  private async ensureFolder(path: string): Promise<void> {
+    const parts = path.split("/").filter(Boolean);
+    let cur = "";
+    for (const part of parts) {
+      cur = cur ? `${cur}/${part}` : part;
+      if (!this.app.vault.getAbstractFileByPath(cur)) {
+        await this.app.vault.createFolder(cur).catch(() => {});
+      }
+    }
+  }
+
+  private async importFromTracker(): Promise<void> {
+    if (!this.configured()) {
+      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      return;
+    }
+    const { status, json } = await this.api("GET", "/api/obsidian/export");
+    if (status !== 200) {
+      new Notice(`ОРД Sync: импорт не удался (${status})`);
+      return;
+    }
+    const docs = (json as { docs: ExportDoc[] }).docs ?? [];
+    const existing = this.notesByTrackerId();
+    const base = this.settings.folder || "Темы";
+    let created = 0;
+    let skipped = 0;
+
+    for (const d of docs) {
+      if (d.hasNote || existing.has(d.tracker_id)) {
+        skipped += 1;
+        continue;
+      }
+      const folder = `${base}/${sanitizeName(d.themeName)}`;
+      await this.ensureFolder(folder);
+      const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
+      const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
+        fm["theme"] = d.themeSlug;
+        if (d.tags.length) fm["type"] = d.tags;
+        if (d.links.length) fm["links"] = d.links.map((t) => `[[${t}]]`);
+        for (const key of TRACKER_FIELDS) {
+          const value = (d.fields as Record<string, unknown>)[key];
+          if (value !== undefined) fm[key] = value;
+        }
+      });
+      // Анти-эхо: входные поля уже отданы трекеру при экспорте — не шлём назад.
+      this.lastInputHash.set(path, this.inputHash(this.buildPayload(file)!));
+      existing.set(d.tracker_id, file);
+      created += 1;
+    }
+    new Notice(`ОРД Sync: импорт — создано ${created}, пропущено ${skipped}`);
+  }
+
+  /** Уникальный путь: если занят чужим tracker_id — добавляет суффикс. */
+  private uniquePath(path: string, trackerId: string): string {
+    const af = this.app.vault.getAbstractFileByPath(path);
+    if (!(af instanceof TFile)) return path;
+    if (this.frontmatter(af)?.tracker_id === trackerId) return path;
+    return path.replace(/\.md$/, ` (${trackerId.slice(0, 6)}).md`);
+  }
+
   // ── Генерация обзора готовности (MOC) ────────────────────────────────────────
 
   private async generateReadiness(): Promise<void> {
@@ -476,6 +555,22 @@ function parseWikiLink(raw: string): string | null {
   const linkpath = inner.split("|")[0].split("#")[0].trim();
   return linkpath || null;
 }
+
+/** Убирает недопустимые в именах файлов/папок Obsidian символы. */
+function sanitizeName(s: string): string {
+  return s.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim() || "без названия";
+}
+
+type ExportDoc = {
+  tracker_id: string;
+  title: string;
+  themeSlug: string;
+  themeName: string;
+  hasNote: boolean;
+  tags: string[];
+  links: string[];
+  fields: Record<string, unknown>;
+};
 
 // ── Настройки ──────────────────────────────────────────────────────────────────
 

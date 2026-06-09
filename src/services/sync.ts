@@ -534,3 +534,109 @@ export async function changedSince(workspaceId: string, since: Date): Promise<Ch
       fields: buildFields(r),
     }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Экспорт: задачи трекера → заметки Obsidian (первичный бутстрап).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ExportDoc = {
+  tracker_id: string;
+  title: string;
+  themeSlug: string;
+  themeName: string;
+  /** Уже есть заметка (obsidian_path задан) — плагин такие пропускает. */
+  hasNote: boolean;
+  /** Метки задачи → свойство `type`. */
+  tags: string[];
+  /** Заголовки целей исходящих связей → свойство `links`. */
+  links: string[];
+  /** Трекер-владеемые поля для записи во frontmatter. */
+  fields: NoteFields;
+};
+
+/**
+ * Все корневые неархивные документы пространства — для создания заметок в
+ * Obsidian из существующих задач. Включает метки (→ type) и исходящие связи
+ * (→ links), чтобы заметка сразу была наполнена.
+ */
+export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]> {
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      priority: tasks.priority,
+      dueAt: tasks.dueAt,
+      reviewAt: tasks.reviewAt,
+      completedAt: tasks.completedAt,
+      updatedAt: tasks.updatedAt,
+      obsidianPath: tasks.obsidianPath,
+      columnName: columns.name,
+      assigneeName: user.name,
+      wsSlug: organization.slug,
+      themeSlug: projects.slug,
+      themeName: projects.name,
+    })
+    .from(tasks)
+    .innerJoin(columns, eq(columns.id, tasks.columnId))
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .innerJoin(organization, eq(organization.id, tasks.workspaceId))
+    .leftJoin(user, eq(user.id, tasks.assigneeId))
+    .where(
+      and(
+        eq(tasks.workspaceId, workspaceId),
+        isNull(tasks.parentId),
+        isNull(tasks.archivedAt),
+      ),
+    )
+    .orderBy(asc(projects.createdAt), asc(tasks.orderKey));
+
+  const ids = rows.map((r) => r.id);
+  const tagsByTask = new Map<string, string[]>();
+  const linksByTask = new Map<string, string[]>();
+  if (ids.length > 0) {
+    const labelRows = await db
+      .select({ taskId: taskLabels.taskId, name: labels.name })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, ids));
+    for (const r of labelRows) {
+      const list = tagsByTask.get(r.taskId) ?? [];
+      list.push(r.name);
+      tagsByTask.set(r.taskId, list);
+    }
+    const linkRows = await db
+      .select({ src: taskLinks.sourceTaskId, title: tasks.title })
+      .from(taskLinks)
+      .innerJoin(tasks, eq(tasks.id, taskLinks.targetTaskId))
+      .where(
+        and(eq(taskLinks.workspaceId, workspaceId), inArray(taskLinks.sourceTaskId, ids)),
+      );
+    for (const r of linkRows) {
+      const list = linksByTask.get(r.src) ?? [];
+      list.push(r.title);
+      linksByTask.set(r.src, list);
+    }
+  }
+
+  return rows.map((r) => ({
+    tracker_id: r.id,
+    title: r.title,
+    themeSlug: r.themeSlug,
+    themeName: r.themeName,
+    hasNote: r.obsidianPath != null,
+    tags: tagsByTask.get(r.id) ?? [],
+    links: linksByTask.get(r.id) ?? [],
+    fields: buildFields({
+      id: r.id,
+      priority: r.priority,
+      dueAt: r.dueAt,
+      reviewAt: r.reviewAt,
+      completedAt: r.completedAt,
+      updatedAt: r.updatedAt,
+      columnName: r.columnName,
+      assigneeName: r.assigneeName,
+      wsSlug: r.wsSlug,
+      projectSlug: r.themeSlug,
+    }),
+  }));
+}
