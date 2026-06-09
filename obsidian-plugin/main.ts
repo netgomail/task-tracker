@@ -1,5 +1,6 @@
 import {
   App,
+  Menu,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -112,6 +113,41 @@ export default class OrdSyncPlugin extends Plugin {
         }
       }),
     );
+
+    // Видимая кнопка в левой панели — меню всех действий синхронизации.
+    this.addRibbonIcon("refresh-cw", "ОРД Sync", (evt) => {
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle("Синхронизировать текущую заметку")
+          .setIcon("file-up")
+          .onClick(() => {
+            const file = this.app.workspace.getActiveFile();
+            if (file && this.inScope(file)) void this.pushNote(file, true);
+            else new Notice("ОРД Sync: нет активного документа (нужно свойство theme)");
+          }),
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Синхронизировать все документы")
+          .setIcon("folder-up")
+          .onClick(() => void this.pushAll()),
+      );
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i
+          .setTitle("Импорт задач из трекера")
+          .setIcon("download")
+          .onClick(() => void this.importFromTracker()),
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Обзор готовности (MOC)")
+          .setIcon("table")
+          .onClick(() => void this.generateReadiness()),
+      );
+      menu.showAtMouseEvent(evt);
+    });
 
     this.addCommand({
       id: "sync-current-note",
