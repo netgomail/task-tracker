@@ -545,9 +545,12 @@ export default class TrackerSyncPlugin extends Plugin {
       new Notice(`Трекер: импорт не удался (${status})`);
       return;
     }
-    const docs = (json as { docs: ExportDoc[] }).docs ?? [];
+    const data = json as { workspace?: string | null; docs: ExportDoc[] };
+    const docs = data.docs ?? [];
     const existing = this.notesByTrackerId();
-    const base = this.settings.folder || "Проекты";
+    // Корневая папка: явная из настроек → имя пространства → запасное «Проекты».
+    // Структура: <Пространство>/<Проект>/<задача>.md.
+    const base = this.settings.folder || (data.workspace ? sanitizeName(data.workspace) : "Проекты");
     const toCreate = docs.filter((d) => !d.hasNote && !existing.has(d.tracker_id));
     const skipped = docs.length - toCreate.length;
 
@@ -872,11 +875,11 @@ class TrackerSyncSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Папка задач")
-      .setDesc("Ограничить синхронизацию папкой (пусто — весь vault; всё равно нужно свойство «Проект»)")
+      .setName("Корневая папка")
+      .setDesc("Папка импорта/синхронизации. Пусто — имя пространства из трекера. Структура: Пространство / Проект / задача")
       .addText((t) =>
         t
-          .setPlaceholder("Проекты")
+          .setPlaceholder("(имя пространства)")
           .setValue(this.plugin.settings.folder)
           .onChange(async (v) => {
             this.plugin.settings.folder = v.trim();

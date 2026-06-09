@@ -546,6 +546,16 @@ export async function changedSince(workspaceId: string, since: Date): Promise<Ch
     }));
 }
 
+/** Имя пространства (organization) — для корневой папки импорта в Obsidian. */
+export async function getWorkspaceName(workspaceId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ name: organization.name })
+    .from(organization)
+    .where(eq(organization.id, workspaceId))
+    .limit(1);
+  return row?.name ?? null;
+}
+
 /**
  * Привязывает заметки к задачам пакетом (после импорта): проставляет
  * obsidian_path, чтобы обратный канал /changes начал отдавать эти задачи.
