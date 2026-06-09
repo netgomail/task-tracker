@@ -1,9 +1,9 @@
 {
-  "id": "ord-tracker-sync",
-  "name": "ОРД Tracker Sync",
+  "id": "task-tracker-sync",
+  "name": "Task Tracker Sync",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Синхронизация документов ОРД с таск-трекером: статусы, стадии, сроки и связи через свойства заметок.",
+  "description": "Синхронизация задач таск-трекера с заметками Obsidian: проект, метки, связи, статусы и сроки через свойства заметок.",
   "author": "task-tracker",
   "isDesktopOnly": false
 }

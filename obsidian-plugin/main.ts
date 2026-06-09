@@ -13,15 +13,15 @@ import {
 } from "obsidian";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Контракт с сервером (см. PLAN.md). Заметка-документ ОРД ↔ задача трекера.
-//   Obsidian владеет: содержимым, именем файла, свойствами «Тема», «Тип»,
+// Контракт с сервером. Заметка Obsidian ↔ задача трекера.
+//   Obsidian владеет: содержимым, именем файла, свойствами «Проект», «Метки»,
 //   «Связи». Трекер владеет статусом/стадией/сроками/исполнителем — приходят в
 //   ответе и пишутся обратно как read-only свойства (русские ключи, как в трекере).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Имена свойств (Properties) в заметке — на русском, как в трекере. */
 const PROP = {
-  theme: "Тема",
+  project: "Проект",
   labels: "Метки",
   links: "Связи",
   trackerId: "ИД",
@@ -29,7 +29,7 @@ const PROP = {
   archived: "Архив",
 } as const;
 
-interface OrdSyncSettings {
+interface TrackerSyncSettings {
   baseUrl: string;
   token: string;
   workspace: string;
@@ -42,14 +42,14 @@ interface OrdSyncSettings {
   mocPath: string;
 }
 
-const DEFAULT_SETTINGS: OrdSyncSettings = {
+const DEFAULT_SETTINGS: TrackerSyncSettings = {
   baseUrl: "http://localhost:3000",
   token: "",
   workspace: "",
   folder: "",
   pollSeconds: 15,
   cursor: "",
-  mocPath: "ОРД — Готовность.md",
+  mocPath: "Готовность.md",
 };
 
 type NoteLink = { tracker_id: string | null; title: string; type?: string };
@@ -67,15 +67,15 @@ type NoteFields = Record<string, unknown>;
 
 type ChangedNote = { path: string; archived: boolean; fields: NoteFields };
 
-export default class OrdSyncPlugin extends Plugin {
-  settings!: OrdSyncSettings;
+export default class TrackerSyncPlugin extends Plugin {
+  settings!: TrackerSyncSettings;
   /** Хэш «входных» свойств последней отправки — анти-эхо для write-back. */
   private lastInputHash = new Map<string, string>();
   private pollHandle: number | null = null;
 
   async onload() {
     await this.loadSettings();
-    this.addSettingTab(new OrdSyncSettingTab(this.app, this));
+    this.addSettingTab(new TrackerSyncSettingTab(this.app, this));
 
     // Дебаунс на путь: при наборе текста modify сыплется десятками.
     const pushDebounced = debounce((file: TFile) => void this.pushNote(file), 800, false);
@@ -108,7 +108,7 @@ export default class OrdSyncPlugin extends Plugin {
     );
 
     // Видимая кнопка в левой панели — меню всех действий синхронизации.
-    this.addRibbonIcon("refresh-cw", "ОРД Sync", (evt) => this.openMenu(evt));
+    this.addRibbonIcon("refresh-cw", "Трекер", (evt) => this.openMenu(evt));
 
     this.addCommand({
       id: "sync-current-note",
@@ -123,17 +123,17 @@ export default class OrdSyncPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-notes",
-      name: "Синхронизировать все документы ОРД",
+      name: "Синхронизировать все задачи",
       callback: () => void this.pushAll(),
     });
 
     this.addCommand({
-      id: "pick-theme",
-      name: "Выбрать тему документа",
+      id: "pick-project",
+      name: "Выбрать проект заметки",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         const ok = !!file && file.extension === "md";
-        if (ok && !checking) void this.pickTheme(file as TFile);
+        if (ok && !checking) void this.pickProject(file as TFile);
         return ok;
       },
     });
@@ -196,7 +196,7 @@ export default class OrdSyncPlugin extends Plugin {
         .onClick(() => {
           const file = this.app.workspace.getActiveFile();
           if (file && this.inScope(file)) void this.pushNote(file, true);
-          else new Notice("ОРД Sync: нет активного документа (нужно свойство «Тема»)");
+          else new Notice("Трекер: нет активного документа (нужно свойство «Проект»)");
         }),
     );
     menu.addItem((i) =>
@@ -208,11 +208,11 @@ export default class OrdSyncPlugin extends Plugin {
     menu.addSeparator();
     menu.addItem((i) =>
       i
-        .setTitle("Выбрать тему текущей заметки")
+        .setTitle("Выбрать проект текущей заметки")
         .setIcon("folder")
         .onClick(() => {
           const file = this.app.workspace.getActiveFile();
-          if (file) void this.pickTheme(file);
+          if (file) void this.pickProject(file);
         }),
     );
     menu.addItem((i) =>
@@ -258,7 +258,7 @@ export default class OrdSyncPlugin extends Plugin {
       const prefix = normalizePath(this.settings.folder) + "/";
       if (!(file.path + "/").startsWith(prefix)) return false;
     }
-    return !!this.frontmatter(file)?.[PROP.theme];
+    return !!this.frontmatter(file)?.[PROP.project];
   }
 
   private frontmatter(file: TFile): Record<string, unknown> | undefined {
@@ -297,7 +297,7 @@ export default class OrdSyncPlugin extends Plugin {
 
   private buildPayload(file: TFile): UpsertPayload | null {
     const fm = this.frontmatter(file);
-    const theme = fm?.[PROP.theme];
+    const theme = fm?.[PROP.project];
     if (!theme) return null;
     return {
       tracker_id: (fm?.[PROP.trackerId] as string) ?? null,
@@ -359,19 +359,19 @@ export default class OrdSyncPlugin extends Plugin {
 
   private async pushAll(): Promise<void> {
     if (!this.configured()) {
-      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      new Notice("Трекер: укажите URL и токен в настройках");
       return;
     }
     const files = this.app.vault.getMarkdownFiles().filter((f) => this.inScope(f));
-    const progress = new Notice(`ОРД Sync: синхронизация 0/${files.length}…`, 0);
+    const progress = new Notice(`Трекер: синхронизация 0/${files.length}…`, 0);
     let ok = 0;
     for (const file of files) {
       await this.pushNote(file, true);
       ok += 1;
-      progress.setMessage(`ОРД Sync: синхронизация ${ok}/${files.length}…`);
+      progress.setMessage(`Трекер: синхронизация ${ok}/${files.length}…`);
     }
     progress.hide();
-    new Notice(`ОРД Sync: синхронизировано ${ok}`);
+    new Notice(`Трекер: синхронизировано ${ok}`);
   }
 
   private async deleteNote(path: string): Promise<void> {
@@ -381,32 +381,32 @@ export default class OrdSyncPlugin extends Plugin {
 
   private reportError(file: TFile, status: number, json: unknown): void {
     const err = (json as { error?: string })?.error;
-    if (status === 401) new Notice("ОРД Sync: неверный токен");
+    if (status === 401) new Notice("Трекер: неверный токен");
     else if (err === "theme_not_found")
-      new Notice(`ОРД Sync: тема не найдена (${this.frontmatter(file)?.[PROP.theme]})`);
-    else new Notice(`ОРД Sync: ошибка ${status} (${file.basename})`);
+      new Notice(`Трекер: проект не найден (${this.frontmatter(file)?.[PROP.project]})`);
+    else new Notice(`Трекер: ошибка ${status} (${file.basename})`);
   }
 
-  // ── Выбор темы / типа из трекера ─────────────────────────────────────────────
+  // ── Выбор проекта / метки из трекера ─────────────────────────────────────────────
 
-  private async pickTheme(file: TFile): Promise<void> {
+  private async pickProject(file: TFile): Promise<void> {
     if (!this.configured()) {
-      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      new Notice("Трекер: укажите URL и токен в настройках");
       return;
     }
     const { status, json } = await this.api("GET", "/api/obsidian/themes");
     if (status !== 200) {
-      new Notice(`ОРД Sync: не удалось получить темы (${status})`);
+      new Notice(`Трекер: не удалось получить проекты (${status})`);
       return;
     }
     const names = ((json as { themes: { name: string }[] }).themes ?? []).map((t) => t.name);
     if (names.length === 0) {
-      new Notice("ОРД Sync: в трекере нет тем");
+      new Notice("Трекер: в трекере нет проектов");
       return;
     }
-    new ChoiceModal(this.app, names, "Выберите тему", async (name) => {
+    new ChoiceModal(this.app, names, "Выберите проект", async (name) => {
       await this.app.fileManager.processFrontMatter(file, (fm) => {
-        fm[PROP.theme] = name;
+        fm[PROP.project] = name;
       });
       const fm = this.frontmatter(file) ?? {};
       await this.sendUpsert(file, {
@@ -417,23 +417,23 @@ export default class OrdSyncPlugin extends Plugin {
         tags: toList(fm[PROP.labels]),
         links: this.extractLinks(fm[PROP.links], file),
       });
-      new Notice(`Тема: ${name}`);
+      new Notice(`Проект: ${name}`);
     }).open();
   }
 
   private async pickLabel(file: TFile): Promise<void> {
     if (!this.configured()) {
-      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      new Notice("Трекер: укажите URL и токен в настройках");
       return;
     }
     const { status, json } = await this.api("GET", "/api/obsidian/labels");
     if (status !== 200) {
-      new Notice(`ОРД Sync: не удалось получить метки (${status})`);
+      new Notice(`Трекер: не удалось получить метки (${status})`);
       return;
     }
     const labels = (json as { labels: string[] }).labels ?? [];
     if (labels.length === 0) {
-      new Notice("ОРД Sync: в трекере нет меток");
+      new Notice("Трекер: в трекере нет меток");
       return;
     }
     new ChoiceModal(this.app, labels, "Добавить метку", async (name) => {
@@ -443,7 +443,7 @@ export default class OrdSyncPlugin extends Plugin {
       await this.app.fileManager.processFrontMatter(file, (fm) => {
         fm[PROP.labels] = tags;
       });
-      const theme = fmBefore[PROP.theme];
+      const theme = fmBefore[PROP.project];
       if (theme) {
         await this.sendUpsert(file, {
           tracker_id: (fmBefore[PROP.trackerId] as string) ?? null,
@@ -537,26 +537,26 @@ export default class OrdSyncPlugin extends Plugin {
 
   private async importFromTracker(): Promise<void> {
     if (!this.configured()) {
-      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      new Notice("Трекер: укажите URL и токен в настройках");
       return;
     }
     const { status, json } = await this.api("GET", "/api/obsidian/export");
     if (status !== 200) {
-      new Notice(`ОРД Sync: импорт не удался (${status})`);
+      new Notice(`Трекер: импорт не удался (${status})`);
       return;
     }
     const docs = (json as { docs: ExportDoc[] }).docs ?? [];
     const existing = this.notesByTrackerId();
-    const base = this.settings.folder || "Темы";
+    const base = this.settings.folder || "Проекты";
     const toCreate = docs.filter((d) => !d.hasNote && !existing.has(d.tracker_id));
     const skipped = docs.length - toCreate.length;
 
     if (toCreate.length === 0) {
-      new Notice(`ОРД Sync: всё уже импортировано (${skipped})`);
+      new Notice(`Трекер: всё уже импортировано (${skipped})`);
       return;
     }
 
-    const progress = new Notice(`ОРД Sync: импорт 0/${toCreate.length}…`, 0);
+    const progress = new Notice(`Трекер: импорт 0/${toCreate.length}…`, 0);
     const pairs: { tracker_id: string; path: string }[] = [];
     let created = 0;
     let failed = 0;
@@ -567,7 +567,7 @@ export default class OrdSyncPlugin extends Plugin {
         const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
         const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
         await this.app.fileManager.processFrontMatter(file, (fm) => {
-          fm[PROP.theme] = d.themeName;
+          fm[PROP.project] = d.themeName;
           if (d.tags.length) fm[PROP.labels] = d.tags;
           if (d.links.length) fm[PROP.links] = d.links.map((t) => `[[${t}]]`);
           for (const [key, value] of Object.entries(d.fields)) {
@@ -591,9 +591,9 @@ export default class OrdSyncPlugin extends Plugin {
         created += 1;
       } catch (e) {
         failed += 1;
-        console.error("ОРД Sync: импорт заметки не удался", d.title, e);
+        console.error("Трекер: импорт заметки не удался", d.title, e);
       }
-      progress.setMessage(`ОРД Sync: импорт ${created}/${toCreate.length}…`);
+      progress.setMessage(`Трекер: импорт ${created}/${toCreate.length}…`);
     }
 
     // Пакетная привязка путей к задачам — чтобы обратный канал отдавал статусы.
@@ -601,7 +601,7 @@ export default class OrdSyncPlugin extends Plugin {
 
     progress.hide();
     const tail = failed ? `, ошибок ${failed}` : "";
-    new Notice(`ОРД Sync: импорт завершён — создано ${created}, пропущено ${skipped}${tail}`);
+    new Notice(`Трекер: импорт завершён — создано ${created}, пропущено ${skipped}${tail}`);
   }
 
   /** Уникальный путь: если занят чужим «ИД» — добавляет суффикс. */
@@ -629,7 +629,7 @@ export default class OrdSyncPlugin extends Plugin {
     const OLD_KEYS = [
       "theme", "type", "links", "tracker_id", "status", "stage", "priority",
       "due", "review", "completed", "assignee", "tracker_url", "tracker_updated", "archived",
-      "Тип",
+      "Тип", "Тема",
     ];
     let migrated = 0;
     for (const file of this.app.vault.getMarkdownFiles()) {
@@ -641,7 +641,8 @@ export default class OrdSyncPlugin extends Plugin {
           f[ru] = map ? map(f[en]) : f[en];
           delete f[en];
         };
-        move("theme", PROP.theme, (v) => slugToName.get(String(v)) ?? v);
+        move("theme", PROP.project, (v) => slugToName.get(String(v)) ?? v);
+        move("Тема", PROP.project, (v) => slugToName.get(String(v)) ?? v);
         move("type", PROP.labels);
         move("Тип", PROP.labels);
         move("links", PROP.links);
@@ -659,25 +660,25 @@ export default class OrdSyncPlugin extends Plugin {
       });
       migrated += 1;
     }
-    new Notice(`ОРД Sync: свойства переведены — заметок ${migrated}`);
+    new Notice(`Трекер: свойства переведены — заметок ${migrated}`);
   }
 
   // ── Генерация обзора готовности (MOC) ────────────────────────────────────────
 
   private async generateReadiness(): Promise<void> {
     if (!this.configured()) {
-      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      new Notice("Трекер: укажите URL и токен в настройках");
       return;
     }
     const { status, json } = await this.api("GET", "/api/obsidian/readiness");
     if (status !== 200) {
-      new Notice(`ОРД Sync: не удалось получить готовность (${status})`);
+      new Notice(`Трекер: не удалось получить готовность (${status})`);
       return;
     }
     const themes = (json as { themes: VaultTheme[] }).themes ?? [];
     const md = renderReadiness(themes);
 
-    const path = normalizePath(this.settings.mocPath || "ОРД — Готовность.md");
+    const path = normalizePath(this.settings.mocPath || "Готовность.md");
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) {
       await this.app.vault.modify(existing, md);
@@ -688,7 +689,7 @@ export default class OrdSyncPlugin extends Plugin {
       }
       await this.app.vault.create(path, md);
     }
-    new Notice(`ОРД Sync: обзор готовности обновлён (${themes.length} тем)`);
+    new Notice(`Трекер: обзор готовности обновлён (${themes.length} проектов)`);
   }
 }
 
@@ -762,7 +763,7 @@ function escapeCell(s: string): string {
 
 function renderReadiness(themes: VaultTheme[]): string {
   const lines: string[] = [];
-  lines.push("# ОРД — Готовность", "");
+  lines.push("# Готовность проектов", "");
   lines.push(`> Сгенерировано ${new Date().toLocaleString("ru-RU")}. Источник: трекер.`, "");
 
   const total = themes.reduce((a, t) => a + t.total, 0);
@@ -791,7 +792,7 @@ function renderReadiness(themes: VaultTheme[]): string {
   lines.push(
     "> [!tip] Живая таблица",
     "> Статичные таблицы можно заменить запросом Bases (ядро) или Dataview по",
-    "> свойствам «Тема»/«Статус»/«Стадия»/«Пересмотр» — они есть в каждой заметке.",
+    "> свойствам «Проект»/«Статус»/«Стадия»/«Пересмотр» — они есть в каждой заметке.",
   );
   return lines.join("\n");
 }
@@ -831,10 +832,10 @@ type ExportDoc = {
 
 // ── Настройки ──────────────────────────────────────────────────────────────────
 
-class OrdSyncSettingTab extends PluginSettingTab {
-  plugin: OrdSyncPlugin;
+class TrackerSyncSettingTab extends PluginSettingTab {
+  plugin: TrackerSyncPlugin;
 
-  constructor(app: App, plugin: OrdSyncPlugin) {
+  constructor(app: App, plugin: TrackerSyncPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -842,7 +843,7 @@ class OrdSyncSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h3", { text: "Синхронизация ОРД с трекером" });
+    containerEl.createEl("h3", { text: "Синхронизация с трекером" });
 
     new Setting(containerEl)
       .setName("URL сервера")
@@ -871,11 +872,11 @@ class OrdSyncSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Папка документов ОРД")
-      .setDesc("Ограничить синхронизацию папкой (пусто — весь vault; всё равно нужно свойство «Тема»)")
+      .setName("Папка задач")
+      .setDesc("Ограничить синхронизацию папкой (пусто — весь vault; всё равно нужно свойство «Проект»)")
       .addText((t) =>
         t
-          .setPlaceholder("Темы")
+          .setPlaceholder("Проекты")
           .setValue(this.plugin.settings.folder)
           .onChange(async (v) => {
             this.plugin.settings.folder = v.trim();
@@ -900,10 +901,10 @@ class OrdSyncSettingTab extends PluginSettingTab {
       .setDesc("Куда команда «Сгенерировать обзор готовности» пишет таблицу")
       .addText((t) =>
         t
-          .setPlaceholder("ОРД — Готовность.md")
+          .setPlaceholder("Готовность.md")
           .setValue(this.plugin.settings.mocPath)
           .onChange(async (v) => {
-            this.plugin.settings.mocPath = v.trim() || "ОРД — Готовность.md";
+            this.plugin.settings.mocPath = v.trim() || "Готовность.md";
             await this.plugin.saveSettings();
           }),
       );

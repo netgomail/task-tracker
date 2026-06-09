@@ -1,7 +1,7 @@
 {
-  "name": "ord-tracker-sync",
+  "name": "task-tracker-sync",
   "version": "0.1.0",
-  "description": "Obsidian-плагин синхронизации ОРД с таск-трекером",
+  "description": "Obsidian-плагин синхронизации задач с таск-трекером",
   "main": "main.js",
   "type": "module",
   "scripts": {
