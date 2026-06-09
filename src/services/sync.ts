@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gt, inArray, isNull, ne, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { db, type DB } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
@@ -32,18 +32,23 @@ function dateOnly(d: Date | null): string | null {
 
 export type NoteStatus = "not_started" | "in_progress" | "done";
 
-/** Трекер-владеемые свойства заметки (read-only со стороны Obsidian). */
-export type NoteFields = {
-  tracker_id: string;
-  status: NoteStatus;
-  stage: string;
-  priority: string;
-  due: string | null;
-  review: string | null;
-  completed: string | null;
-  assignee: string | null;
-  tracker_url: string;
-  tracker_updated: string;
+/**
+ * Трекер-владеемые свойства заметки (read-only со стороны Obsidian) — русские
+ * ключи, как в трекере. Плагин пишет их во frontmatter как есть.
+ */
+export type NoteFields = Record<string, unknown>;
+
+const STATUS_RU: Record<NoteStatus, string> = {
+  not_started: "не начато",
+  in_progress: "в работе",
+  done: "готово",
+};
+
+const PRIORITY_RU: Record<string, string> = {
+  low: "низкий",
+  normal: "обычный",
+  high: "высокий",
+  urgent: "срочный",
 };
 
 function deriveStatus(completedAt: Date | null, columnName: string): NoteStatus {
@@ -65,16 +70,16 @@ function buildFields(row: {
   projectSlug: string;
 }): NoteFields {
   return {
-    tracker_id: row.id,
-    status: deriveStatus(row.completedAt, row.columnName),
-    stage: row.columnName,
-    priority: row.priority,
-    due: dateOnly(row.dueAt),
-    review: dateOnly(row.reviewAt),
-    completed: dateOnly(row.completedAt),
-    assignee: row.assigneeName,
-    tracker_url: `${env.BETTER_AUTH_URL}/w/${row.wsSlug}/p/${row.projectSlug}?task=${row.id}`,
-    tracker_updated: row.updatedAt.toISOString(),
+    "ИД": row.id,
+    "Статус": STATUS_RU[deriveStatus(row.completedAt, row.columnName)],
+    "Стадия": row.columnName,
+    "Приоритет": PRIORITY_RU[row.priority] ?? row.priority,
+    "Срок": dateOnly(row.dueAt),
+    "Пересмотр": dateOnly(row.reviewAt),
+    "Завершено": dateOnly(row.completedAt),
+    "Исполнитель": row.assigneeName,
+    "Карточка": `${env.BETTER_AUTH_URL}/w/${row.wsSlug}/p/${row.projectSlug}?task=${row.id}`,
+    "Обновлено": row.updatedAt.toISOString(),
   };
 }
 
@@ -140,13 +145,19 @@ export type UpsertResult =
 async function resolveTheme(
   tx: Tx,
   workspaceId: string,
-  slug: string,
+  key: string,
 ): Promise<{ projectId: string; boardId: string } | null> {
+  // Тема задаётся либо slug'ом, либо читаемым названием (свойство «Тема»).
   const [row] = await tx
     .select({ projectId: projects.id, boardId: boards.id })
     .from(projects)
     .innerJoin(boards, eq(boards.projectId, projects.id))
-    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.slug, slug)))
+    .where(
+      and(
+        eq(projects.workspaceId, workspaceId),
+        or(eq(projects.slug, key), eq(projects.name, key)),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }

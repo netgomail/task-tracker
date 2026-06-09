@@ -1,5 +1,6 @@
 import {
   App,
+  FuzzySuggestModal,
   Menu,
   Notice,
   Plugin,
@@ -13,10 +14,20 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Контракт с сервером (см. PLAN.md). Заметка-документ ОРД ↔ задача трекера.
-//   Obsidian владеет: содержимым, именем файла, свойствами `theme`, `type`,
-//   `links`. Трекер владеет: status/stage/priority/due/review/completed/
-//   assignee — они приходят в ответе и пишутся обратно как read-only свойства.
+//   Obsidian владеет: содержимым, именем файла, свойствами «Тема», «Тип»,
+//   «Связи». Трекер владеет статусом/стадией/сроками/исполнителем — приходят в
+//   ответе и пишутся обратно как read-only свойства (русские ключи, как в трекере).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Имена свойств (Properties) в заметке — на русском, как в трекере. */
+const PROP = {
+  theme: "Тема",
+  type: "Тип",
+  links: "Связи",
+  trackerId: "ИД",
+  trackerUrl: "Карточка",
+  archived: "Архив",
+} as const;
 
 interface OrdSyncSettings {
   baseUrl: string;
@@ -41,20 +52,6 @@ const DEFAULT_SETTINGS: OrdSyncSettings = {
   mocPath: "ОРД — Готовность.md",
 };
 
-/** Свойства, которыми владеет трекер (пишутся обратно, read-only для человека). */
-const TRACKER_FIELDS = [
-  "tracker_id",
-  "status",
-  "stage",
-  "priority",
-  "due",
-  "review",
-  "completed",
-  "assignee",
-  "tracker_url",
-  "tracker_updated",
-] as const;
-
 type NoteLink = { tracker_id: string | null; title: string; type?: string };
 
 type UpsertPayload = {
@@ -66,7 +63,7 @@ type UpsertPayload = {
   links: NoteLink[];
 };
 
-type NoteFields = Record<string, unknown> & { tracker_id: string };
+type NoteFields = Record<string, unknown>;
 
 type ChangedNote = { path: string; archived: boolean; fields: NoteFields };
 
@@ -81,11 +78,7 @@ export default class OrdSyncPlugin extends Plugin {
     this.addSettingTab(new OrdSyncSettingTab(this.app, this));
 
     // Дебаунс на путь: при наборе текста modify сыплется десятками.
-    const pushDebounced = debounce(
-      (file: TFile) => void this.pushNote(file),
-      800,
-      false,
-    );
+    const pushDebounced = debounce((file: TFile) => void this.pushNote(file), 800, false);
 
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -115,39 +108,7 @@ export default class OrdSyncPlugin extends Plugin {
     );
 
     // Видимая кнопка в левой панели — меню всех действий синхронизации.
-    this.addRibbonIcon("refresh-cw", "ОРД Sync", (evt) => {
-      const menu = new Menu();
-      menu.addItem((i) =>
-        i
-          .setTitle("Синхронизировать текущую заметку")
-          .setIcon("file-up")
-          .onClick(() => {
-            const file = this.app.workspace.getActiveFile();
-            if (file && this.inScope(file)) void this.pushNote(file, true);
-            else new Notice("ОРД Sync: нет активного документа (нужно свойство theme)");
-          }),
-      );
-      menu.addItem((i) =>
-        i
-          .setTitle("Синхронизировать все документы")
-          .setIcon("folder-up")
-          .onClick(() => void this.pushAll()),
-      );
-      menu.addSeparator();
-      menu.addItem((i) =>
-        i
-          .setTitle("Импорт задач из трекера")
-          .setIcon("download")
-          .onClick(() => void this.importFromTracker()),
-      );
-      menu.addItem((i) =>
-        i
-          .setTitle("Обзор готовности (MOC)")
-          .setIcon("table")
-          .onClick(() => void this.generateReadiness()),
-      );
-      menu.showAtMouseEvent(evt);
-    });
+    this.addRibbonIcon("refresh-cw", "ОРД Sync", (evt) => this.openMenu(evt));
 
     this.addCommand({
       id: "sync-current-note",
@@ -162,8 +123,30 @@ export default class OrdSyncPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-notes",
-      name: "Синхронизировать все документы ОРД (со свойством theme)",
+      name: "Синхронизировать все документы ОРД",
       callback: () => void this.pushAll(),
+    });
+
+    this.addCommand({
+      id: "pick-theme",
+      name: "Выбрать тему документа",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const ok = !!file && file.extension === "md";
+        if (ok && !checking) void this.pickTheme(file as TFile);
+        return ok;
+      },
+    });
+
+    this.addCommand({
+      id: "add-type",
+      name: "Добавить тип (метку) из трекера",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const ok = !!file && file.extension === "md";
+        if (ok && !checking) void this.pickType(file as TFile);
+        return ok;
+      },
     });
 
     this.addCommand({
@@ -179,24 +162,82 @@ export default class OrdSyncPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "migrate-props",
+      name: "Мигрировать свойства на русские",
+      callback: () => void this.migrateProps(),
+    });
+
+    this.addCommand({
       id: "open-in-tracker",
       name: "Открыть карточку в трекере",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
-        const url = file && this.frontmatter(file)?.tracker_url;
+        const url = file && this.frontmatter(file)?.[PROP.trackerUrl];
         if (!url) return false;
         if (!checking) window.open(String(url), "_blank");
         return true;
       },
     });
 
-    // Обратный канал — поллинг (CORS-free через requestUrl). SSE-эндпоинт на
-    // сервере есть, но в Obsidian надёжнее опрос.
+    // Обратный канал — поллинг (CORS-free через requestUrl).
     this.app.workspace.onLayoutReady(() => this.startPolling());
   }
 
   onunload() {
     this.stopPolling();
+  }
+
+  private openMenu(evt: MouseEvent): void {
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i
+        .setTitle("Синхронизировать текущую заметку")
+        .setIcon("file-up")
+        .onClick(() => {
+          const file = this.app.workspace.getActiveFile();
+          if (file && this.inScope(file)) void this.pushNote(file, true);
+          else new Notice("ОРД Sync: нет активного документа (нужно свойство «Тема»)");
+        }),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Синхронизировать все документы")
+        .setIcon("folder-up")
+        .onClick(() => void this.pushAll()),
+    );
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i
+        .setTitle("Выбрать тему текущей заметки")
+        .setIcon("folder")
+        .onClick(() => {
+          const file = this.app.workspace.getActiveFile();
+          if (file) void this.pickTheme(file);
+        }),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Добавить тип текущей заметки")
+        .setIcon("tag")
+        .onClick(() => {
+          const file = this.app.workspace.getActiveFile();
+          if (file) void this.pickType(file);
+        }),
+    );
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i
+        .setTitle("Импорт задач из трекера")
+        .setIcon("download")
+        .onClick(() => void this.importFromTracker()),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Обзор готовности (MOC)")
+        .setIcon("table")
+        .onClick(() => void this.generateReadiness()),
+    );
+    menu.showAtMouseEvent(evt);
   }
 
   // ── Настройки ──────────────────────────────────────────────────────────────
@@ -217,7 +258,7 @@ export default class OrdSyncPlugin extends Plugin {
       const prefix = normalizePath(this.settings.folder) + "/";
       if (!(file.path + "/").startsWith(prefix)) return false;
     }
-    return !!this.frontmatter(file)?.theme;
+    return !!this.frontmatter(file)?.[PROP.theme];
   }
 
   private frontmatter(file: TFile): Record<string, unknown> | undefined {
@@ -256,18 +297,19 @@ export default class OrdSyncPlugin extends Plugin {
 
   private buildPayload(file: TFile): UpsertPayload | null {
     const fm = this.frontmatter(file);
-    if (!fm || !fm.theme) return null;
+    const theme = fm?.[PROP.theme];
+    if (!theme) return null;
     return {
-      tracker_id: (fm.tracker_id as string) ?? null,
+      tracker_id: (fm?.[PROP.trackerId] as string) ?? null,
       path: file.path,
       title: file.basename,
-      theme: String(fm.theme),
-      tags: toList(fm.type),
-      links: this.extractLinks(fm.links, file),
+      theme: String(theme),
+      tags: toList(fm?.[PROP.type]),
+      links: this.extractLinks(fm?.[PROP.links], file),
     };
   }
 
-  /** `links:` (список ссылок) → цели с tracker_id (если у целевой заметки он есть). */
+  /** «Связи» (список ссылок) → цели с tracker_id (если у целевой заметки он есть). */
   private extractLinks(raw: unknown, source: TFile): NoteLink[] {
     const out: NoteLink[] = [];
     for (const item of toList(raw)) {
@@ -276,7 +318,7 @@ export default class OrdSyncPlugin extends Plugin {
       const dest = this.app.metadataCache.getFirstLinkpathDest(linkpath, source.path);
       if (dest) {
         const destFm = this.frontmatter(dest);
-        out.push({ tracker_id: (destFm?.tracker_id as string) ?? null, title: dest.basename });
+        out.push({ tracker_id: (destFm?.[PROP.trackerId] as string) ?? null, title: dest.basename });
       } else {
         out.push({ tracker_id: null, title: linkpath });
       }
@@ -294,22 +336,25 @@ export default class OrdSyncPlugin extends Plugin {
     });
   }
 
+  /** Отправляет payload на сервер и записывает трекер-поля обратно. */
+  private async sendUpsert(file: TFile, payload: UpsertPayload): Promise<boolean> {
+    const { status, json } = await this.api("POST", "/api/obsidian/upsert", payload);
+    if (status !== 200) {
+      this.reportError(file, status, json);
+      return false;
+    }
+    this.lastInputHash.set(file.path, this.inputHash(payload));
+    await this.writeFields(file, (json as { fields: NoteFields }).fields, false);
+    return true;
+  }
+
   private async pushNote(file: TFile, force = false): Promise<void> {
     if (!this.configured()) return;
     const payload = this.buildPayload(file);
     if (!payload) return;
-
     const hash = this.inputHash(payload);
     if (!force && this.lastInputHash.get(file.path) === hash) return; // эхо/нерелевантная правка
-
-    const { status, json } = await this.api("POST", "/api/obsidian/upsert", payload);
-    if (status !== 200) {
-      this.reportError(file, status, json);
-      return;
-    }
-    this.lastInputHash.set(file.path, hash);
-    const data = json as { tracker_id: string; fields: NoteFields };
-    await this.writeFields(file, data.fields, false);
+    await this.sendUpsert(file, payload);
   }
 
   private async pushAll(): Promise<void> {
@@ -318,13 +363,15 @@ export default class OrdSyncPlugin extends Plugin {
       return;
     }
     const files = this.app.vault.getMarkdownFiles().filter((f) => this.inScope(f));
-    new Notice(`ОРД Sync: синхронизирую ${files.length} док.`);
+    const progress = new Notice(`ОРД Sync: синхронизация 0/${files.length}…`, 0);
     let ok = 0;
     for (const file of files) {
       await this.pushNote(file, true);
       ok += 1;
+      progress.setMessage(`ОРД Sync: синхронизация ${ok}/${files.length}…`);
     }
-    new Notice(`ОРД Sync: готово (${ok})`);
+    progress.hide();
+    new Notice(`ОРД Sync: синхронизировано ${ok}`);
   }
 
   private async deleteNote(path: string): Promise<void> {
@@ -336,22 +383,92 @@ export default class OrdSyncPlugin extends Plugin {
     const err = (json as { error?: string })?.error;
     if (status === 401) new Notice("ОРД Sync: неверный токен");
     else if (err === "theme_not_found")
-      new Notice(`ОРД Sync: тема не найдена (${this.frontmatter(file)?.theme})`);
+      new Notice(`ОРД Sync: тема не найдена (${this.frontmatter(file)?.[PROP.theme]})`);
     else new Notice(`ОРД Sync: ошибка ${status} (${file.basename})`);
+  }
+
+  // ── Выбор темы / типа из трекера ─────────────────────────────────────────────
+
+  private async pickTheme(file: TFile): Promise<void> {
+    if (!this.configured()) {
+      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      return;
+    }
+    const { status, json } = await this.api("GET", "/api/obsidian/themes");
+    if (status !== 200) {
+      new Notice(`ОРД Sync: не удалось получить темы (${status})`);
+      return;
+    }
+    const names = ((json as { themes: { name: string }[] }).themes ?? []).map((t) => t.name);
+    if (names.length === 0) {
+      new Notice("ОРД Sync: в трекере нет тем");
+      return;
+    }
+    new ChoiceModal(this.app, names, "Выберите тему", async (name) => {
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
+        fm[PROP.theme] = name;
+      });
+      const fm = this.frontmatter(file) ?? {};
+      await this.sendUpsert(file, {
+        tracker_id: (fm[PROP.trackerId] as string) ?? null,
+        path: file.path,
+        title: file.basename,
+        theme: name,
+        tags: toList(fm[PROP.type]),
+        links: this.extractLinks(fm[PROP.links], file),
+      });
+      new Notice(`Тема: ${name}`);
+    }).open();
+  }
+
+  private async pickType(file: TFile): Promise<void> {
+    if (!this.configured()) {
+      new Notice("ОРД Sync: укажите URL и токен в настройках");
+      return;
+    }
+    const { status, json } = await this.api("GET", "/api/obsidian/labels");
+    if (status !== 200) {
+      new Notice(`ОРД Sync: не удалось получить метки (${status})`);
+      return;
+    }
+    const labels = (json as { labels: string[] }).labels ?? [];
+    if (labels.length === 0) {
+      new Notice("ОРД Sync: в трекере нет меток");
+      return;
+    }
+    new ChoiceModal(this.app, labels, "Добавить тип", async (name) => {
+      const fmBefore = this.frontmatter(file) ?? {};
+      const tags = toList(fmBefore[PROP.type]);
+      if (!tags.includes(name)) tags.push(name);
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
+        fm[PROP.type] = tags;
+      });
+      const theme = fmBefore[PROP.theme];
+      if (theme) {
+        await this.sendUpsert(file, {
+          tracker_id: (fmBefore[PROP.trackerId] as string) ?? null,
+          path: file.path,
+          title: file.basename,
+          theme: String(theme),
+          tags,
+          links: this.extractLinks(fmBefore[PROP.links], file),
+        });
+      }
+      new Notice(`Тип: ${tags.join(", ")}`);
+    }).open();
   }
 
   // ── Трекер → Obsidian (write-back свойств) ───────────────────────────────────
 
-  /** Пишет трекер-владеемые свойства во frontmatter заметки. */
+  /** Пишет трекер-владеемые свойства во frontmatter заметки (русские ключи). */
   private async writeFields(file: TFile, fields: NoteFields, archived: boolean): Promise<void> {
     await this.app.fileManager.processFrontMatter(file, (fm) => {
-      for (const key of TRACKER_FIELDS) {
-        const value = (fields as Record<string, unknown>)[key];
+      for (const [key, value] of Object.entries(fields)) {
         if (value === undefined) continue;
         fm[key] = value;
       }
-      if (archived) fm["archived"] = true;
-      else if ("archived" in fm) delete fm["archived"];
+      if (archived) fm[PROP.archived] = true;
+      else if (PROP.archived in fm) delete fm[PROP.archived];
     });
   }
 
@@ -397,11 +514,11 @@ export default class OrdSyncPlugin extends Plugin {
 
   // ── Импорт: задачи трекера → заметки ─────────────────────────────────────────
 
-  /** Карта tracker_id → заметка (по frontmatter) — чтобы не дублировать. */
+  /** Карта tracker_id → заметка (по свойству «ИД») — чтобы не дублировать. */
   private notesByTrackerId(): Map<string, TFile> {
     const map = new Map<string, TFile>();
     for (const f of this.app.vault.getMarkdownFiles()) {
-      const id = this.frontmatter(f)?.tracker_id;
+      const id = this.frontmatter(f)?.[PROP.trackerId];
       if (id) map.set(String(id), f);
     }
     return map;
@@ -431,7 +548,6 @@ export default class OrdSyncPlugin extends Plugin {
     const docs = (json as { docs: ExportDoc[] }).docs ?? [];
     const existing = this.notesByTrackerId();
     const base = this.settings.folder || "Темы";
-    // Создаём только те, у которых ещё нет заметки.
     const toCreate = docs.filter((d) => !d.hasNote && !existing.has(d.tracker_id));
     const skipped = docs.length - toCreate.length;
 
@@ -451,23 +567,21 @@ export default class OrdSyncPlugin extends Plugin {
         const path = this.uniquePath(`${folder}/${sanitizeName(d.title)}.md`, d.tracker_id);
         const file = await this.app.vault.create(path, `# ${d.title}\n\n`);
         await this.app.fileManager.processFrontMatter(file, (fm) => {
-          fm["theme"] = d.themeSlug;
-          if (d.tags.length) fm["type"] = d.tags;
-          if (d.links.length) fm["links"] = d.links.map((t) => `[[${t}]]`);
-          for (const key of TRACKER_FIELDS) {
-            const value = (d.fields as Record<string, unknown>)[key];
+          fm[PROP.theme] = d.themeName;
+          if (d.tags.length) fm[PROP.type] = d.tags;
+          if (d.links.length) fm[PROP.links] = d.links.map((t) => `[[${t}]]`);
+          for (const [key, value] of Object.entries(d.fields)) {
             if (value !== undefined) fm[key] = value;
           }
         });
-        // Анти-эхо: считаем хэш из данных экспорта (не из кэша Obsidian, который
-        // ещё не обновился) — чтобы watcher не отправил заметку обратно.
+        // Анти-эхо: хэш из данных экспорта (кэш Obsidian ещё не обновился).
         this.lastInputHash.set(
           path,
           this.inputHash({
             tracker_id: d.tracker_id,
             path,
             title: file.basename,
-            theme: d.themeSlug,
+            theme: d.themeName,
             tags: d.tags,
             links: d.links.map((t) => ({ tracker_id: null, title: t })),
           }),
@@ -490,12 +604,59 @@ export default class OrdSyncPlugin extends Plugin {
     new Notice(`ОРД Sync: импорт завершён — создано ${created}, пропущено ${skipped}${tail}`);
   }
 
-  /** Уникальный путь: если занят чужим tracker_id — добавляет суффикс. */
+  /** Уникальный путь: если занят чужим «ИД» — добавляет суффикс. */
   private uniquePath(path: string, trackerId: string): string {
     const af = this.app.vault.getAbstractFileByPath(path);
     if (!(af instanceof TFile)) return path;
-    if (this.frontmatter(af)?.tracker_id === trackerId) return path;
+    if (this.frontmatter(af)?.[PROP.trackerId] === trackerId) return path;
     return path.replace(/\.md$/, ` (${trackerId.slice(0, 6)}).md`);
+  }
+
+  // ── Миграция старых английских свойств на русские ────────────────────────────
+
+  private async migrateProps(): Promise<void> {
+    // slug→name для конвертации старого theme-slug в читаемое название.
+    const slugToName = new Map<string, string>();
+    if (this.configured()) {
+      const { status, json } = await this.api("GET", "/api/obsidian/themes");
+      if (status === 200) {
+        for (const t of (json as { themes: { slug: string; name: string }[] }).themes ?? []) {
+          slugToName.set(t.slug, t.name);
+        }
+      }
+    }
+    const EN_KEYS = [
+      "theme", "type", "links", "tracker_id", "status", "stage", "priority",
+      "due", "review", "completed", "assignee", "tracker_url", "tracker_updated", "archived",
+    ];
+    let migrated = 0;
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const fm = this.frontmatter(file);
+      if (!fm || !EN_KEYS.some((k) => k in fm)) continue;
+      await this.app.fileManager.processFrontMatter(file, (f) => {
+        const move = (en: string, ru: string, map?: (v: unknown) => unknown) => {
+          if (!(en in f)) return;
+          f[ru] = map ? map(f[en]) : f[en];
+          delete f[en];
+        };
+        move("theme", PROP.theme, (v) => slugToName.get(String(v)) ?? v);
+        move("type", PROP.type);
+        move("links", PROP.links);
+        move("tracker_id", PROP.trackerId);
+        move("status", "Статус", (v) => STATUS_VAL[String(v)] ?? v);
+        move("stage", "Стадия");
+        move("priority", "Приоритет", (v) => PRIORITY_VAL[String(v)] ?? v);
+        move("due", "Срок");
+        move("review", "Пересмотр");
+        move("completed", "Завершено");
+        move("assignee", "Исполнитель");
+        move("tracker_url", PROP.trackerUrl);
+        move("tracker_updated", "Обновлено");
+        move("archived", PROP.archived);
+      });
+      migrated += 1;
+    }
+    new Notice(`ОРД Sync: свойства переведены — заметок ${migrated}`);
   }
 
   // ── Генерация обзора готовности (MOC) ────────────────────────────────────────
@@ -528,6 +689,29 @@ export default class OrdSyncPlugin extends Plugin {
   }
 }
 
+// ── Модалка выбора из списка ────────────────────────────────────────────────────
+
+class ChoiceModal extends FuzzySuggestModal<string> {
+  constructor(
+    app: App,
+    private items: string[],
+    placeholder: string,
+    private onPick: (value: string) => void | Promise<void>,
+  ) {
+    super(app);
+    this.setPlaceholder(placeholder);
+  }
+  getItems(): string[] {
+    return this.items;
+  }
+  getItemText(item: string): string {
+    return item;
+  }
+  onChooseItem(item: string): void {
+    void this.onPick(item);
+  }
+}
+
 // ── Рендер MOC готовности ───────────────────────────────────────────────────────
 
 type VaultDoc = {
@@ -550,10 +734,17 @@ type VaultTheme = {
   docs: VaultDoc[];
 };
 
-const STATUS_LABEL: Record<VaultDoc["status"], string> = {
+const STATUS_VAL: Record<string, string> = {
   not_started: "не начато",
   in_progress: "в работе",
   done: "готово",
+};
+
+const PRIORITY_VAL: Record<string, string> = {
+  low: "низкий",
+  normal: "обычный",
+  high: "высокий",
+  urgent: "срочный",
 };
 
 function basenameLink(doc: VaultDoc): string {
@@ -578,10 +769,7 @@ function renderReadiness(themes: VaultTheme[]): string {
 
   for (const t of themes) {
     lines.push(`## ${t.name} — ${t.progressPct}% (${t.done}/${t.total})`);
-    lines.push(
-      `не начато ${t.notStarted} · в работе ${t.inProgress} · готово ${t.done}`,
-      "",
-    );
+    lines.push(`не начато ${t.notStarted} · в работе ${t.inProgress} · готово ${t.done}`, "");
     if (t.docs.length === 0) {
       lines.push("_Нет документов._", "");
       continue;
@@ -590,7 +778,7 @@ function renderReadiness(themes: VaultTheme[]): string {
     for (const d of t.docs) {
       const review = d.review ? (d.overdueReview ? `⚠ ${d.review}` : d.review) : "—";
       lines.push(
-        `| ${basenameLink(d)} | ${STATUS_LABEL[d.status]} | ${escapeCell(d.stage)} | ${review} |`,
+        `| ${basenameLink(d)} | ${STATUS_VAL[d.status] ?? d.status} | ${escapeCell(d.stage)} | ${review} |`,
       );
     }
     lines.push("");
@@ -599,8 +787,8 @@ function renderReadiness(themes: VaultTheme[]): string {
   lines.push("---", "");
   lines.push(
     "> [!tip] Живая таблица",
-    "> Можно заменить статичные таблицы на запрос Bases (ядро) или Dataview по",
-    "> свойствам `theme`/`status`/`stage`/`review` — они синхронизируются в каждую заметку.",
+    "> Статичные таблицы можно заменить запросом Bases (ядро) или Dataview по",
+    "> свойствам «Тема»/«Статус»/«Стадия»/«Пересмотр» — они есть в каждой заметке.",
   );
   return lines.join("\n");
 }
@@ -681,7 +869,7 @@ class OrdSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Папка документов ОРД")
-      .setDesc("Ограничить синхронизацию папкой (пусто — весь vault; всё равно нужен `theme`)")
+      .setDesc("Ограничить синхронизацию папкой (пусто — весь vault; всё равно нужно свойство «Тема»)")
       .addText((t) =>
         t
           .setPlaceholder("Темы")
