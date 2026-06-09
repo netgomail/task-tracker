@@ -48,6 +48,21 @@ export default async function WorkspaceSettingsPage({
           initialMembers={members}
         />
       </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-base font-medium">Интеграции</h2>
+        <div className="flex flex-col gap-2">
+          <Link
+            href={`/w/${wsSlug}/settings/sync`}
+            className="rounded-lg border border-border bg-card px-4 py-3 text-sm hover:bg-accent"
+          >
+            Синхронизация с Obsidian
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Токены для плагина: статусы, стадии и связи документов ОРД
+            </span>
+          </Link>
+        </div>
+      </section>
     </PageShell>
   );
 }
