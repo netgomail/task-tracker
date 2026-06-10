@@ -41,17 +41,19 @@ export type NoteStatus = "not_started" | "in_progress" | "done";
  */
 export type NoteFields = Record<string, unknown>;
 
+// Значения статуса/приоритета с цветным кружком-индикатором (color в свойствах
+// Obsidian иначе не задать — эмодзи работают везде).
 const STATUS_RU: Record<NoteStatus, string> = {
-  not_started: "не начато",
-  in_progress: "в работе",
-  done: "готово",
+  not_started: "⚪ не начато",
+  in_progress: "🔵 в работе",
+  done: "🟢 готово",
 };
 
 const PRIORITY_RU: Record<string, string> = {
-  low: "низкий",
-  normal: "обычный",
-  high: "высокий",
-  urgent: "срочный",
+  low: "⚪ низкий",
+  normal: "🔵 обычный",
+  high: "🟠 высокий",
+  urgent: "🔴 срочный",
 };
 
 function deriveStatus(completedAt: Date | null, columnName: string): NoteStatus {
@@ -73,6 +75,7 @@ function buildFields(row: {
   wsSlug: string;
   projectSlug: string;
 }): NoteFields {
+  const reviewOverdue = row.reviewAt != null && row.reviewAt.getTime() < Date.now();
   return {
     "ИД": row.id,
     "Статус": STATUS_RU[deriveStatus(row.completedAt, row.columnName)],
@@ -80,7 +83,9 @@ function buildFields(row: {
     "Приоритет": PRIORITY_RU[row.priority] ?? row.priority,
     "Описание": row.description ?? "",
     "Срок": dateOnly(row.dueAt),
-    "Пересмотр": dateOnly(row.reviewAt),
+    // Просроченный пересмотр помечаем ⚠️ (значение становится текстом — это
+    // намеренно, чтобы привлечь внимание; обычные даты остаются датами).
+    "Пересмотр": reviewOverdue ? `⚠️ ${dateOnly(row.reviewAt)}` : dateOnly(row.reviewAt),
     "Завершено": dateOnly(row.completedAt),
     "Исполнитель": row.assigneeName,
     "Карточка": `${env.BETTER_AUTH_URL}/w/${row.wsSlug}/p/${row.projectSlug}?task=${row.id}`,
