@@ -447,18 +447,6 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         >
           <typeMeta.Icon className="size-3.5" />
         </span>
-        {task.obsidianPath && (
-          <a
-            href={obsidianNoteUri(task.obsidianPath)}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center text-violet-500 transition hover:text-violet-700 dark:hover:text-violet-300"
-            title={`Открыть заметку в Obsidian:\n${task.obsidianPath}`}
-            aria-label="Открыть заметку в Obsidian"
-          >
-            <NotebookText className="size-3.5" />
-          </a>
-        )}
         {task.commentsCount > 0 && (
           <span
             className="inline-flex items-center gap-0.5"
@@ -597,6 +585,18 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             </ul>
           )}
         </div>
+      )}
+      {task.obsidianPath && (
+        <a
+          href={obsidianNoteUri(task.obsidianPath)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-1.5 bottom-1.5 rounded-md bg-white/90 p-1 text-violet-500 opacity-0 shadow-xs ring-1 ring-black/10 transition-opacity group-hover:opacity-100 hover:text-violet-700 focus-visible:opacity-100"
+          title={`Открыть заметку в Obsidian:\n${task.obsidianPath}`}
+          aria-label="Открыть заметку в Obsidian"
+        >
+          <NotebookText className="size-3.5" />
+        </a>
       )}
       <Dialog open={subtaskOpen} onOpenChange={setSubtaskOpen}>
         <DialogContent>
