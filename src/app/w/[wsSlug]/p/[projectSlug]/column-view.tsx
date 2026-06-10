@@ -11,6 +11,8 @@ import {
 import { GripVertical, MoreHorizontal, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -100,8 +102,15 @@ export function ColumnView({ wsSlug, projectSlug, column, tasks, members, templa
     });
   }
 
-  function onDelete() {
-    if (!window.confirm(`Удалить колонку «${column.name}»?`)) return;
+  async function onDelete() {
+    const ok = await confirmDialog({
+      title: "Удалить колонку?",
+      description:
+        tasks.length > 0
+          ? `«${column.name}» — вместе с ${tasks.length} задач(ами) в ней.`
+          : `«${column.name}»`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteColumnAction(wsSlug, projectSlug, column.id);
       if (!res.ok) toast.error(res.error);

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { History, Pencil, Plus, Power, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import {
   createAutomationAction,
   deleteAutomationAction,
@@ -147,8 +149,8 @@ export function AutomationsEditor({ wsSlug, projectSlug, canEdit, initialRules, 
     });
   }
 
-  function remove(r: SerializedAutomation) {
-    if (!window.confirm(`Удалить правило «${r.name}»?`)) return;
+  async function remove(r: SerializedAutomation) {
+    if (!(await confirmDialog({ title: "Удалить правило?", description: `«${r.name}»` }))) return;
     startTransition(async () => {
       const res = await deleteAutomationAction(wsSlug, projectSlug, r.id);
       if (!res.ok) toast.error(res.error);

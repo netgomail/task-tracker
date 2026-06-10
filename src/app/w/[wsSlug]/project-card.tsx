@@ -5,6 +5,8 @@ import { useTransition } from "react";
 import { MoreHorizontal, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,8 +47,12 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
     });
   }
 
-  function onDelete() {
-    if (!window.confirm(`Удалить проект «${name}» со всеми задачами?`)) return;
+  async function onDelete() {
+    const ok = await confirmDialog({
+      title: "Удалить проект?",
+      description: `«${name}» — вместе со всеми задачами.`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteProjectAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);

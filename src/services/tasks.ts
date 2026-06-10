@@ -32,6 +32,7 @@ export type TaskRow = {
   completedAt: Date | null;
   orderKey: string;
   assigneeId: string | null;
+  obsidianPath: string | null;
   archivedAt: Date | null;
   createdAt: Date;
 };
@@ -88,6 +89,7 @@ export async function listForProject(
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
+      obsidianPath: tasks.obsidianPath,
       archivedAt: tasks.archivedAt,
       createdAt: tasks.createdAt,
     })
@@ -193,6 +195,7 @@ export async function create(input: CreateTaskInput): Promise<TaskRow> {
     completedAt: null,
     orderKey,
     assigneeId: input.assigneeId ?? null,
+    obsidianPath: null,
     archivedAt: null,
     createdAt: now,
   };
@@ -273,6 +276,7 @@ export async function getById(workspaceId: string, taskId: string): Promise<Task
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
+      obsidianPath: tasks.obsidianPath,
       archivedAt: tasks.archivedAt,
       createdAt: tasks.createdAt,
       workspaceId: tasks.workspaceId,
@@ -308,6 +312,7 @@ export async function listSubtasks(
       completedAt: tasks.completedAt,
       orderKey: tasks.orderKey,
       assigneeId: tasks.assigneeId,
+      obsidianPath: tasks.obsidianPath,
       archivedAt: tasks.archivedAt,
       createdAt: tasks.createdAt,
     })
@@ -367,6 +372,7 @@ export async function createSubtask(
     completedAt: null,
     orderKey,
     assigneeId: null,
+    obsidianPath: null,
     archivedAt: null,
     createdAt: now,
   };

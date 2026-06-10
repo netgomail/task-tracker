@@ -70,6 +70,7 @@ function toBoardTask(
     reviewAt: t.reviewAt ? t.reviewAt.toISOString() : null,
     linksDone: linkAgg?.done ?? 0,
     linksTotal: linkAgg?.total ?? 0,
+    obsidianPath: t.obsidianPath,
   };
 }
 

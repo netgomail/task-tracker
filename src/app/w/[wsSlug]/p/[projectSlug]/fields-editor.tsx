@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import {
   createFieldAction,
   deleteFieldAction,
@@ -106,8 +108,12 @@ export function FieldsEditor({
     });
   }
 
-  function remove(f: FieldView) {
-    if (!window.confirm(`Удалить поле «${f.name}»? Все значения этого поля будут стёрты.`)) return;
+  async function remove(f: FieldView) {
+    const ok = await confirmDialog({
+      title: "Удалить поле?",
+      description: `«${f.name}» — все значения этого поля будут стёрты.`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteFieldAction(wsSlug, projectSlug, f.id);
       if (!res.ok) toast.error(res.error);

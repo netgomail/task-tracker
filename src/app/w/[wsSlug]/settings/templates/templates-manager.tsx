@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import {
   createTemplateAction,
   deleteTemplateAction,
@@ -110,8 +112,8 @@ export function TemplatesManager({
     });
   }
 
-  function remove(id: string, name: string) {
-    if (!window.confirm(`Удалить шаблон «${name}»?`)) return;
+  async function remove(id: string, name: string) {
+    if (!(await confirmDialog({ title: "Удалить шаблон?", description: `«${name}»` }))) return;
     startTransition(async () => {
       const res = await deleteTemplateAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);

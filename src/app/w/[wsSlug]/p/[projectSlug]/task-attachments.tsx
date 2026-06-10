@@ -4,6 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { Download, FileIcon, Image as ImageIcon, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import { deleteAttachmentAction } from "@/actions/attachments";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,8 +78,8 @@ export function TaskAttachments({
     uploadFiles(files);
   }
 
-  function onDelete(att: SerializedAttachment) {
-    if (!window.confirm(`Удалить файл «${att.filename}»?`)) return;
+  async function onDelete(att: SerializedAttachment) {
+    if (!(await confirmDialog({ title: "Удалить файл?", description: `«${att.filename}»` }))) return;
     startTransition(async () => {
       const res = await deleteAttachmentAction(wsSlug, att.id);
       if (!res.ok) toast.error(res.error);

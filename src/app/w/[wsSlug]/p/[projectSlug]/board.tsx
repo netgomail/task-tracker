@@ -85,6 +85,7 @@ export type BoardTask = {
   reviewAt: string | null;
   linksDone: number;
   linksTotal: number;
+  obsidianPath: string | null;
 };
 
 type Props = {

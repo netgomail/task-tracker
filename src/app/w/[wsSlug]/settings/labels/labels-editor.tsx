@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -255,8 +257,12 @@ function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
     });
   }
 
-  function remove() {
-    if (!window.confirm(`Удалить метку «${label.name}»? Она снимется со всех задач.`)) return;
+  async function remove() {
+    const ok = await confirmDialog({
+      title: "Удалить метку?",
+      description: `«${label.name}» снимется со всех задач.`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteLabelAction(wsSlug, label.id);
       if (!res.ok) toast.error(res.error);

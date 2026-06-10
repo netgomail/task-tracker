@@ -3,6 +3,8 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Layers, Rocket, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,14 @@ export function SetsManager({ wsSlug, sets }: { wsSlug: string; sets: SetView[] 
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  function deploy(id: string, name: string) {
-    if (!window.confirm(`Развернуть комплект «${name}» в новый проект-тему?`)) return;
+  async function deploy(id: string, name: string) {
+    const ok = await confirmDialog({
+      title: "Развернуть комплект?",
+      description: `«${name}» станет новым проектом-темой.`,
+      confirmLabel: "Развернуть",
+      destructive: false,
+    });
+    if (!ok) return;
     start(async () => {
       const res = await instantiateSetAction(wsSlug, id);
       if (!res.ok) {
@@ -34,8 +42,8 @@ export function SetsManager({ wsSlug, sets }: { wsSlug: string; sets: SetView[] 
     });
   }
 
-  function remove(id: string, name: string) {
-    if (!window.confirm(`Удалить шаблон комплекта «${name}»?`)) return;
+  async function remove(id: string, name: string) {
+    if (!(await confirmDialog({ title: "Удалить шаблон комплекта?", description: `«${name}»` }))) return;
     start(async () => {
       const res = await deleteSetAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);

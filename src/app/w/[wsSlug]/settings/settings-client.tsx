@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Check, Shield, Trash2, UserRound } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -100,8 +102,12 @@ export function MembersList({
     });
   }
 
-  function handleRemove(m: WorkspaceMember) {
-    if (!window.confirm(`Удалить ${m.name} из пространства?`)) return;
+  async function handleRemove(m: WorkspaceMember) {
+    const ok = await confirmDialog({
+      title: "Удалить участника?",
+      description: `${m.name} потеряет доступ к пространству.`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await removeMemberAction(wsSlug, m.memberId);
       if (!res.ok) toast.error(res.error);

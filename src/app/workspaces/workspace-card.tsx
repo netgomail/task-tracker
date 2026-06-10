@@ -5,6 +5,8 @@ import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deleteWorkspaceAction } from "@/actions/workspaces";
@@ -20,12 +22,13 @@ export type WorkspaceCardProps = {
 export function WorkspaceCard({ id, name, slug, role, canDelete }: WorkspaceCardProps) {
   const [pending, startTransition] = useTransition();
 
-  function handleDelete(e: React.MouseEvent) {
+  async function handleDelete(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const confirmed = window.confirm(
-      `Удалить пространство «${name}»? Все проекты и задачи внутри будут потеряны.`,
-    );
+    const confirmed = await confirmDialog({
+      title: "Удалить пространство?",
+      description: `«${name}» — все проекты и задачи внутри будут потеряны.`,
+    });
     if (!confirmed) return;
     startTransition(async () => {
       const fd = new FormData();

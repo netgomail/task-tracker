@@ -3,7 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
+
+import { confirmDialog } from "@/components/confirm-dialog";
+import { Check, Link2, NotebookText, Pencil, Plus, Trash2, X } from "lucide-react";
+
+import { obsidianNoteUri } from "@/lib/obsidian";
 
 import {
   Dialog,
@@ -368,6 +372,16 @@ function Header({
           {task.title}
         </button>
       )}
+      {task.obsidianPath && (
+        <a
+          href={obsidianNoteUri(task.obsidianPath)}
+          className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-md bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-600 transition hover:bg-violet-500/20 dark:text-violet-400"
+          title={task.obsidianPath}
+        >
+          <NotebookText className="size-3.5" />
+          Obsidian
+        </a>
+      )}
     </div>
   );
 }
@@ -483,7 +497,7 @@ function Subtasks({
   }
 
   async function remove(sub: SerializedTask) {
-    if (!window.confirm(`Удалить подзадачу «${sub.title}»?`)) return;
+    if (!(await confirmDialog({ title: "Удалить подзадачу?", description: `«${sub.title}»` }))) return;
     startTransition(async () => {
       const res = await deleteTaskAction(wsSlug, projectSlug, sub.id);
       if (!res.ok) toast.error(res.error);
@@ -943,7 +957,7 @@ function Comments({
   }
 
   async function remove(c: SerializedComment) {
-    if (!window.confirm("Удалить комментарий?")) return;
+    if (!(await confirmDialog({ title: "Удалить комментарий?" }))) return;
     startTransition(async () => {
       const res = await deleteCommentAction(wsSlug, projectSlug, c.id, taskId);
       if (!res.ok) toast.error(res.error);
@@ -1168,7 +1182,13 @@ function Sidebar({
   }
 
   async function onArchive() {
-    if (!window.confirm("Отправить задачу в архив?")) return;
+    const okArchive = await confirmDialog({
+      title: "Отправить задачу в архив?",
+      description: "Вернуть можно со страницы «Архив».",
+      confirmLabel: "В архив",
+      destructive: false,
+    });
+    if (!okArchive) return;
     const res = await archiveTaskAction(wsSlug, projectSlug, task.id);
     if (!res.ok) toast.error(res.error);
     else {
@@ -1184,7 +1204,11 @@ function Sidebar({
     }
   }
   async function onDelete() {
-    if (!window.confirm("Удалить задачу безвозвратно?")) return;
+    const okDelete = await confirmDialog({
+      title: "Удалить задачу безвозвратно?",
+      description: "Вместе с подзадачами, комментариями и вложениями.",
+    });
+    if (!okDelete) return;
     const res = await deleteTaskAction(wsSlug, projectSlug, task.id);
     if (!res.ok) toast.error(res.error);
     else onClose();

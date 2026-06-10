@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Layers, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,8 +44,8 @@ export function SetLauncher({ wsSlug, sets }: { wsSlug: string; sets: SetSummary
     });
   }
 
-  function del(id: string, name: string) {
-    if (!window.confirm(`Удалить шаблон комплекта «${name}»?`)) return;
+  async function del(id: string, name: string) {
+    if (!(await confirmDialog({ title: "Удалить шаблон комплекта?", description: `«${name}»` }))) return;
     start(async () => {
       const res = await deleteSetAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);

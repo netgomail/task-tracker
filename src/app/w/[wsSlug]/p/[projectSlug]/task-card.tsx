@@ -12,12 +12,15 @@ import {
   Link2,
   MessageSquare,
   MoreHorizontal,
+  NotebookText,
   Paperclip,
   Pencil,
   RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+
+import { confirmDialog } from "@/components/confirm-dialog";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,7 @@ import {
   toggleTaskCompleteAction,
 } from "@/actions/tasks";
 import { saveTaskAsTemplateAction } from "@/actions/templates";
+import { obsidianNoteUri } from "@/lib/obsidian";
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import { LabelBadge } from "@/components/label-badge";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
@@ -216,8 +220,12 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
     });
   }
 
-  function onDelete() {
-    if (!window.confirm(`Удалить задачу «${task.title}»?`)) return;
+  async function onDelete() {
+    const ok = await confirmDialog({
+      title: "Удалить задачу?",
+      description: `«${task.title}» — вместе с подзадачами, комментариями и вложениями.`,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteTaskAction(wsSlug, projectSlug, task.id);
       if (!res.ok) toast.error(res.error);
@@ -439,6 +447,18 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         >
           <typeMeta.Icon className="size-3.5" />
         </span>
+        {task.obsidianPath && (
+          <a
+            href={obsidianNoteUri(task.obsidianPath)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center text-violet-500 transition hover:text-violet-700 dark:hover:text-violet-300"
+            title={`Открыть заметку в Obsidian:\n${task.obsidianPath}`}
+            aria-label="Открыть заметку в Obsidian"
+          >
+            <NotebookText className="size-3.5" />
+          </a>
+        )}
         {task.commentsCount > 0 && (
           <span
             className="inline-flex items-center gap-0.5"
