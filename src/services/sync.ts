@@ -11,7 +11,7 @@ import { organization, user } from "@/db/schema/auth";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
 import { env } from "@/lib/env";
-import { TASK_LINK_TYPES, type TaskLinkType } from "@/domain/types";
+import { type TaskLinkType } from "@/domain/types";
 
 /** Подзадача для тела заметки (read-only список, выполненные — зачёркнуты). */
 export type NoteSubtask = { id: string; title: string; done: boolean };
@@ -20,10 +20,6 @@ export type NoteSubtask = { id: string; title: string; done: boolean };
 const NOT_STARTED_COLUMN = "Не начато";
 
 type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
-
-function isLinkType(value: string | undefined): value is TaskLinkType {
-  return value != null && (TASK_LINK_TYPES as readonly string[]).includes(value);
-}
 
 function dateOnly(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null;
