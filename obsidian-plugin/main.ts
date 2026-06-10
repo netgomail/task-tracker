@@ -76,6 +76,7 @@ const RELATION_KEYS = [
   "Утверждается",
   "Дополняет",
   "Дополняется",
+  "Связан с",
 ] as const;
 type NoteRelations = Partial<Record<(typeof RELATION_KEYS)[number], string[]>>;
 

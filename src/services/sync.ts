@@ -630,7 +630,10 @@ export async function subtasksForTasks(
 // Типизированные связи по группам (read-only свойства заметки).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Названия свойств-групп связей (тип + направление). `relates` живёт в «Связи». */
+/**
+ * Названия свойств-групп связей (тип + направление). Исходящие `relates` —
+ * в редактируемом свойстве «Связи»; входящие `relates` — в «Связан с».
+ */
 export const RELATION_KEYS = [
   "Требует",
   "Требуется для",
@@ -638,6 +641,7 @@ export const RELATION_KEYS = [
   "Утверждается",
   "Дополняет",
   "Дополняется",
+  "Связан с",
 ] as const;
 export type RelationKey = (typeof RELATION_KEYS)[number];
 export type NoteRelations = Partial<Record<RelationKey, string[]>>;
@@ -646,11 +650,13 @@ const REL_OUT: Record<string, RelationKey | undefined> = {
   requires: "Требует",
   approves: "Утверждает",
   complements: "Дополняет",
+  // relates исходящие — в редактируемом «Связи», не дублируем.
 };
 const REL_IN: Record<string, RelationKey | undefined> = {
   requires: "Требуется для",
   approves: "Утверждается",
   complements: "Дополняется",
+  relates: "Связан с",
 };
 
 /** Связи задач по группам (заголовки соседей). Для свойств «Требует» и т.п. */
