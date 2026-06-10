@@ -7,11 +7,19 @@ import { boards, columns, projects } from "@/db/schema/projects";
 import { tasks } from "@/db/schema/tasks";
 import { labels, taskLabels } from "@/db/schema/labels";
 import { taskLinks } from "@/db/schema/task-links";
+import { comments } from "@/db/schema/activity";
 import { organization, user } from "@/db/schema/auth";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
 import { env } from "@/lib/env";
 import { TASK_LINK_TYPES, type TaskLinkType } from "@/domain/types";
+import * as tasksSvc from "@/services/tasks";
+import * as commentsSvc from "@/services/comments";
+
+/** Подзадача для тела заметки (чеклист). */
+export type NoteSubtask = { id: string; title: string; done: boolean };
+/** Комментарий для тела заметки. */
+export type NoteComment = { id: string; author: string; at: string; body: string };
 
 /** Колонка-стадия «не начато» (старт жизненного цикла документа). */
 const NOT_STARTED_COLUMN = "Не начато";
@@ -426,6 +434,8 @@ export type ChangedNote = {
   path: string;
   archived: boolean;
   fields: NoteFields;
+  subtasks: NoteSubtask[];
+  comments: NoteComment[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,21 +539,175 @@ export async function vaultReadiness(workspaceId: string): Promise<VaultTheme[]>
 }
 
 /**
- * Связанные с заметками задачи (obsidian_path задан), обновлённые после `since`.
- * Плагин по path находит заметку и переписывает трекер-владеемые свойства.
+ * Связанные с заметками задачи (obsidian_path задан), у которых после `since`
+ * изменились сама задача, её подзадачи ИЛИ комментарии. Плагин по path находит
+ * заметку и переписывает свойства + секции «Подзадачи»/«Комментарии».
  */
 export async function changedSince(workspaceId: string, since: Date): Promise<ChangedNote[]> {
-  const rows = await selectNoteRows(
-    db,
-    and(eq(tasks.workspaceId, workspaceId), gt(tasks.updatedAt, since)),
+  // Все корневые задачи-заметки пространства.
+  const rows = (
+    await selectNoteRows(db, eq(tasks.workspaceId, workspaceId))
+  ).filter((r) => r.obsidianPath);
+  if (rows.length === 0) return [];
+  const rootIds = rows.map((r) => r.id);
+
+  // Родители с изменившимися подзадачами и задачи с изменившимися комментариями.
+  const [subParents, cmtTasks] = await Promise.all([
+    db
+      .selectDistinct({ parentId: tasks.parentId })
+      .from(tasks)
+      .where(and(inArray(tasks.parentId, rootIds), gt(tasks.updatedAt, since))),
+    db
+      .selectDistinct({ taskId: comments.taskId })
+      .from(comments)
+      .where(and(inArray(comments.taskId, rootIds), gt(comments.updatedAt, since))),
+  ]);
+  const changedSub = new Set(subParents.map((r) => r.parentId));
+  const changedCmt = new Set(cmtTasks.map((r) => r.taskId));
+
+  const changed = rows.filter(
+    (r) => r.updatedAt > since || changedSub.has(r.id) || changedCmt.has(r.id),
   );
-  return rows
-    .filter((r) => r.obsidianPath)
-    .map((r) => ({
-      path: r.obsidianPath as string,
-      archived: r.archivedAt != null,
-      fields: buildFields(r),
-    }));
+  if (changed.length === 0) return [];
+
+  const changedIds = changed.map((r) => r.id);
+  const [subMap, cmtMap] = await Promise.all([
+    subtasksForTasks(changedIds),
+    commentsForTasks(workspaceId, changedIds),
+  ]);
+
+  return changed.map((r) => ({
+    path: r.obsidianPath as string,
+    archived: r.archivedAt != null,
+    fields: buildFields(r),
+    subtasks: subMap.get(r.id) ?? [],
+    comments: cmtMap.get(r.id) ?? [],
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Подзадачи и комментарии (тело заметки).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Подзадачи (неархивные) по списку родителей. */
+export async function subtasksForTasks(
+  parentIds: string[],
+): Promise<Map<string, NoteSubtask[]>> {
+  const out = new Map<string, NoteSubtask[]>();
+  if (parentIds.length === 0) return out;
+  const rows = await db
+    .select({
+      id: tasks.id,
+      parentId: tasks.parentId,
+      title: tasks.title,
+      completedAt: tasks.completedAt,
+    })
+    .from(tasks)
+    .where(and(inArray(tasks.parentId, parentIds), isNull(tasks.archivedAt)))
+    .orderBy(asc(tasks.orderKey));
+  for (const r of rows) {
+    if (!r.parentId) continue;
+    const list = out.get(r.parentId) ?? [];
+    list.push({ id: r.id, title: r.title, done: r.completedAt != null });
+    out.set(r.parentId, list);
+  }
+  return out;
+}
+
+/** Комментарии (неудалённые) по списку задач. */
+export async function commentsForTasks(
+  workspaceId: string,
+  taskIds: string[],
+): Promise<Map<string, NoteComment[]>> {
+  const out = new Map<string, NoteComment[]>();
+  if (taskIds.length === 0) return out;
+  const rows = await db
+    .select({
+      id: comments.id,
+      taskId: comments.taskId,
+      body: comments.body,
+      createdAt: comments.createdAt,
+      authorName: user.name,
+      wsId: tasks.workspaceId,
+    })
+    .from(comments)
+    .innerJoin(user, eq(user.id, comments.authorId))
+    .innerJoin(tasks, eq(tasks.id, comments.taskId))
+    .where(and(inArray(comments.taskId, taskIds), isNull(comments.deletedAt)))
+    .orderBy(asc(comments.createdAt));
+  for (const r of rows) {
+    if (r.wsId !== workspaceId) continue;
+    const list = out.get(r.taskId) ?? [];
+    list.push({ id: r.id, author: r.authorName, at: r.createdAt.toISOString(), body: r.body });
+    out.set(r.taskId, list);
+  }
+  return out;
+}
+
+export type SubtaskInput = { id?: string | null; title: string; done: boolean };
+
+/**
+ * Приводит подзадачи задачи к списку из заметки (Obsidian — источник):
+ *   - строка с id → обновить заголовок/выполненность;
+ *   - строка без id → создать подзадачу;
+ *   - существующая подзадача, которой нет в списке → архивировать.
+ * Возвращает канонический список (с id) в порядке заметки.
+ */
+export async function reconcileSubtasks(
+  workspaceId: string,
+  userId: string,
+  parentTaskId: string,
+  items: SubtaskInput[],
+): Promise<NoteSubtask[]> {
+  const parent = await tasksSvc.getById(workspaceId, parentTaskId);
+  if (!parent) throw new Error("Parent not in workspace");
+
+  const existing = await tasksSvc.listSubtasks(workspaceId, parentTaskId);
+  const existingById = new Map(existing.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const result: NoteSubtask[] = [];
+
+  for (const item of items) {
+    const title = item.title.trim();
+    if (!title) continue;
+    const cur = item.id ? existingById.get(item.id) : undefined;
+    if (cur) {
+      seen.add(cur.id);
+      if (cur.title !== title) await tasksSvc.rename(workspaceId, cur.id, title);
+      if (cur.completedAt != null !== item.done) {
+        await tasksSvc.setCompleted(workspaceId, cur.id, item.done);
+      }
+      result.push({ id: cur.id, title, done: item.done });
+    } else {
+      const created = await tasksSvc.createSubtask(workspaceId, parentTaskId, userId, title);
+      if (item.done) await tasksSvc.setCompleted(workspaceId, created.id, true);
+      result.push({ id: created.id, title, done: item.done });
+    }
+  }
+
+  // Удалённые в заметке строки → архивируем (мягко, восстановимо).
+  for (const s of existing) {
+    if (!seen.has(s.id)) await tasksSvc.archive(workspaceId, s.id);
+  }
+  return result;
+}
+
+/**
+ * Добавляет новые комментарии (из заметки) и возвращает полный список
+ * комментариев задачи (для перерисовки секции в заметке).
+ */
+export async function addComments(
+  workspaceId: string,
+  userId: string,
+  taskId: string,
+  bodies: string[],
+): Promise<NoteComment[]> {
+  for (const body of bodies) {
+    const text = body.trim();
+    if (text) await commentsSvc.create(workspaceId, taskId, userId, text);
+  }
+  const map = await commentsForTasks(workspaceId, [taskId]);
+  return map.get(taskId) ?? [];
 }
 
 /** Имя пространства (organization) — для корневой папки импорта в Obsidian. */
@@ -597,6 +761,8 @@ export type ExportDoc = {
   links: string[];
   /** Трекер-владеемые поля для записи во frontmatter. */
   fields: NoteFields;
+  subtasks: NoteSubtask[];
+  comments: NoteComment[];
 };
 
 /**
@@ -663,6 +829,11 @@ export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]>
     }
   }
 
+  const [subMap, cmtMap] = await Promise.all([
+    subtasksForTasks(ids),
+    commentsForTasks(workspaceId, ids),
+  ]);
+
   return rows.map((r) => ({
     tracker_id: r.id,
     title: r.title,
@@ -683,5 +854,7 @@ export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]>
       wsSlug: r.wsSlug,
       projectSlug: r.themeSlug,
     }),
+    subtasks: subMap.get(r.id) ?? [],
+    comments: cmtMap.get(r.id) ?? [],
   }));
 }
