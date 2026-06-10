@@ -65,12 +65,30 @@ type UpsertPayload = {
 
 type NoteFields = Record<string, unknown>;
 
-type ChangedNote = { path: string; archived: boolean; fields: NoteFields };
+type NoteSubtask = { id: string; title: string; done: boolean };
+type NoteComment = { id: string; author: string; at: string; body: string };
+
+type ChangedNote = {
+  path: string;
+  archived: boolean;
+  fields: NoteFields;
+  subtasks: NoteSubtask[];
+  comments: NoteComment[];
+};
+
+type UpsertResponse = {
+  tracker_id: string;
+  fields: NoteFields;
+  subtasks: NoteSubtask[];
+  comments: NoteComment[];
+};
 
 export default class TrackerSyncPlugin extends Plugin {
   settings!: TrackerSyncSettings;
   /** Хэш «входных» свойств последней отправки — анти-эхо для write-back. */
   private lastInputHash = new Map<string, string>();
+  /** Хэш состояния подзадач — чтобы reconcile шёл только при реальной правке. */
+  private lastSubsHash = new Map<string, string>();
   private pollHandle: number | null = null;
 
   async onload() {
@@ -331,25 +349,85 @@ export default class TrackerSyncPlugin extends Plugin {
     });
   }
 
-  /** Отправляет payload на сервер и записывает трекер-поля обратно. */
+  /** Upsert свойств + запись трекер-полей и секций тела (для pick-команд). */
   private async sendUpsert(file: TFile, payload: UpsertPayload): Promise<boolean> {
     const { status, json } = await this.api("POST", "/api/obsidian/upsert", payload);
     if (status !== 200) {
       this.reportError(file, status, json);
       return false;
     }
+    const res = json as UpsertResponse;
     this.lastInputHash.set(file.path, this.inputHash(payload));
-    await this.writeFields(file, (json as { fields: NoteFields }).fields, false);
+    await this.writeFields(file, res.fields, false);
+    await this.renderBodySections(file, res.subtasks ?? [], res.comments ?? []);
+    this.lastSubsHash.set(file.path, hashSubs(res.subtasks ?? []));
     return true;
   }
 
+  /**
+   * Полная синхронизация заметки: свойства + подзадачи (чеклист) + новые
+   * комментарии. Reconcile подзадач — только при реальной правке чеклиста, чтобы
+   * правка свойства не архивировала подзадачи, добавленные в трекере.
+   */
   private async pushNote(file: TFile, force = false): Promise<void> {
     if (!this.configured()) return;
     const payload = this.buildPayload(file);
     if (!payload) return;
-    const hash = this.inputHash(payload);
-    if (!force && this.lastInputHash.get(file.path) === hash) return; // эхо/нерелевантная правка
-    await this.sendUpsert(file, payload);
+
+    const content = await this.app.vault.read(file);
+    const subRegion = getRegion(content, SUB_START, SUB_END);
+    const cmtRegion = getRegion(content, CMT_START, CMT_END);
+    const parsedSubs = subRegion != null ? parseSubtasks(subRegion) : null;
+    const newComments = cmtRegion != null ? parseNewComments(cmtRegion) : [];
+
+    const propsHash = this.inputHash(payload);
+    const subsHash = parsedSubs != null ? hashSubs(parsedSubs) : null;
+    const propsChanged = force || this.lastInputHash.get(file.path) !== propsHash;
+    const subsChanged = parsedSubs != null && this.lastSubsHash.get(file.path) !== subsHash;
+    if (!propsChanged && !subsChanged && newComments.length === 0) return;
+
+    // Upsert свойств — заодно отдаёт текущие подзадачи/комментарии (базис).
+    const { status, json } = await this.api("POST", "/api/obsidian/upsert", payload);
+    if (status !== 200) {
+      this.reportError(file, status, json);
+      return;
+    }
+    const res = json as UpsertResponse;
+    const trackerId = res.tracker_id;
+    let subtasks = res.subtasks ?? [];
+    let comments = res.comments ?? [];
+
+    if (subsChanged && parsedSubs) {
+      const r = await this.api("POST", "/api/obsidian/subtasks", {
+        task_id: trackerId,
+        items: parsedSubs,
+      });
+      if (r.status === 200) subtasks = (r.json as { subtasks: NoteSubtask[] }).subtasks;
+    }
+    if (newComments.length > 0) {
+      const r = await this.api("POST", "/api/obsidian/comments", {
+        task_id: trackerId,
+        bodies: newComments,
+      });
+      if (r.status === 200) comments = (r.json as { comments: NoteComment[] }).comments;
+    }
+
+    this.lastInputHash.set(file.path, propsHash);
+    await this.writeFields(file, res.fields, false);
+    await this.renderBodySections(file, subtasks, comments);
+    this.lastSubsHash.set(file.path, hashSubs(subtasks));
+  }
+
+  /** Перерисовывает секции «Подзадачи» и «Комментарии» в теле заметки. */
+  private async renderBodySections(
+    file: TFile,
+    subtasks: NoteSubtask[],
+    comments: NoteComment[],
+  ): Promise<void> {
+    const before = await this.app.vault.read(file);
+    let content = replaceRegion(before, SUB_START, SUB_END, renderSubtasks(subtasks));
+    content = replaceRegion(content, CMT_START, CMT_END, renderComments(comments));
+    if (content !== before) await this.app.vault.modify(file, content);
   }
 
   private async pushAll(): Promise<void> {
@@ -492,10 +570,17 @@ export default class TrackerSyncPlugin extends Plugin {
     if (status !== 200) return;
     const data = json as { changes: ChangedNote[]; now: string };
 
+    const active = this.app.workspace.getActiveFile();
     for (const change of data.changes ?? []) {
       const af = this.app.vault.getAbstractFileByPath(change.path);
-      if (af instanceof TFile) {
-        await this.writeFields(af, change.fields, change.archived);
+      if (!(af instanceof TFile)) continue;
+      await this.writeFields(af, change.fields, change.archived);
+      // Тело не трогаем у активной (редактируемой) заметки, чтобы не мешать.
+      if (af !== active) {
+        await this.renderBodySections(af, change.subtasks ?? [], change.comments ?? []);
+        this.lastSubsHash.set(af.path, hashSubs(change.subtasks ?? []));
+        const p = this.buildPayload(af);
+        if (p) this.lastInputHash.set(af.path, this.inputHash(p));
       }
     }
     this.settings.cursor = data.now;
@@ -567,7 +652,9 @@ export default class TrackerSyncPlugin extends Plugin {
             if (value !== undefined) fm[key] = value;
           }
         });
+        await this.renderBodySections(file, d.subtasks ?? [], d.comments ?? []);
         // Анти-эхо: хэш из данных экспорта (кэш Obsidian ещё не обновился).
+        this.lastSubsHash.set(path, hashSubs(d.subtasks ?? []));
         this.lastInputHash.set(
           path,
           this.inputHash({
@@ -821,7 +908,102 @@ type ExportDoc = {
   tags: string[];
   links: string[];
   fields: Record<string, unknown>;
+  subtasks: NoteSubtask[];
+  comments: NoteComment[];
 };
+
+// ── Управляемые секции тела заметки (подзадачи / комментарии) ────────────────────
+
+const SUB_START = "<!-- trk:subtasks -->";
+const SUB_END = "<!-- /trk:subtasks -->";
+const CMT_START = "<!-- trk:comments -->";
+const CMT_END = "<!-- /trk:comments -->";
+
+/** Текст между маркерами (без них), либо null, если секции нет. */
+function getRegion(content: string, start: string, end: string): string | null {
+  const i = content.indexOf(start);
+  if (i < 0) return null;
+  const j = content.indexOf(end, i + start.length);
+  if (j < 0) return null;
+  return content.slice(i + start.length, j);
+}
+
+/** Заменяет секцию между маркерами; если её нет — дописывает в конец. */
+function replaceRegion(content: string, start: string, end: string, inner: string): string {
+  const block = `${start}\n${inner}\n${end}`;
+  const i = content.indexOf(start);
+  if (i >= 0) {
+    const j = content.indexOf(end, i + start.length);
+    if (j >= 0) return content.slice(0, i) + block + content.slice(j + end.length);
+  }
+  return content.replace(/\s*$/, "") + "\n\n" + block + "\n";
+}
+
+function renderSubtasks(subs: NoteSubtask[]): string {
+  const lines = ["## Подзадачи", ""];
+  if (subs.length === 0) lines.push("_Нет подзадач. Добавьте строку: `- [ ] …`_");
+  for (const s of subs) lines.push(`- [${s.done ? "x" : " "}] ${s.title} <!-- trk:${s.id} -->`);
+  return lines.join("\n");
+}
+
+/** Чеклист из секции → {id, title, done}. id=null для добавленной вручную строки. */
+function parseSubtasks(inner: string): { id: string | null; title: string; done: boolean }[] {
+  const out: { id: string | null; title: string; done: boolean }[] = [];
+  for (const line of inner.split("\n")) {
+    const m = /^\s*-\s*\[([ xX])\]\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const done = m[1].toLowerCase() === "x";
+    const idm = /<!--\s*trk:([^\s>]+)\s*-->/.exec(m[2]);
+    const id = idm ? idm[1] : null;
+    const title = m[2].replace(/<!--\s*trk:[^>]*-->/, "").trim();
+    if (!title) continue;
+    out.push({ id, title, done });
+  }
+  return out;
+}
+
+function renderComments(cmts: NoteComment[]): string {
+  const lines = ["## Комментарии", ""];
+  if (cmts.length === 0) lines.push("_Нет комментариев. Новый — цитатой: `> текст`_");
+  for (const c of cmts) {
+    lines.push(`> **${c.author}** · ${fmtDateTime(c.at)} <!-- trk:${c.id} -->`);
+    for (const bl of c.body.split("\n")) lines.push(`> ${bl}`);
+    lines.push("");
+  }
+  return lines.join("\n").replace(/\n+$/, "");
+}
+
+/** Блоки-цитаты без маркера = новые комментарии (текст без `> `). */
+function parseNewComments(inner: string): string[] {
+  const blocks: string[][] = [];
+  let cur: string[] = [];
+  for (const line of inner.split("\n")) {
+    if (/^\s*>/.test(line)) cur.push(line.replace(/^\s*>\s?/, ""));
+    else if (cur.length) {
+      blocks.push(cur);
+      cur = [];
+    }
+  }
+  if (cur.length) blocks.push(cur);
+  const out: string[] = [];
+  for (const b of blocks) {
+    if (b.some((l) => /<!--\s*trk:/.test(l))) continue; // существующий комментарий
+    const body = b.join("\n").trim();
+    if (body) out.push(body);
+  }
+  return out;
+}
+
+function hashSubs(subs: { id: string | null; title: string; done: boolean }[]): string {
+  return JSON.stringify(subs.map((s) => `${s.id ?? ""}:${s.done ? 1 : 0}:${s.title}`));
+}
+
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+}
 
 // ── Настройки ──────────────────────────────────────────────────────────────────
 

@@ -147,7 +147,13 @@ export type UpsertInput = {
 };
 
 export type UpsertResult =
-  | { ok: true; trackerId: string; fields: NoteFields }
+  | {
+      ok: true;
+      trackerId: string;
+      fields: NoteFields;
+      subtasks: NoteSubtask[];
+      comments: NoteComment[];
+    }
   | { ok: false; error: "theme_required" | "theme_not_found" | "task_not_found" };
 
 async function resolveTheme(
@@ -396,9 +402,19 @@ export async function upsertFromNote(
 
     const [row] = await selectNoteRows(tx, eq(tasks.id, taskId));
     if (!row) return { ok: false, error: "task_not_found" };
-    return { ok: true, trackerId: taskId, fields: buildFields(row) };
+    return { ok: true, trackerId: taskId, fields: buildFields(row), subtasks: [], comments: [] };
   });
 
+  // Подзадачи/комментарии читаем после транзакции (они не менялись в upsert) —
+  // плагин использует их для отрисовки секций тела заметки.
+  if (result.ok) {
+    const [subMap, cmtMap] = await Promise.all([
+      subtasksForTasks([result.trackerId]),
+      commentsForTasks(workspaceId, [result.trackerId]),
+    ]);
+    result.subtasks = subMap.get(result.trackerId) ?? [];
+    result.comments = cmtMap.get(result.trackerId) ?? [];
+  }
   return result;
 }
 

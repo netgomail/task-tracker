@@ -65,5 +65,10 @@ export async function POST(req: Request): Promise<Response> {
   const ref = await boardRefForTask(ctx.workspaceId, result.trackerId);
   if (ref) notifyBoard(ref.boardId);
 
-  return Response.json({ tracker_id: result.trackerId, fields: result.fields });
+  return Response.json({
+    tracker_id: result.trackerId,
+    fields: result.fields,
+    subtasks: result.subtasks,
+    comments: result.comments,
+  });
 }
