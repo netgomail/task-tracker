@@ -225,29 +225,36 @@ export async function moveTaskAction(
   projectSlug: string,
   taskId: string,
   toColumnId: string,
-  beforeKey: string | null,
-  afterKey: string | null,
+  beforeTaskId: string | null,
+  afterTaskId: string | null,
 ): Promise<ActionResult & { orderKey?: string }> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
-  const orderKey = await tasks.move(ws.workspaceId, taskId, toColumnId, beforeKey, afterKey);
-  await activity.record({
-    workspaceId: ws.workspaceId,
-    projectId: project.id,
-    taskId,
-    actorId: session.user.id,
-    type: "task.move",
-    payload: { toColumnId, orderKey },
-  });
-  await runAutomations({
-    type: "task.moved",
-    workspaceId: ws.workspaceId,
-    projectId: project.id,
-    taskId,
-    actorId: session.user.id,
-    toColumnId,
-  });
-  refreshBoard(wsSlug, projectSlug, project.boardId);
-  return { ok: true, orderKey };
+  // Перемещение — самый частый конкурентный экшен: ошибку (устаревшая доска,
+  // чужое удаление) возвращаем как результат, а не роняем transition клиента.
+  try {
+    const { session, ws, project } = await authorize(wsSlug, projectSlug);
+    const orderKey = await tasks.move(ws.workspaceId, taskId, toColumnId, beforeTaskId, afterTaskId);
+    await activity.record({
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      taskId,
+      actorId: session.user.id,
+      type: "task.move",
+      payload: { toColumnId, orderKey },
+    });
+    await runAutomations({
+      type: "task.moved",
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      taskId,
+      actorId: session.user.id,
+      toColumnId,
+    });
+    refreshBoard(wsSlug, projectSlug, project.boardId);
+    return { ok: true, orderKey };
+  } catch (e) {
+    console.error("moveTaskAction:", e);
+    return { ok: false, error: "Не удалось переместить задачу — обновите доску" };
+  }
 }
 
 export async function setTaskDescriptionAction(

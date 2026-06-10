@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
@@ -527,19 +527,82 @@ export async function listTaskCounts(
  * Moves a task to a target column and position computed from neighbor keys.
  * Validates that both task and target column live in the same workspace.
  */
+/**
+ * Перемещает задачу в `toColumnId` между соседями `beforeTaskId`/`afterTaskId`
+ * (id карточек, между которыми задачу бросили). Ключ порядка вычисляется здесь
+ * из АКТУАЛЬНЫХ ключей соседей: клиентское состояние могло устареть (другая
+ * вкладка, live-sync, синк Obsidian), а доверять присланным ключам нельзя —
+ * при перевёрнутой паре keyBetween бросает исключение. Сосед, успевший уехать
+ * из целевой колонки или в архив, игнорируется; если оба ориентира потеряны —
+ * задача встаёт в конец колонки.
+ */
 export async function move(
   workspaceId: string,
   taskId: string,
   toColumnId: string,
-  beforeKey: string | null,
-  afterKey: string | null,
+  beforeTaskId: string | null,
+  afterTaskId: string | null,
 ): Promise<string> {
   await assertTaskInWorkspace(taskId, workspaceId);
   await assertColumnInWorkspace(toColumnId, workspaceId);
-  const orderKey = keyBetween(beforeKey, afterKey);
+
+  const neighborKey = async (id: string | null): Promise<string | null> => {
+    if (!id || id === taskId) return null;
+    const [row] = await db
+      .select({ orderKey: tasks.orderKey })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.columnId, toColumnId), isNull(tasks.archivedAt)))
+      .limit(1);
+    return row?.orderKey ?? null;
+  };
+
+  let before = await neighborKey(beforeTaskId);
+  let after = await neighborKey(afterTaskId);
+  // Соседи могли поменяться местами после броска — оставляем верхний ориентир.
+  if (before !== null && after !== null && before >= after) after = null;
+  if (before === null && after === null) {
+    const [last] = await db
+      .select({ orderKey: tasks.orderKey })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.columnId, toColumnId),
+          isNull(tasks.parentId),
+          isNull(tasks.archivedAt),
+          ne(tasks.id, taskId),
+        ),
+      )
+      .orderBy(desc(tasks.orderKey))
+      .limit(1);
+    // Ориентиры потеряны или колонка пуста: ставим после последней задачи,
+    // кроме случая «бросили в начало» — тогда сохраняем намерение.
+    if (beforeTaskId === null && afterTaskId !== null) {
+      after = await firstKeyInColumn(toColumnId, taskId);
+    } else {
+      before = last?.orderKey ?? null;
+    }
+  }
+  const orderKey = keyBetween(before, after);
   await db
     .update(tasks)
     .set({ columnId: toColumnId, orderKey, updatedAt: new Date() })
     .where(eq(tasks.id, taskId));
   return orderKey;
+}
+
+async function firstKeyInColumn(columnId: string, excludeTaskId: string): Promise<string | null> {
+  const [first] = await db
+    .select({ orderKey: tasks.orderKey })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.columnId, columnId),
+        isNull(tasks.parentId),
+        isNull(tasks.archivedAt),
+        ne(tasks.id, excludeTaskId),
+      ),
+    )
+    .orderBy(asc(tasks.orderKey))
+    .limit(1);
+  return first?.orderKey ?? null;
 }

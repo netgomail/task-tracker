@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   pointerWithin,
   rectIntersection,
@@ -14,12 +15,14 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type Over,
 } from "@dnd-kit/core";
 import {
   SortableContext,
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { getEventCoordinates } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 
 import { keyBetween } from "@/domain/ordering";
@@ -104,12 +107,14 @@ function compareTasksByOrder(a: BoardTask, b: BoardTask): number {
   return a.orderKey < b.orderKey ? -1 : 1;
 }
 
-function isAfterOverItem(
-  over: { rect: { top: number; height: number } },
-  translatedRect: { top: number; height: number } | null,
-): boolean {
-  if (!translatedRect) return false;
-  return translatedRect.top + translatedRect.height / 2 > over.rect.top + over.rect.height / 2;
+/**
+ * Текущая Y-координата указателя. Решение «выше/ниже целевой карточки»
+ * принимается по той же точке, по которой `pointerWithin` выбирает цель, —
+ * иначе позиция зависит от того, за какое место схватили карточку.
+ */
+function pointerYOf(event: { activatorEvent: Event; delta: { y: number } }): number | null {
+  const coords = getEventCoordinates(event.activatorEvent);
+  return coords ? coords.y + event.delta.y : null;
 }
 
 function sameOrder(a: BoardTask[], b: BoardTask[]): boolean {
@@ -202,50 +207,107 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
     setDragTasks(null);
   }
 
-  // Hybrid model:
-  //   - onDragOver animates only within-column reorder (so neighbors visibly
-  //     slide). Cross-column moves are NOT previewed — only the column under
-  //     the pointer is highlighted via its own droppable's isOver.
-  //   - onDragEnd resolves the final position from the `over` element at drop
-  //     time. This avoids geometry breakage caused by virtually moving the
-  //     task across columns mid-drag (the source of the "lands anywhere" bug).
+  type Placement = {
+    tasks: BoardTask[];
+    changed: boolean;
+    targetColumnId: string;
+    beforeTaskId: string | null;
+    afterTaskId: string | null;
+  };
+
+  // Единая модель: и превью (onDragOver), и финальная позиция (onDragEnd)
+  // считаются одной функцией — что видишь во время drag, то и фиксируется.
+  // Позиция определяется указателем: над верхней половиной карточки — перед
+  // ней, над нижней — после; над телом колонки (зазор, низ списка) — в конец.
+  function placeTask(
+    current: BoardTask[],
+    activeId: string,
+    over: Over,
+    pointerY: number | null,
+  ): Placement | null {
+    const overId = String(over.id);
+    const targetColumnId = findColumnIdFromOver(overId, over.data.current);
+    if (!targetColumnId) return null;
+    const activeTask = current.find((t) => t.id === activeId);
+    if (!activeTask) return null;
+
+    // «Остаться на месте»: соседи активной задачи в её текущей колонке.
+    const keep = (): Placement => {
+      const colList = current
+        .filter((t) => t.columnId === activeTask.columnId)
+        .sort(compareTasksByOrder);
+      const idx = colList.findIndex((t) => t.id === activeId);
+      return {
+        tasks: current,
+        changed: false,
+        targetColumnId: activeTask.columnId,
+        beforeTaskId: colList[idx - 1]?.id ?? null,
+        afterTaskId: colList[idx + 1]?.id ?? null,
+      };
+    };
+    // Курсор над самой перетаскиваемой карточкой — позиция не меняется.
+    if (over.data.current?.type === "task" && overId === activeId) return keep();
+    // Курсор над телом СВОЕЙ колонки (зазор между карточками, край списка) —
+    // не трактуем как «в конец», иначе карточка дёргается при каждом зазоре.
+    if (over.data.current?.type !== "task" && activeTask.columnId === targetColumnId) {
+      return keep();
+    }
+
+    const others = current
+      .filter((t) => t.columnId === targetColumnId && t.id !== activeId)
+      .sort(compareTasksByOrder);
+
+    let landing = others.length;
+    if (over.data.current?.type === "task" && overId !== activeId) {
+      const overIdx = others.findIndex((t) => t.id === overId);
+      if (overIdx < 0) return null;
+      const below = pointerY !== null && pointerY > over.rect.top + over.rect.height / 2;
+      landing = overIdx + (below ? 1 : 0);
+    }
+
+    const beforeTask = others[landing - 1] ?? null;
+    const afterTask = others[landing] ?? null;
+
+    // Уже между этими соседями — не двигаем (это же гасит дрожание превью).
+    const inPlace =
+      activeTask.columnId === targetColumnId &&
+      (beforeTask === null || beforeTask.orderKey < activeTask.orderKey) &&
+      (afterTask === null || activeTask.orderKey < afterTask.orderKey);
+    if (inPlace) {
+      return {
+        tasks: current,
+        changed: false,
+        targetColumnId,
+        beforeTaskId: beforeTask?.id ?? null,
+        afterTaskId: afterTask?.id ?? null,
+      };
+    }
+
+    let orderKey: string;
+    try {
+      orderKey = keyBetween(beforeTask?.orderKey ?? null, afterTask?.orderKey ?? null);
+    } catch {
+      // Дегенеративные данные (равные ключи соседей) — позицию не трогаем.
+      return null;
+    }
+    return {
+      tasks: current.map((t) =>
+        t.id === activeId ? { ...t, columnId: targetColumnId, orderKey } : t,
+      ),
+      changed: true,
+      targetColumnId,
+      beforeTaskId: beforeTask?.id ?? null,
+      afterTaskId: afterTask?.id ?? null,
+    };
+  }
+
   function onDragOver(event: DragOverEvent) {
     const { active: a, over } = event;
-    if (!over) return;
-    if (a.data.current?.type !== "task") return;
-    if (over.data.current?.type !== "task") return;
-
-    const activeId = String(a.id);
-    const overId = String(over.id);
-    if (overId === activeId) return;
-
-    const sourceColumnId = a.data.current?.columnId;
-    const overColumnId = over.data.current?.columnId;
-    if (sourceColumnId !== overColumnId) return;
-    if (typeof sourceColumnId !== "string") return;
-
-    const currentTasks = visibleTasksRef.current;
-    const activeTask = currentTasks.find((t) => t.id === activeId);
-    if (!activeTask) return;
-
-    const targetTasks = currentTasks
-      .filter((t) => t.columnId === sourceColumnId && t.id !== activeId)
-      .sort(compareTasksByOrder);
-    const overIdx = targetTasks.findIndex((t) => t.id === overId);
-    if (overIdx < 0) return;
-    const landingIndex =
-      overIdx + (isAfterOverItem(over, a.rect.current.translated) ? 1 : 0);
-
-    const before = targetTasks[landingIndex - 1]?.orderKey ?? null;
-    const after = targetTasks[landingIndex]?.orderKey ?? null;
-    const orderKey = keyBetween(before, after);
-    if (activeTask.orderKey === orderKey) return;
-
-    const updated = currentTasks.map((t) =>
-      t.id === activeId ? { ...t, orderKey } : t,
-    );
-    visibleTasksRef.current = updated;
-    setDragTasks(updated);
+    if (!over || a.data.current?.type !== "task") return;
+    const placed = placeTask(visibleTasksRef.current, String(a.id), over, pointerYOf(event));
+    if (!placed?.changed) return;
+    visibleTasksRef.current = placed.tasks;
+    setDragTasks(placed.tasks);
   }
 
   function onDragEnd(event: DragEndEvent) {
@@ -284,95 +346,46 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
 
     if (type === "task") {
       const activeId = String(a.id);
-      const sourceColumnId = a.data.current?.columnId;
-      if (typeof sourceColumnId !== "string") {
+      // Последняя корректировка по точке броска (превью её обычно уже учло).
+      const placed = placeTask(visibleTasksRef.current, activeId, over, pointerYOf(event));
+      if (!placed) {
         setDragTasks(null);
         return;
       }
-      const overId = String(over.id);
-      const targetColumnId = findColumnIdFromOver(overId, over.data.current);
-      if (!targetColumnId) {
-        setDragTasks(null);
-        return;
-      }
+      const finalTasks = placed.tasks;
 
-      let before: string | null;
-      let after: string | null;
-      let noop = false;
-
-      if (sourceColumnId === targetColumnId && over.data.current?.type === "task") {
-        // Within-column reorder over a task — the preview already reflects the
-        // final position (onDragOver updated it). Use it as source of truth.
-        const previewColumnTasks = visibleTasksRef.current
-          .filter((t) => t.columnId === targetColumnId)
-          .sort(compareTasksByOrder);
-        const committedColumnTasks = optimisticTasks
-          .filter((t) => t.columnId === targetColumnId)
-          .sort(compareTasksByOrder);
-        if (sameOrder(committedColumnTasks, previewColumnTasks)) noop = true;
-        const activeIdx = previewColumnTasks.findIndex((t) => t.id === activeId);
-        if (activeIdx < 0) {
-          setDragTasks(null);
-          return;
-        }
-        before = activeIdx > 0 ? previewColumnTasks[activeIdx - 1].orderKey : null;
-        after =
-          activeIdx < previewColumnTasks.length - 1
-            ? previewColumnTasks[activeIdx + 1].orderKey
-            : null;
-      } else {
-        // Either:
-        //   - within-column drop on column body → land at end of column
-        //   - cross-column drop on a task → above/below that task
-        //   - cross-column drop on column body → land at end of target column
-        const targetTasks = optimisticTasks
-          .filter((t) => t.columnId === targetColumnId && t.id !== activeId)
-          .sort(compareTasksByOrder);
-        let landingIndex: number;
-        if (over.data.current?.type === "task") {
-          const overIdx = targetTasks.findIndex((t) => t.id === overId);
-          landingIndex =
-            overIdx >= 0
-              ? overIdx + (isAfterOverItem(over, a.rect.current.translated) ? 1 : 0)
-              : targetTasks.length;
-        } else {
-          landingIndex = targetTasks.length;
-        }
-        before = targetTasks[landingIndex - 1]?.orderKey ?? null;
-        after = targetTasks[landingIndex]?.orderKey ?? null;
-
-        if (sourceColumnId === targetColumnId) {
-          const sourceList = optimisticTasks
-            .filter((t) => t.columnId === sourceColumnId)
-            .sort(compareTasksByOrder);
-          const currentIdx = sourceList.findIndex((t) => t.id === activeId);
-          if (currentIdx === landingIndex) noop = true;
-        }
-      }
-
-      if (noop) {
+      // Порядок целевой колонки не изменился относительно закоммиченного —
+      // сервер не дёргаем (бросили туда же, откуда взяли).
+      const committedActive = optimisticTasks.find((t) => t.id === activeId);
+      const columnTasks = (list: BoardTask[]) =>
+        list.filter((t) => t.columnId === placed.targetColumnId).sort(compareTasksByOrder);
+      if (
+        committedActive?.columnId === placed.targetColumnId &&
+        sameOrder(columnTasks(optimisticTasks), columnTasks(finalTasks))
+      ) {
         setDragTasks(null);
         return;
       }
 
-      const newKey = keyBetween(before, after);
-      const optimisticNext = optimisticTasks.map((t) =>
-        t.id === activeId ? { ...t, columnId: targetColumnId, orderKey: newKey } : t,
-      );
-      visibleTasksRef.current = optimisticNext;
-      setDragTasks(optimisticNext);
+      visibleTasksRef.current = finalTasks;
+      setDragTasks(finalTasks);
       startTransition(async () => {
-        applyTasks(optimisticNext);
-        const res = await moveTaskAction(
-          wsSlug,
-          projectSlug,
-          activeId,
-          targetColumnId,
-          before,
-          after,
-        );
-        if (!res.ok) toast.error(res.error);
-        setDragTasks(null);
+        applyTasks(finalTasks);
+        try {
+          const res = await moveTaskAction(
+            wsSlug,
+            projectSlug,
+            activeId,
+            placed.targetColumnId,
+            placed.beforeTaskId,
+            placed.afterTaskId,
+          );
+          if (!res.ok) toast.error(res.error);
+        } catch {
+          toast.error("Не удалось переместить задачу — обновите доску");
+        } finally {
+          setDragTasks(null);
+        }
       });
       return;
     }
@@ -427,6 +440,9 @@ export function Board({ wsSlug, projectSlug, boardId, initialColumns, initialTas
         id={dndId}
         sensors={sensors}
         collisionDetection={detectCollisions}
+        // Превью двигает карточки между колонками прямо во время drag —
+        // прямоугольники droppable-зон надо перемерять, иначе прицел собьётся.
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragCancel={onDragCancel}
