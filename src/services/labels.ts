@@ -104,6 +104,7 @@ export async function attach(
     .insert(taskLabels)
     .values({ taskId, labelId, createdAt: new Date() })
     .onConflictDoNothing();
+  await touchTask(taskId);
 }
 
 export async function detach(
@@ -115,6 +116,12 @@ export async function detach(
   await db
     .delete(taskLabels)
     .where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)));
+  await touchTask(taskId);
+}
+
+/** Помечает задачу обновлённой (чтобы Obsidian-синхронизация подтянула метки). */
+async function touchTask(taskId: string): Promise<void> {
+  await db.update(tasks).set({ updatedAt: new Date() }).where(eq(tasks.id, taskId));
 }
 
 export async function listForTask(workspaceId: string, taskId: string): Promise<LabelRow[]> {

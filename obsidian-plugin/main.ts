@@ -68,17 +68,30 @@ type NoteFields = Record<string, unknown>;
 
 type NoteSubtask = { id: string; title: string; done: boolean };
 
+/** Свойства-группы типизированных связей (заголовки соседей). */
+const RELATION_KEYS = [
+  "Требует",
+  "Требуется для",
+  "Утверждает",
+  "Утверждается",
+  "Дополняет",
+  "Дополняется",
+] as const;
+type NoteRelations = Partial<Record<(typeof RELATION_KEYS)[number], string[]>>;
+
 type ChangedNote = {
   path: string;
   archived: boolean;
   fields: NoteFields;
   subtasks: NoteSubtask[];
+  relations: NoteRelations;
 };
 
 type UpsertResponse = {
   tracker_id: string;
   fields: NoteFields;
   subtasks: NoteSubtask[];
+  relations: NoteRelations;
 };
 
 export default class TrackerSyncPlugin extends Plugin {
@@ -348,7 +361,7 @@ export default class TrackerSyncPlugin extends Plugin {
     }
     const res = json as UpsertResponse;
     this.lastInputHash.set(file.path, this.inputHash(payload));
-    await this.writeFields(file, res.fields, res.subtasks ?? [], false);
+    await this.writeFields(file, res.fields, res.subtasks ?? [], res.relations ?? {}, false);
     return true;
   }
 
@@ -462,12 +475,13 @@ export default class TrackerSyncPlugin extends Plugin {
 
   /**
    * Пишет трекер-владеемые свойства во frontmatter (русские ключи) + список
-   * «Подзадачи» (read-only; выполненные зачёркнуты). Тело заметки не трогаем.
+   * «Подзадачи» (read-only; выполненные зачёркнуты) + группы связей. Тело не трогаем.
    */
   private async writeFields(
     file: TFile,
     fields: NoteFields,
     subtasks: NoteSubtask[],
+    relations: NoteRelations,
     archived: boolean,
   ): Promise<void> {
     await this.app.fileManager.processFrontMatter(file, (fm) => {
@@ -479,6 +493,12 @@ export default class TrackerSyncPlugin extends Plugin {
         fm[PROP.subtasks] = subtasks.map((s) => (s.done ? strikethrough(s.title) : s.title));
       } else if (PROP.subtasks in fm) {
         delete fm[PROP.subtasks];
+      }
+      // Группы связей (Требует/Требуется для/…): wiki-ссылки; пустые — удаляем.
+      for (const key of RELATION_KEYS) {
+        const titles = relations[key];
+        if (titles && titles.length) fm[key] = titles.map((t) => `[[${t}]]`);
+        else if (key in fm) delete fm[key];
       }
       if (archived) fm[PROP.archived] = true;
       else if (PROP.archived in fm) delete fm[PROP.archived];
@@ -518,7 +538,13 @@ export default class TrackerSyncPlugin extends Plugin {
     for (const change of data.changes ?? []) {
       const af = this.app.vault.getAbstractFileByPath(change.path);
       if (!(af instanceof TFile)) continue;
-      await this.writeFields(af, change.fields, change.subtasks ?? [], change.archived);
+      await this.writeFields(
+        af,
+        change.fields,
+        change.subtasks ?? [],
+        change.relations ?? {},
+        change.archived,
+      );
       // Анти-эхо: записанные свойства не должны вызвать обратную отправку.
       const p = this.buildPayload(af);
       if (p) this.lastInputHash.set(af.path, this.inputHash(p));
@@ -598,6 +624,10 @@ export default class TrackerSyncPlugin extends Plugin {
             fm[PROP.subtasks] = d.subtasks.map((s) =>
               s.done ? strikethrough(s.title) : s.title,
             );
+          }
+          for (const key of RELATION_KEYS) {
+            const titles = d.relations?.[key];
+            if (titles && titles.length) fm[key] = titles.map((t) => `[[${t}]]`);
           }
         });
         // Анти-эхо: хэш из данных экспорта (кэш Obsidian ещё не обновился).
@@ -797,6 +827,7 @@ type ExportDoc = {
   links: string[];
   fields: Record<string, unknown>;
   subtasks: NoteSubtask[];
+  relations: NoteRelations;
 };
 
 /**

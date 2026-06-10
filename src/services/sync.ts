@@ -150,7 +150,13 @@ export type UpsertInput = {
 };
 
 export type UpsertResult =
-  | { ok: true; trackerId: string; fields: NoteFields; subtasks: NoteSubtask[] }
+  | {
+      ok: true;
+      trackerId: string;
+      fields: NoteFields;
+      subtasks: NoteSubtask[];
+      relations: NoteRelations;
+    }
   | { ok: false; error: "theme_required" | "theme_not_found" | "task_not_found" };
 
 async function resolveTheme(
@@ -399,14 +405,17 @@ export async function upsertFromNote(
 
     const [row] = await selectNoteRows(tx, eq(tasks.id, taskId));
     if (!row) return { ok: false, error: "task_not_found" };
-    return { ok: true, trackerId: taskId, fields: buildFields(row), subtasks: [] };
+    return { ok: true, trackerId: taskId, fields: buildFields(row), subtasks: [], relations: {} };
   });
 
-  // Подзадачи читаем после транзакции (в upsert они не менялись) — плагин пишет
-  // их в свойство «Подзадачи».
+  // Подзадачи и связи читаем после транзакции — плагин пишет их в свойства.
   if (result.ok) {
-    const subMap = await subtasksForTasks([result.trackerId]);
+    const [subMap, relMap] = await Promise.all([
+      subtasksForTasks([result.trackerId]),
+      relationsForTasks(workspaceId, [result.trackerId]),
+    ]);
     result.subtasks = subMap.get(result.trackerId) ?? [];
+    result.relations = relMap.get(result.trackerId) ?? {};
   }
   return result;
 }
@@ -444,6 +453,7 @@ export type ChangedNote = {
   archived: boolean;
   fields: NoteFields;
   subtasks: NoteSubtask[];
+  relations: NoteRelations;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -569,12 +579,17 @@ export async function changedSince(workspaceId: string, since: Date): Promise<Ch
   const changed = rows.filter((r) => r.updatedAt > since || changedSub.has(r.id));
   if (changed.length === 0) return [];
 
-  const subMap = await subtasksForTasks(changed.map((r) => r.id));
+  const changedIds = changed.map((r) => r.id);
+  const [subMap, relMap] = await Promise.all([
+    subtasksForTasks(changedIds),
+    relationsForTasks(workspaceId, changedIds),
+  ]);
   return changed.map((r) => ({
     path: r.obsidianPath as string,
     archived: r.archivedAt != null,
     fields: buildFields(r),
     subtasks: subMap.get(r.id) ?? [],
+    relations: relMap.get(r.id) ?? {},
   }));
 }
 
@@ -603,6 +618,85 @@ export async function subtasksForTasks(
     const list = out.get(r.parentId) ?? [];
     list.push({ id: r.id, title: r.title, done: r.completedAt != null });
     out.set(r.parentId, list);
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Типизированные связи по группам (read-only свойства заметки).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Названия свойств-групп связей (тип + направление). `relates` живёт в «Связи». */
+export const RELATION_KEYS = [
+  "Требует",
+  "Требуется для",
+  "Утверждает",
+  "Утверждается",
+  "Дополняет",
+  "Дополняется",
+] as const;
+export type RelationKey = (typeof RELATION_KEYS)[number];
+export type NoteRelations = Partial<Record<RelationKey, string[]>>;
+
+const REL_OUT: Record<string, RelationKey | undefined> = {
+  requires: "Требует",
+  approves: "Утверждает",
+  complements: "Дополняет",
+};
+const REL_IN: Record<string, RelationKey | undefined> = {
+  requires: "Требуется для",
+  approves: "Утверждается",
+  complements: "Дополняется",
+};
+
+/** Связи задач по группам (заголовки соседей). Для свойств «Требует» и т.п. */
+export async function relationsForTasks(
+  workspaceId: string,
+  taskIds: string[],
+): Promise<Map<string, NoteRelations>> {
+  const out = new Map<string, NoteRelations>();
+  if (taskIds.length === 0) return out;
+  const add = (owner: string, key: RelationKey, title: string) => {
+    let g = out.get(owner);
+    if (!g) {
+      g = {};
+      out.set(owner, g);
+    }
+    (g[key] ??= []).push(title);
+  };
+
+  // Исходящие: source ∈ ids, сосед — target.
+  const outgoing = await db
+    .select({ type: taskLinks.type, owner: taskLinks.sourceTaskId, title: tasks.title })
+    .from(taskLinks)
+    .innerJoin(tasks, eq(tasks.id, taskLinks.targetTaskId))
+    .where(
+      and(
+        eq(taskLinks.workspaceId, workspaceId),
+        inArray(taskLinks.sourceTaskId, taskIds),
+        isNull(tasks.archivedAt),
+      ),
+    );
+  for (const r of outgoing) {
+    const key = REL_OUT[r.type];
+    if (key) add(r.owner, key, r.title);
+  }
+
+  // Входящие: target ∈ ids, сосед — source.
+  const incoming = await db
+    .select({ type: taskLinks.type, owner: taskLinks.targetTaskId, title: tasks.title })
+    .from(taskLinks)
+    .innerJoin(tasks, eq(tasks.id, taskLinks.sourceTaskId))
+    .where(
+      and(
+        eq(taskLinks.workspaceId, workspaceId),
+        inArray(taskLinks.targetTaskId, taskIds),
+        isNull(tasks.archivedAt),
+      ),
+    );
+  for (const r of incoming) {
+    const key = REL_IN[r.type];
+    if (key) add(r.owner, key, r.title);
   }
   return out;
 }
@@ -659,6 +753,7 @@ export type ExportDoc = {
   /** Трекер-владеемые поля для записи во frontmatter. */
   fields: NoteFields;
   subtasks: NoteSubtask[];
+  relations: NoteRelations;
 };
 
 /**
@@ -726,7 +821,10 @@ export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]>
     }
   }
 
-  const subMap = await subtasksForTasks(ids);
+  const [subMap, relMap] = await Promise.all([
+    subtasksForTasks(ids),
+    relationsForTasks(workspaceId, ids),
+  ]);
 
   return rows.map((r) => ({
     tracker_id: r.id,
@@ -750,5 +848,6 @@ export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]>
       projectSlug: r.themeSlug,
     }),
     subtasks: subMap.get(r.id) ?? [],
+    relations: relMap.get(r.id) ?? {},
   }));
 }

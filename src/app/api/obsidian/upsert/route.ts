@@ -69,5 +69,6 @@ export async function POST(req: Request): Promise<Response> {
     tracker_id: result.trackerId,
     fields: result.fields,
     subtasks: result.subtasks,
+    relations: result.relations,
   });
 }

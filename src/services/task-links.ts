@@ -217,6 +217,14 @@ export async function create(
       createdAt: new Date(),
     })
     .onConflictDoNothing();
+  // Обе стороны связи «изменились» — чтобы Obsidian-синхронизация подтянула.
+  await touchTasks([sourceTaskId, targetTaskId]);
+}
+
+/** Помечает задачи как обновлённые (для обратного канала синхронизации). */
+async function touchTasks(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.update(tasks).set({ updatedAt: new Date() }).where(inArray(tasks.id, ids));
 }
 
 /** Доска и slug темы для задачи — чтобы ревалидировать/нотифицировать обе стороны связи. */
@@ -237,7 +245,13 @@ export async function boardRefForTask(
 }
 
 export async function remove(workspaceId: string, linkId: string): Promise<void> {
+  const [link] = await db
+    .select({ source: taskLinks.sourceTaskId, target: taskLinks.targetTaskId })
+    .from(taskLinks)
+    .where(and(eq(taskLinks.id, linkId), eq(taskLinks.workspaceId, workspaceId)))
+    .limit(1);
   await db
     .delete(taskLinks)
     .where(and(eq(taskLinks.id, linkId), eq(taskLinks.workspaceId, workspaceId)));
+  if (link) await touchTasks([link.source, link.target]);
 }
