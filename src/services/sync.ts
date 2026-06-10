@@ -289,8 +289,10 @@ async function resolveLinkTarget(
 }
 
 /**
- * Приводит ИСХОДЯЩИЕ связи задачи к списку `links:` заметки (Obsidian-owned).
- * Входящие связи (из других заметок) не трогаем — ими владеют те заметки.
+ * Приводит ИСХОДЯЩИЕ связи типа `relates` к списку «Связи» заметки (Obsidian
+ * владеет только ими). Типизированные связи (requires/approves/complements) и
+ * входящие связи НЕ трогаем — они управляются в трекере и отображаются как
+ * отдельные read-only свойства (Требует/Требуется для/…).
  */
 async function syncLinks(
   tx: Tx,
@@ -299,20 +301,26 @@ async function syncLinks(
   taskId: string,
   links: NoteLink[],
 ): Promise<void> {
-  const desired = new Map<string, TaskLinkType>(); // targetId → type
+  const desired = new Set<string>(); // targetId (тип всегда relates)
   for (const link of links) {
     const targetId = await resolveLinkTarget(tx, workspaceId, link, taskId);
-    if (!targetId) continue; // ещё не создан в трекере — пропустим до следующей синхронизации
-    desired.set(targetId, isLinkType(link.type) ? link.type : "relates");
+    if (targetId) desired.add(targetId);
   }
 
+  // Только relates-связи этой задачи — типизированные не затрагиваем.
   const current = await tx
-    .select({ id: taskLinks.id, targetId: taskLinks.targetTaskId, type: taskLinks.type })
+    .select({ id: taskLinks.id, targetId: taskLinks.targetTaskId })
     .from(taskLinks)
-    .where(and(eq(taskLinks.workspaceId, workspaceId), eq(taskLinks.sourceTaskId, taskId)));
+    .where(
+      and(
+        eq(taskLinks.workspaceId, workspaceId),
+        eq(taskLinks.sourceTaskId, taskId),
+        eq(taskLinks.type, "relates"),
+      ),
+    );
 
-  const currentKeys = new Set(current.map((r) => `${r.targetId}:${r.type}`));
-  const toRemove = current.filter((r) => desired.get(r.targetId) !== r.type);
+  const currentTargets = new Set(current.map((r) => r.targetId));
+  const toRemove = current.filter((r) => !desired.has(r.targetId));
   if (toRemove.length > 0) {
     await tx.delete(taskLinks).where(
       inArray(
@@ -321,17 +329,17 @@ async function syncLinks(
       ),
     );
   }
-  const toAdd = [...desired.entries()].filter(([targetId, type]) => !currentKeys.has(`${targetId}:${type}`));
+  const toAdd = [...desired].filter((targetId) => !currentTargets.has(targetId));
   if (toAdd.length > 0) {
     await tx
       .insert(taskLinks)
       .values(
-        toAdd.map(([targetId, type]) => ({
+        toAdd.map((targetId) => ({
           id: newId(),
           workspaceId,
           sourceTaskId: taskId,
           targetTaskId: targetId,
-          type,
+          type: "relates" as TaskLinkType,
           createdBy: userId,
           createdAt: new Date(),
         })),
@@ -812,7 +820,12 @@ export async function exportDocuments(workspaceId: string): Promise<ExportDoc[]>
       .from(taskLinks)
       .innerJoin(tasks, eq(tasks.id, taskLinks.targetTaskId))
       .where(
-        and(eq(taskLinks.workspaceId, workspaceId), inArray(taskLinks.sourceTaskId, ids)),
+        and(
+          eq(taskLinks.workspaceId, workspaceId),
+          inArray(taskLinks.sourceTaskId, ids),
+          // Только relates → свойство «Связи». Типизированные — в группах.
+          eq(taskLinks.type, "relates"),
+        ),
       );
     for (const r of linkRows) {
       const list = linksByTask.get(r.src) ?? [];
