@@ -175,12 +175,6 @@ export default class TrackerSyncPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "migrate-props",
-      name: "Мигрировать свойства на русские",
-      callback: () => void this.migrateProps(),
-    });
-
-    this.addCommand({
       id: "open-in-tracker",
       name: "Открыть карточку в трекере",
       checkCallback: (checking) => {
@@ -626,7 +620,9 @@ export default class TrackerSyncPlugin extends Plugin {
     // Корневая папка: явная из настроек → имя пространства → запасное «Проекты».
     // Структура: <Пространство>/<Проект>/<задача>.md.
     const base = this.settings.folder || (data.workspace ? sanitizeName(data.workspace) : "Проекты");
-    const toCreate = docs.filter((d) => !d.hasNote && !existing.has(d.tracker_id));
+    // Создаём те, которых НЕТ в этом хранилище (по «ИД» в заметках). Флаг сервера
+    // hasNote не используем: заметку могли удалить локально, а привязка осталась.
+    const toCreate = docs.filter((d) => !existing.has(d.tracker_id));
     const skipped = docs.length - toCreate.length;
 
     if (toCreate.length === 0) {
@@ -690,57 +686,6 @@ export default class TrackerSyncPlugin extends Plugin {
     if (!(af instanceof TFile)) return path;
     if (this.frontmatter(af)?.[PROP.trackerId] === trackerId) return path;
     return path.replace(/\.md$/, ` (${trackerId.slice(0, 6)}).md`);
-  }
-
-  // ── Миграция старых английских свойств на русские ────────────────────────────
-
-  private async migrateProps(): Promise<void> {
-    // slug→name для конвертации старого theme-slug в читаемое название.
-    const slugToName = new Map<string, string>();
-    if (this.configured()) {
-      const { status, json } = await this.api("GET", "/api/obsidian/themes");
-      if (status === 200) {
-        for (const t of (json as { themes: { slug: string; name: string }[] }).themes ?? []) {
-          slugToName.set(t.slug, t.name);
-        }
-      }
-    }
-    // Источники миграции: английские ключи + ранний русский «Тип» → «Метки».
-    const OLD_KEYS = [
-      "theme", "type", "links", "tracker_id", "status", "stage", "priority",
-      "due", "review", "completed", "assignee", "tracker_url", "tracker_updated", "archived",
-      "Тип", "Тема",
-    ];
-    let migrated = 0;
-    for (const file of this.app.vault.getMarkdownFiles()) {
-      const fm = this.frontmatter(file);
-      if (!fm || !OLD_KEYS.some((k) => k in fm)) continue;
-      await this.app.fileManager.processFrontMatter(file, (f) => {
-        const move = (en: string, ru: string, map?: (v: unknown) => unknown) => {
-          if (!(en in f)) return;
-          f[ru] = map ? map(f[en]) : f[en];
-          delete f[en];
-        };
-        move("theme", PROP.project, (v) => slugToName.get(String(v)) ?? v);
-        move("Тема", PROP.project, (v) => slugToName.get(String(v)) ?? v);
-        move("type", PROP.labels);
-        move("Тип", PROP.labels);
-        move("links", PROP.links);
-        move("tracker_id", PROP.trackerId);
-        move("status", "Статус", (v) => STATUS_VAL[String(v)] ?? v);
-        move("stage", "Стадия");
-        move("priority", "Приоритет", (v) => PRIORITY_VAL[String(v)] ?? v);
-        move("due", "Срок");
-        move("review", "Пересмотр");
-        move("completed", "Завершено");
-        move("assignee", "Исполнитель");
-        move("tracker_url", PROP.trackerUrl);
-        move("tracker_updated", "Обновлено");
-        move("archived", PROP.archived);
-      });
-      migrated += 1;
-    }
-    new Notice(`Трекер: свойства переведены — заметок ${migrated}`);
   }
 
   // ── Генерация обзора готовности (MOC) ────────────────────────────────────────
@@ -822,13 +767,6 @@ const STATUS_VAL: Record<string, string> = {
   not_started: "не начато",
   in_progress: "в работе",
   done: "готово",
-};
-
-const PRIORITY_VAL: Record<string, string> = {
-  low: "низкий",
-  normal: "обычный",
-  high: "высокий",
-  urgent: "срочный",
 };
 
 function basenameLink(doc: VaultDoc): string {
