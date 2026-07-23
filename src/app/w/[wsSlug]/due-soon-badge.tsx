@@ -42,9 +42,7 @@ export function DueSoonBadge({ wsSlug, tasks }: { wsSlug: string; tasks: DueSoon
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <div className="border-b border-border px-3 py-2 text-sm font-medium">
-          Дедлайны — сегодня, завтра, просрочено
-        </div>
+        <div className="border-b border-border px-3 py-2 text-sm font-medium">Дедлайны</div>
         <ul className="flex max-h-96 flex-col overflow-y-auto">
           {tasks.map((t) => (
             <li key={t.id}>
