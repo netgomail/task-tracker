@@ -10,6 +10,7 @@ import * as membershipSvc from "@/services/membership";
 import * as workspaces from "@/services/workspaces";
 import { sanitizeText } from "@/lib/sanitize";
 import { MEMBERSHIP_ROLES, type MembershipRole } from "@/domain/types";
+import type { WorkspaceMember } from "@/services/membership";
 
 const CreateSchema = z.object({
   name: z.string().trim().min(1, "Введите название").max(80, "Слишком длинное"),
@@ -109,4 +110,42 @@ export async function removeMemberAction(
   await membershipSvc.removeMember(ws.workspaceId, memberId);
   revalidatePath(`/w/${wsSlug}/settings`);
   return { ok: true };
+}
+
+const EmailSchema = z.string().trim().toLowerCase().email("Введите корректный e-mail");
+
+export type AddMemberResult =
+  | { ok: true; member: WorkspaceMember }
+  | { ok: false; error: string };
+
+export async function addMemberAction(
+  wsSlug: string,
+  email: string,
+  role: string,
+): Promise<AddMemberResult> {
+  const parsedEmail = EmailSchema.safeParse(email);
+  if (!parsedEmail.success) {
+    return { ok: false, error: parsedEmail.error.issues[0]?.message ?? "Неверный e-mail" };
+  }
+  if (!(MEMBERSHIP_ROLES as readonly string[]).includes(role) || role === "owner") {
+    return { ok: false, error: "Неизвестная роль" };
+  }
+  const session = await requireUser();
+  const ws = await getBySlug(session.user.id, wsSlug);
+  if (!ws) return { ok: false, error: "Пространство не найдено" };
+  if (ws.role !== "owner" && ws.role !== "admin") {
+    return { ok: false, error: "Недостаточно прав" };
+  }
+  try {
+    const newMember = await membershipSvc.addMemberByEmail(
+      ws.workspaceId,
+      parsedEmail.data,
+      role as MembershipRole,
+    );
+    revalidatePath(`/w/${wsSlug}/settings`);
+    return { ok: true, member: newMember };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Не удалось добавить участника";
+    return { ok: false, error: message };
+  }
 }

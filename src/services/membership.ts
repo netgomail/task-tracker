@@ -1,7 +1,9 @@
 import "server-only";
 
+import { headers } from "next/headers";
 import { and, asc } from "drizzle-orm";
 
+import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { member, organization, user } from "@/db/schema/auth";
 import { MEMBERSHIP_ROLES, type MembershipRole } from "@/domain/types";
@@ -93,4 +95,46 @@ export async function isMember(workspaceId: string, userId: string): Promise<boo
     .where(and(eq(member.organizationId, workspaceId), eq(member.userId, userId)))
     .limit(1);
   return Boolean(row);
+}
+
+export async function findUserByEmail(
+  email: string,
+): Promise<{ id: string; name: string; image: string | null } | null> {
+  const [row] = await db
+    .select({ id: user.id, name: user.name, image: user.image })
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1);
+  return row ? { ...row, image: row.image ?? null } : null;
+}
+
+export async function addMemberByEmail(
+  workspaceId: string,
+  email: string,
+  role: MembershipRole,
+): Promise<WorkspaceMember> {
+  const target = await findUserByEmail(email);
+  if (!target) throw new Error("Пользователь с таким email не зарегистрирован");
+  if (await isMember(workspaceId, target.id)) {
+    throw new Error("Этот пользователь уже состоит в пространстве");
+  }
+  const hdrs = await headers();
+  const created = await auth.api.addMember({
+    headers: hdrs,
+    body: {
+      userId: target.id,
+      // "viewer" — роль этого приложения поверх plain-text колонки member.role;
+      // better-auth типизирует roles по своим дефолтам (owner/admin/member) и не знает о ней.
+      role: role as unknown as "owner" | "admin" | "member",
+      organizationId: workspaceId,
+    },
+  });
+  if (!created) throw new Error("Не удалось добавить участника");
+  return {
+    id: target.id,
+    memberId: created.id,
+    name: target.name,
+    image: target.image,
+    role,
+  };
 }
