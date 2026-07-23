@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1
+# check=skip=SecretsUsedInArgOrEnv
+# ↑ BETTER_AUTH_SECRET ниже — не настоящий секрет, а статичная заглушка
+# только для прохождения zod-валидации при сборке (см. комментарий у ENV).
+# Стадия builder отбрасывается в multi-stage build, в runner она не попадает.
 
 # ---------- deps: установка всех зависимостей (incl. native better-sqlite3) ----------
 FROM node:22-bookworm-slim AS deps
