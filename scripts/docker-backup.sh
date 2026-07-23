@@ -7,7 +7,7 @@
 #   0 3 * * * cd /path/to/task-tracker && ./scripts/docker-backup.sh >> backups/backup.log 2>&1
 set -e
 
-KEEP_DAYS="${1:-14}"
+KEEP_DAYS="${1:-30}"
 cd "$(dirname "$0")/.."
 mkdir -p backups
 
