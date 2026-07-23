@@ -955,6 +955,27 @@ function activeMentionQuery(text: string, cursor: number): { query: string; star
   return { query: m[1], start: cursor - m[1].length - 1 };
 }
 
+/**
+ * В поле ввода упоминание выглядит просто как "@Имя" — без id, чтобы не
+ * захламлять форму. Перед отправкой подставляем обратно @[Имя](userId) для
+ * каждого выбранного через автодополнение упоминания (по порядку, первое
+ * оставшееся вхождение текста "@Имя"). Если пользователь стёр/изменил текст
+ * упоминания — оно просто останется обычным текстом, без уведомления.
+ */
+function resolveMentions(text: string, picked: { name: string; userId: string }[]): string {
+  let result = text;
+  let searchFrom = 0;
+  for (const m of picked) {
+    const needle = `@${m.name}`;
+    const idx = result.indexOf(needle, searchFrom);
+    if (idx === -1) continue;
+    const token = `@[${m.name}](${m.userId})`;
+    result = result.slice(0, idx) + token + result.slice(idx + needle.length);
+    searchFrom = idx + token.length;
+  }
+  return result;
+}
+
 function Comments({
   wsSlug,
   projectSlug,
@@ -976,6 +997,7 @@ function Comments({
   const [pending, startTransition] = useTransition();
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [pickedMentions, setPickedMentions] = useState<{ name: string; userId: string }[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const mentionMatches = mention
@@ -989,9 +1011,12 @@ function Comments({
     const cursor = textareaRef.current?.selectionStart ?? draft.length;
     const before = draft.slice(0, mention.start);
     const after = draft.slice(cursor);
-    const token = `@[${m.name}](${m.id}) `;
+    // В поле показываем только "@Имя" — id не виден пользователю, но
+    // остаётся привязанным через pickedMentions до отправки (resolveMentions).
+    const token = `@${m.name} `;
     const next = `${before}${token}${after}`;
     setDraft(next);
+    setPickedMentions((prev) => [...prev, { name: m.name, userId: m.id }]);
     setMention(null);
     const pos = before.length + token.length;
     queueMicrotask(() => textareaRef.current?.setSelectionRange(pos, pos));
@@ -1038,12 +1063,14 @@ function Comments({
   async function add() {
     const next = draft.trim();
     if (!next) return;
+    const body = resolveMentions(next, pickedMentions);
     startTransition(async () => {
-      const res = await createCommentAction(wsSlug, projectSlug, taskId, next);
+      const res = await createCommentAction(wsSlug, projectSlug, taskId, body);
       if (!res.ok) toast.error(res.error);
       else {
         setDraft("");
         setMention(null);
+        setPickedMentions([]);
         onRefresh();
       }
     });
