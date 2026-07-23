@@ -4,6 +4,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { newId } from "@/lib/ids";
+import { notifyWorkspace } from "@/lib/realtime";
 import { notifications, type NotificationType } from "@/db/schema/notifications";
 import { tasks } from "@/db/schema/tasks";
 import { projects } from "@/db/schema/projects";
@@ -39,6 +40,7 @@ export async function create(params: {
     commentId: params.commentId ?? null,
     createdAt: new Date(),
   });
+  notifyWorkspace(params.workspaceId);
 }
 
 export async function listForUser(

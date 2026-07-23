@@ -6,7 +6,9 @@ import { getBySlug } from "@/services/membership";
 import { listForUser } from "@/services/workspaces";
 import { listForWorkspace } from "@/services/projects";
 import { countArchived } from "@/services/archive";
+import * as notificationsSvc from "@/services/notifications";
 import { AppSidebar, type WsWithProjects } from "./app-sidebar";
+import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
 
 export default async function WorkspaceLayout({
@@ -29,6 +31,10 @@ export default async function WorkspaceLayout({
     })),
   );
   const archivedCount = await countArchived(ws.workspaceId);
+  const [initialNotifications, initialUnread] = await Promise.all([
+    notificationsSvc.listForUser(ws.workspaceId, session.user.id),
+    notificationsSvc.unreadCount(ws.workspaceId, session.user.id),
+  ]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -54,6 +60,11 @@ export default async function WorkspaceLayout({
           >
             Метки
           </Link>
+          <NotificationsBell
+            wsSlug={wsSlug}
+            initialNotifications={initialNotifications}
+            initialUnread={initialUnread}
+          />
           <UserMenu
             name={session.user.name}
             email={session.user.email}
