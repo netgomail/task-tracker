@@ -80,11 +80,13 @@ function isPast(iso: string | null): boolean {
   return iso != null && new Date(iso).getTime() < Date.now();
 }
 
-function formatDue(iso: string): { label: string; overdue: boolean } {
+function formatDue(iso: string): { label: string; overdue: boolean; dueSoon: boolean } {
   const d = new Date(iso);
   const now = new Date();
   const day = 24 * 60 * 60 * 1000;
-  const diffDays = Math.round((d.getTime() - new Date(now.toDateString()).getTime()) / day);
+  // Math.floor, не round: дедлайн сегодня в 15:00 — это +0.6 дня от полуночи,
+  // round дал бы 1 («Завтра»), хотя календарно это всё ещё сегодня.
+  const diffDays = Math.floor((d.getTime() - new Date(now.toDateString()).getTime()) / day);
   let label: string;
   if (diffDays === 0) label = "Сегодня";
   else if (diffDays === 1) label = "Завтра";
@@ -94,7 +96,7 @@ function formatDue(iso: string): { label: string; overdue: boolean } {
       day: "numeric",
       month: "short",
     });
-  return { label, overdue: diffDays < 0 };
+  return { label, overdue: diffDays < 0, dueSoon: diffDays === 0 || diffDays === 1 };
 }
 
 export function TaskCard({ wsSlug, projectSlug, task }: Props) {
@@ -499,8 +501,11 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
               "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
               due.overdue
                 ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                : "bg-muted text-foreground/70",
+                : due.dueSoon
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "bg-muted text-foreground/70",
             )}
+            title={due.overdue ? "Дедлайн просрочен" : due.dueSoon ? "Дедлайн скоро" : undefined}
           >
             <CalendarClock className="size-3" />
             {due.label}
