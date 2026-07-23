@@ -41,18 +41,40 @@ docker compose logs -f        # видно "✔ migrations applied" и стар�
 - **Вложения задач и аватары** — `./data/attachments` рядом с проектом (обычный
   bind-mount, видно и с хоста).
 
-## 4. Перенос на другую машину
+## 4. Бэкапы (чтобы не потерять данные)
 
-Само приложение переносить не нужно — просто клонируй репозиторий и повтори шаги
-1–2 на новой машине. Если нужно перенести **данные**:
+Volume `postgres_data` переживает `docker compose down`/`up`/`restart`/пересборку —
+но не переживёт случайный `down -v`, падение диска или переустановку Docker.
+Это не бэкап сам по себе, нужен отдельный дамп.
 
 ```bash
-# База: дамп на старой машине → восстановление на новой
-docker compose exec postgres pg_dump -U tasktracker tasktracker > backup.sql
-docker compose exec -T postgres psql -U tasktracker tasktracker < backup.sql
+npm run db:backup-docker              # хранит бэкапы 14 дней (по умолчанию)
+npm run db:backup-docker -- 30        # хранить 30 дней
+```
 
-# Вложения — просто скопировать каталог
-rsync -a ./data/attachments/ user@новая-машина:/path/to/task-tracker/data/attachments/
+Сохраняет `backups/tasktracker-<дата>.sql.gz` через `pg_dump` внутри контейнера
+и удаляет то, что старше срока хранения. `backups/` не в гите (там были бы токены
+сессий) — сохраняй эти файлы отдельно (внешний диск, другой хост, облако).
+
+Для автоматических регулярных бэкапов — cron на хосте (не внутри контейнера):
+
+```bash
+crontab -e
+# каждую ночь в 3:00
+0 3 * * * cd /path/to/task-tracker && ./scripts/docker-backup.sh >> backups/backup.log 2>&1
+```
+
+**Восстановление** из дампа (например, на новой машине после переноса):
+
+```bash
+gunzip -c backups/tasktracker-20260723-030000.sql.gz | docker compose exec -T postgres psql -U tasktracker tasktracker
+```
+
+Вложения задач и аватары (`./data/attachments`) — обычные файлы на хосте, бэкапь
+их своим обычным способом (rsync/Time Machine/что угодно):
+
+```bash
+rsync -a ./data/attachments/ /путь/для/бэкапа/attachments/
 ```
 
 ## 5. Обновление версии
