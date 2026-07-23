@@ -36,6 +36,13 @@
       "when": 1781014368299,
       "tag": "0004_crazy_franklin_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784821260563,
+      "tag": "0005_clever_starjammers",
+      "breakpoints": true
     }
   ]
 }

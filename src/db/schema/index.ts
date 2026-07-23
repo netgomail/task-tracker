@@ -20,3 +20,4 @@ export * from "./attachments";
 export * from "./custom-fields";
 export * from "./automations";
 export * from "./sync";
+export * from "./notifications";
