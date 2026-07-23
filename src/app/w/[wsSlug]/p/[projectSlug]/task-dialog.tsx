@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -262,6 +262,7 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                     taskId={task.id}
                     meId={details.me.id}
                     comments={details.comments}
+                    members={details.members}
                     onRefresh={refresh}
                   />
                 )}
@@ -925,12 +926,42 @@ function LinkPicker({
   );
 }
 
+/** Токен упоминания в теле комментария: @[Имя](userId). */
+const MENTION_RE = /@\[([^\]]+)\]\(([^)]+)\)/g;
+
+function renderCommentBody(body: string) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  for (const m of body.matchAll(MENTION_RE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) parts.push(body.slice(last, idx));
+    parts.push(
+      <span key={key++} className="font-medium text-primary">
+        @{m[1]}
+      </span>,
+    );
+    last = idx + m[0].length;
+  }
+  if (last < body.length) parts.push(body.slice(last));
+  return parts;
+}
+
+/** Незавершённое упоминание перед курсором: "текст @що" → { query: "що", start: индекс "@" }. */
+function activeMentionQuery(text: string, cursor: number): { query: string; start: number } | null {
+  const upto = text.slice(0, cursor);
+  const m = /(?:^|\s)@([^\s@]*)$/.exec(upto);
+  if (!m) return null;
+  return { query: m[1], start: cursor - m[1].length - 1 };
+}
+
 function Comments({
   wsSlug,
   projectSlug,
   taskId,
   meId,
   comments,
+  members,
   onRefresh,
 }: {
   wsSlug: string;
@@ -938,10 +969,71 @@ function Comments({
   taskId: string;
   meId: string;
   comments: SerializedComment[];
+  members: WorkspaceMember[];
   onRefresh: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [pending, startTransition] = useTransition();
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const mentionMatches = mention
+    ? members
+        .filter((m) => m.name.toLowerCase().includes(mention.query.toLowerCase()))
+        .slice(0, 6)
+    : [];
+
+  function selectMention(m: WorkspaceMember) {
+    if (!mention) return;
+    const cursor = textareaRef.current?.selectionStart ?? draft.length;
+    const before = draft.slice(0, mention.start);
+    const after = draft.slice(cursor);
+    const token = `@[${m.name}](${m.id}) `;
+    const next = `${before}${token}${after}`;
+    setDraft(next);
+    setMention(null);
+    const pos = before.length + token.length;
+    queueMicrotask(() => textareaRef.current?.setSelectionRange(pos, pos));
+    textareaRef.current?.focus();
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const value = e.target.value;
+    setDraft(value);
+    const q = activeMentionQuery(value, e.target.selectionStart);
+    setMention(q);
+    setMentionIndex(0);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mention && mentionMatches.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % mentionMatches.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + mentionMatches.length) % mentionMatches.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectMention(mentionMatches[mentionIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMention(null);
+        return;
+      }
+    }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      add();
+    }
+  }
 
   async function add() {
     const next = draft.trim();
@@ -951,6 +1043,7 @@ function Comments({
       if (!res.ok) toast.error(res.error);
       else {
         setDraft("");
+        setMention(null);
         onRefresh();
       }
     });
@@ -991,7 +1084,9 @@ function Comments({
                   </button>
                 )}
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{c.body}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {renderCommentBody(c.body)}
+              </p>
             </div>
           </li>
         ))}
@@ -999,20 +1094,43 @@ function Comments({
           <p className="text-xs text-muted-foreground/70">Пока нет комментариев.</p>
         )}
       </ul>
-      <div className="flex flex-col gap-2">
+      <div className="relative flex flex-col gap-2">
         <Textarea
+          ref={textareaRef}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder="Написать комментарий… (Ctrl/⌘+Enter — отправить)"
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Написать комментарий… (@ — упомянуть, Ctrl/⌘+Enter — отправить)"
           rows={2}
           className="min-h-16 text-sm"
         />
+        {mention && mentionMatches.length > 0 && (
+          <ul className="absolute bottom-full left-0 z-10 mb-1 w-56 rounded-md border border-border bg-popover p-1 text-sm shadow-md">
+            {mentionMatches.map((m, i) => (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectMention(m);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded px-2 py-1 text-left",
+                    i === mentionIndex ? "bg-accent" : "hover:bg-accent",
+                  )}
+                >
+                  <Avatar className="size-5">
+                    {m.image && <AvatarImage src={m.image} alt={m.name} />}
+                    <AvatarFallback className="text-[10px]">
+                      {m.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate">{m.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="flex justify-end">
           <Button size="sm" onClick={add} disabled={pending || !draft.trim()}>
             Отправить

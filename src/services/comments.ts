@@ -7,8 +7,17 @@ import { user } from "@/db/schema/auth";
 import { comments } from "@/db/schema/activity";
 import { tasks } from "@/db/schema/tasks";
 import { newId } from "@/lib/ids";
+import { isMember } from "@/services/membership";
+import * as notifications from "@/services/notifications";
 
 export const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+/** Токен упоминания в теле комментария: @[Имя](userId). */
+const MENTION_RE = /@\[[^\]]+\]\(([^)]+)\)/g;
+
+function extractMentionedUserIds(body: string): string[] {
+  return [...new Set([...body.matchAll(MENTION_RE)].map((m) => m[1]))];
+}
 
 export type CommentRow = {
   id: string;
@@ -75,6 +84,21 @@ export async function create(
     .select({ id: user.id, name: user.name, image: user.image })
     .from(user)
     .where(eq(user.id, authorId));
+
+  for (const mentionedId of extractMentionedUserIds(body)) {
+    if (mentionedId === authorId) continue;
+    if (await isMember(workspaceId, mentionedId)) {
+      await notifications.create({
+        workspaceId,
+        recipientId: mentionedId,
+        actorId: authorId,
+        type: "comment_mention",
+        taskId,
+        commentId: id,
+      });
+    }
+  }
+
   return {
     id,
     body,
