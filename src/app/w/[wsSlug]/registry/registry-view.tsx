@@ -7,6 +7,7 @@ import { Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { isDueOverdue } from "@/lib/due-date";
 import { LabelBadge } from "@/components/label-badge";
 import type { LabelRow } from "@/services/labels";
 import type { RegistryRow } from "@/services/registry";
@@ -164,7 +165,7 @@ export function RegistryView({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{r.assignee ?? "—"}</td>
-                  <td className={cn("px-3 py-2", isOverdue(r.dueAt) && !r.completedAt && "text-red-600 dark:text-red-400")}>
+                  <td className={cn("px-3 py-2", r.dueAt != null && isDueOverdue(r.dueAt) && !r.completedAt && "text-red-600 dark:text-red-400")}>
                     {fmtDate(r.dueAt) || "—"}
                   </td>
                   <td className={cn("px-3 py-2", isOverdue(r.reviewAt) && "text-rose-600 dark:text-rose-400")}>

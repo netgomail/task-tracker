@@ -52,6 +52,7 @@ import {
   type LabelColorSlug,
 } from "@/lib/colors";
 import { cn } from "@/lib/utils";
+import { dueDiffDays } from "@/lib/due-date";
 import {
   archiveTaskAction,
   createSubtaskAction,
@@ -81,18 +82,13 @@ function isPast(iso: string | null): boolean {
 }
 
 function formatDue(iso: string): { label: string; overdue: boolean; dueSoon: boolean } {
-  const d = new Date(iso);
-  const now = new Date();
-  const day = 24 * 60 * 60 * 1000;
-  // Math.floor, не round: дедлайн сегодня в 15:00 — это +0.6 дня от полуночи,
-  // round дал бы 1 («Завтра»), хотя календарно это всё ещё сегодня.
-  const diffDays = Math.floor((d.getTime() - new Date(now.toDateString()).getTime()) / day);
+  const diffDays = dueDiffDays(iso);
   let label: string;
   if (diffDays === 0) label = "Сегодня";
   else if (diffDays === 1) label = "Завтра";
   else if (diffDays === -1) label = "Вчера";
   else
-    label = d.toLocaleDateString("ru-RU", {
+    label = new Date(iso).toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "short",
     });

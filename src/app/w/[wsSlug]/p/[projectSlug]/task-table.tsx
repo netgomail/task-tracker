@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { colorHex, isDefaultColor, isLabelColor } from "@/lib/colors";
+import { isDueOverdue } from "@/lib/due-date";
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import type { TaskPriority } from "@/domain/types";
 import type { WorkspaceMember } from "@/services/membership";
@@ -59,11 +60,6 @@ export function TaskTable({
     for (const c of columns) m.set(c.id, c);
     return m;
   }, [columns]);
-
-  // useState lazy initializer не вызывается на каждом рендере — нужный
-  // снэпшот «сейчас» для подсветки просроченных задач, без нарушения
-  // react-hooks/purity (Date.now нельзя в чистом render).
-  const [nowMs] = useState(() => Date.now());
 
   const sorted = useMemo(() => {
     const arr = [...tasks];
@@ -164,7 +160,6 @@ export function TaskTable({
                 key={t.id}
                 task={t}
                 column={columnById.get(t.columnId)}
-                nowMs={nowMs}
                 onOpen={() => openTask(t.id)}
               />
             ))}
@@ -225,12 +220,10 @@ function SortableHeader({
 function TaskRow({
   task,
   column,
-  nowMs,
   onOpen,
 }: {
   task: TaskTableRow;
   column: BoardColumn | undefined;
-  nowMs: number;
   onOpen: () => void;
 }) {
   const priorityMeta = TASK_PRIORITY_META[task.priority];
@@ -244,10 +237,9 @@ function TaskRow({
       : "transparent";
   const columnColor =
     column && isLabelColor(column.color) ? colorHex(column.color) : "#64748b";
-  const isOverdue =
-    task.dueAt &&
-    !task.completedAt &&
-    Date.parse(task.dueAt) < nowMs;
+  // Просрочено, только если прошёл весь календарный день дедлайна — не по
+  // точному времени (дедлайн сегодня в 20:00 не «просрочен» в 21:00).
+  const isOverdue = task.dueAt && !task.completedAt && isDueOverdue(task.dueAt);
 
   return (
     <tr
