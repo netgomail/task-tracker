@@ -11,6 +11,7 @@ import {
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
+import * as notifications from "@/services/notifications";
 import { runAutomations } from "@/services/automations";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { bindBoardWorkspace, notifyBoard } from "@/lib/realtime";
@@ -87,6 +88,15 @@ export async function createTaskAction(
     taskId: created.id,
     actorId: session.user.id,
   });
+  if (rawAssigneeId) {
+    await notifications.create({
+      workspaceId: ws.workspaceId,
+      recipientId: rawAssigneeId,
+      actorId: session.user.id,
+      type: "task_assigned",
+      taskId: created.id,
+    });
+  }
   refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
@@ -355,6 +365,15 @@ export async function setTaskAssigneeAction(
     type: "task.assignee",
     payload: { assigneeId: next },
   });
+  if (next) {
+    await notifications.create({
+      workspaceId: ws.workspaceId,
+      recipientId: next,
+      actorId: session.user.id,
+      type: "task_assigned",
+      taskId,
+    });
+  }
   refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }
