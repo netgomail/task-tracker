@@ -27,6 +27,9 @@ export interface StorageDriver {
 
 const ATTACHMENTS_ROOT = path.resolve(process.cwd(), "data", "attachments");
 
+/** Синтетический workspaceId-неймспейс для аватаров пользователей (put/readAll делят storageKey на две части, реальный workspace тут ни при чём). */
+export const AVATAR_STORAGE_NAMESPACE = "_avatars";
+
 function sanitizeExt(ext: string): string {
   // Допускаем только буквы/цифры; ограничиваем длину. UUID + чистое расширение
   // = path traversal невозможен (никаких `..` / `/` не пропустим).

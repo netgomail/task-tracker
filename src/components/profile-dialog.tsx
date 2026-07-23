@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { Check, Loader2, Mail, ShieldCheck, User2 } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Camera, Check, Loader2, Mail, ShieldCheck, User2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -20,9 +20,13 @@ import { cn } from "@/lib/utils";
 import {
   changePasswordAction,
   getProfileAction,
+  updateAvatarAction,
   updateProfileAction,
   type ProfileData,
 } from "@/actions/profile";
+
+const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
 
 type Tab = "profile" | "security";
 
@@ -79,6 +83,7 @@ export function ProfileDialog({
                 <ProfileTab
                   profile={profile}
                   onNameUpdate={(name) => setProfile((p) => (p ? { ...p, name } : p))}
+                  onImageUpdate={(image) => setProfile((p) => (p ? { ...p, image } : p))}
                 />
               )}
               {tab === "security" && profile.hasPassword && <SecurityTab />}
@@ -93,12 +98,41 @@ export function ProfileDialog({
 function ProfileTab({
   profile,
   onNameUpdate,
+  onImageUpdate,
 }: {
   profile: ProfileData;
   onNameUpdate: (name: string) => void;
+  onImageUpdate: (image: string) => void;
 }) {
   const [name, setName] = useState(profile.name);
   const [pending, startTransition] = useTransition();
+  const [avatarPending, startAvatarTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAvatarPick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // чтобы повторный выбор того же файла тоже сработал
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      toast.error("Файл больше 3 МБ");
+      return;
+    }
+    const formData = new FormData();
+    formData.set("file", file);
+    startAvatarTransition(async () => {
+      const res = await updateAvatarAction(formData);
+      if (res.ok && res.image) {
+        toast.success("Фото обновлено");
+        onImageUpdate(res.image);
+      } else {
+        toast.error(res.error ?? "Не удалось обновить фото");
+      }
+    });
+  }
 
   function saveName() {
     const trimmed = name.trim();
@@ -135,12 +169,34 @@ function ProfileTab({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-4">
-        <Avatar className="size-16">
-          {profile.image && <AvatarImage src={profile.image} alt={profile.name} />}
-          <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-lg font-semibold text-white">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+        <button
+          type="button"
+          onClick={handleAvatarPick}
+          disabled={avatarPending}
+          className="group relative size-16 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Изменить фото профиля"
+        >
+          <Avatar className="size-16">
+            {profile.image && <AvatarImage src={profile.image} alt={profile.name} />}
+            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-lg font-semibold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+            {avatarPending ? (
+              <Loader2 className="size-5 animate-spin text-white" />
+            ) : (
+              <Camera className="size-5 text-white" />
+            )}
+          </span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={AVATAR_ACCEPT}
+          onChange={handleAvatarChange}
+          className="hidden"
+        />
         <div className="flex flex-col gap-0.5">
           <span className="text-base font-semibold">{profile.name}</span>
           <span className="text-sm text-muted-foreground">{profile.email}</span>
