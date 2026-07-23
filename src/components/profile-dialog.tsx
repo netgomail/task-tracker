@@ -200,7 +200,7 @@ function ProfileTab({
                 key={p}
                 className="rounded bg-background px-1.5 py-0.5 font-medium text-foreground/80 ring-1 ring-border"
               >
-                {p === "credential" ? "Email / пароль" : p === "google" ? "Google" : p}
+                {p === "credential" ? "Email / пароль" : p}
               </span>
             ))}
           </div>
