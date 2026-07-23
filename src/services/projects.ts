@@ -18,18 +18,9 @@ export type ProjectSummary = {
   createdAt: Date;
 };
 
-/**
- * Колонки доски = стадии жизненного цикла документа ОРД.
- * WIP-лимиты стоят на «бутылочных горлышках» — согласовании и утверждении,
- * где обычно ждут руководителя; превышение подсветит затор.
- */
 const DEFAULT_COLUMNS: { name: string; color: LabelColorSlug; wipLimit: number | null }[] = [
   { name: "Не начато", color: "slate", wipLimit: null },
-  { name: "Разработка проекта", color: "blue", wipLimit: null },
-  { name: "Согласование", color: "amber", wipLimit: 3 },
-  { name: "Утверждение", color: "violet", wipLimit: 2 },
-  { name: "Ввод в действие", color: "cyan", wipLimit: null },
-  { name: "Ознакомление", color: "teal", wipLimit: null },
+  { name: "В работе", color: "blue", wipLimit: null },
   { name: "Готово", color: "green", wipLimit: null },
 ];
 
