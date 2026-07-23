@@ -16,4 +16,4 @@ next-env.d.ts
 npm-debug.log*
 .DS_Store
 README.md
-DEPLOY-SYNOLOGY.md
+DEPLOY-DOCKER.md

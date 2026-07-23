@@ -3,17 +3,21 @@ services:
     image: postgres:18.4-alpine
     container_name: tasktracker-db
     restart: unless-stopped
+    env_file:
+      - .env.docker
     environment:
       POSTGRES_USER: tasktracker
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: tasktracker
-    # Порт публикуется на хост: и для внешнего доступа (через WireGuard), и чтобы
-    # app в host-сети достучался по 127.0.0.1:5433 (см. комментарий к app ниже).
+      # POSTGRES_PASSWORD берётся из .env.docker (см. env_file выше).
+    # Публикуем на хост только для удобства — подключиться локальным psql/GUI
+    # клиентом. Само приложение ходит в Postgres по имени сервиса во внутренней
+    # docker-сети (см. DATABASE_URL в .env.docker.example), этот порт ему не нужен.
     ports:
       - "5433:5432"
     volumes:
-      # PG18: VOLUME образа — /var/lib/postgresql (PGDATA внутри /18/docker).
-      - /volume1/docker/tasktracker-db:/var/lib/postgresql
+      # Именованный volume — Docker сам решает, где физически хранить данные;
+      # portable между Linux/macOS/Windows, никаких абсолютных host-путей.
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tasktracker -d tasktracker"]
       interval: 10s
@@ -24,24 +28,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # На Synology шаги RUN при сборке не видят DNS — даём сборке host-сеть
-      network: host
     image: task-tracker:latest
     container_name: task-tracker
     restart: unless-stopped
-    # Host-сеть: фаервол DSM режет трафик между контейнерами по docker-мосту.
-    # В host-режиме приложение живёт в сети самого NAS и достаёт Postgres через
-    # опубликованный порт по loopback (DATABASE_URL=...@127.0.0.1:5433/...),
-    # который фаервол не фильтрует. Сервер слушает 0.0.0.0:3000 (PORT/HOSTNAME
-    # заданы в образе) → http://NAS_IP:3000; доступ к :3000 ограничивается
-    # правилом фаервола DSM (только локальная подсеть).
-    network_mode: host
+    ports:
+      - "3000:3000"
     env_file:
       - .env.docker
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      # Вложения задач. На Synology можно указать абсолютный путь, например:
-      #   /volume1/docker/task-tracker/attachments:/app/data/attachments
+      # Вложения задач и аватары — переживают пересборку/пересоздание контейнера.
       - ./data/attachments:/app/data/attachments
+
+volumes:
+  postgres_data:
