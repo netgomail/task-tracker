@@ -141,6 +141,20 @@ async function assertTaskInWorkspace(
   return { columnId: row.columnId, projectId: row.projectId };
 }
 
+/** Колонка и автор задачи — используется, чтобы уведомить автора о смене статуса. */
+export async function getOwnership(
+  workspaceId: string,
+  taskId: string,
+): Promise<{ columnId: string; createdBy: string } | null> {
+  const [row] = await db
+    .select({ columnId: tasks.columnId, createdBy: tasks.createdBy, workspaceId: tasks.workspaceId })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!row || row.workspaceId !== workspaceId) return null;
+  return { columnId: row.columnId, createdBy: row.createdBy };
+}
+
 export type CreateTaskInput = {
   workspaceId: string;
   columnId: string;

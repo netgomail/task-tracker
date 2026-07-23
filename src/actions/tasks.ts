@@ -242,6 +242,7 @@ export async function moveTaskAction(
   // чужое удаление) возвращаем как результат, а не роняем transition клиента.
   try {
     const { session, ws, project } = await authorize(wsSlug, projectSlug);
+    const before = await tasks.getOwnership(ws.workspaceId, taskId);
     const orderKey = await tasks.move(ws.workspaceId, taskId, toColumnId, beforeTaskId, afterTaskId);
     await activity.record({
       workspaceId: ws.workspaceId,
@@ -259,6 +260,15 @@ export async function moveTaskAction(
       actorId: session.user.id,
       toColumnId,
     });
+    if (before && before.columnId !== toColumnId && before.createdBy !== session.user.id) {
+      await notifications.create({
+        workspaceId: ws.workspaceId,
+        recipientId: before.createdBy,
+        actorId: session.user.id,
+        type: "task_status_changed",
+        taskId,
+      });
+    }
     refreshBoard(wsSlug, projectSlug, project.boardId);
     return { ok: true, orderKey };
   } catch (e) {
@@ -393,6 +403,18 @@ export async function toggleTaskCompleteAction(
     actorId: session.user.id,
     type: completed ? "task.complete" : "task.reopen",
   });
+  if (completed) {
+    const owner = await tasks.getOwnership(ws.workspaceId, taskId);
+    if (owner && owner.createdBy !== session.user.id) {
+      await notifications.create({
+        workspaceId: ws.workspaceId,
+        recipientId: owner.createdBy,
+        actorId: session.user.id,
+        type: "task_status_changed",
+        taskId,
+      });
+    }
+  }
   refreshBoard(wsSlug, projectSlug, project.boardId);
   return { ok: true };
 }

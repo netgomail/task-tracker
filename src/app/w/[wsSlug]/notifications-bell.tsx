@@ -26,6 +26,7 @@ function describe(n: NotificationRow): string {
   const title = n.taskTitle ?? "задаче";
   if (n.type === "task_assigned") return `${actor} назначил(а) вам задачу «${title}»`;
   if (n.type === "comment_mention") return `${actor} упомянул(а) вас в комментарии к «${title}»`;
+  if (n.type === "task_status_changed") return `${actor} обновил(а) статус задачи «${title}»`;
   return `${actor}: обновление по «${title}»`;
 }
 

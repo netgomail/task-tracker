@@ -1,0 +1,2 @@
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_type_chk";--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_type_chk" CHECK ("notifications"."type" in ('task_assigned','comment_mention','task_status_changed'));

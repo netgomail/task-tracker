@@ -7,7 +7,11 @@ import { tasks } from "./tasks";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
-export const NOTIFICATION_TYPES = ["task_assigned", "comment_mention"] as const;
+export const NOTIFICATION_TYPES = [
+  "task_assigned",
+  "comment_mention",
+  "task_status_changed",
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export const notifications = pgTable(
@@ -32,7 +36,7 @@ export const notifications = pgTable(
     index("notifications_workspace_idx").on(t.workspaceId, t.recipientId),
     check(
       "notifications_type_chk",
-      sql`${t.type} in ('task_assigned','comment_mention')`,
+      sql`${t.type} in ('task_assigned','comment_mention','task_status_changed')`,
     ),
   ],
 );

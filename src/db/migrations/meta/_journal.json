@@ -43,6 +43,13 @@
       "when": 1784821260563,
       "tag": "0005_clever_starjammers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784824378895,
+      "tag": "0006_spicy_loa",
+      "breakpoints": true
     }
   ]
 }
