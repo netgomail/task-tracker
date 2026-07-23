@@ -7,7 +7,9 @@ import { listForUser } from "@/services/workspaces";
 import { listForWorkspace } from "@/services/projects";
 import { countArchived } from "@/services/archive";
 import * as notificationsSvc from "@/services/notifications";
+import { listDueSoonForUser } from "@/services/tasks";
 import { AppSidebar, type WsWithProjects } from "./app-sidebar";
+import { DueSoonBadge } from "./due-soon-badge";
 import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
 
@@ -31,9 +33,10 @@ export default async function WorkspaceLayout({
     })),
   );
   const archivedCount = await countArchived(ws.workspaceId);
-  const [initialNotifications, initialUnread] = await Promise.all([
+  const [initialNotifications, initialUnread, dueSoonTasks] = await Promise.all([
     notificationsSvc.listForUser(ws.workspaceId, session.user.id),
     notificationsSvc.unreadCount(ws.workspaceId, session.user.id),
+    listDueSoonForUser(ws.workspaceId, session.user.id),
   ]);
 
   return (
@@ -60,6 +63,7 @@ export default async function WorkspaceLayout({
           >
             Метки
           </Link>
+          <DueSoonBadge wsSlug={wsSlug} tasks={dueSoonTasks} />
           <NotificationsBell
             wsSlug={wsSlug}
             initialNotifications={initialNotifications}

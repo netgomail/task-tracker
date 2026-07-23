@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ne, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { boards, columns, projects } from "@/db/schema/projects";
@@ -10,6 +10,7 @@ import { comments } from "@/db/schema/activity";
 import { attachments } from "@/db/schema/attachments";
 import { keyBetween } from "@/domain/ordering";
 import { newId } from "@/lib/ids";
+import { dueDiffDays } from "@/lib/due-date";
 import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import {
   TASK_PRIORITIES,
@@ -153,6 +154,50 @@ export async function getOwnership(
     .limit(1);
   if (!row || row.workspaceId !== workspaceId) return null;
   return { columnId: row.columnId, createdBy: row.createdBy };
+}
+
+export type DueSoonTask = {
+  id: string;
+  title: string;
+  dueAt: Date;
+  projectSlug: string;
+  overdue: boolean;
+};
+
+/**
+ * Задачи пользователя (по всем проектам пространства) с дедлайном сегодня,
+ * завтра или уже просроченным — для бейджа-счётчика в шапке. dueDiffDays —
+ * тот же день-based расчёт, что и на карточке/в таблице/в реестре.
+ */
+export async function listDueSoonForUser(
+  workspaceId: string,
+  userId: string,
+): Promise<DueSoonTask[]> {
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueAt: tasks.dueAt,
+      projectSlug: projects.slug,
+    })
+    .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .where(
+      and(
+        eq(tasks.workspaceId, workspaceId),
+        eq(tasks.assigneeId, userId),
+        isNull(tasks.archivedAt),
+        isNull(tasks.completedAt),
+        isNotNull(tasks.dueAt),
+      ),
+    )
+    .orderBy(asc(tasks.dueAt));
+
+  return rows
+    .filter((r): r is typeof r & { dueAt: Date } => r.dueAt != null)
+    .map((r) => ({ ...r, diffDays: dueDiffDays(r.dueAt.toISOString()) }))
+    .filter((r) => r.diffDays <= 1)
+    .map(({ diffDays, ...r }) => ({ ...r, overdue: diffDays < 0 }));
 }
 
 export type CreateTaskInput = {
