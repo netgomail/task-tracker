@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/rbac";
-import { getBySlug, listMembers } from "@/services/membership";
+import { getBySlug, listAddableUsers, listMembers } from "@/services/membership";
 
 import { PageShell } from "../page-shell";
 import { MembersList, RenameForm } from "./settings-client";
@@ -18,7 +18,11 @@ export default async function WorkspaceSettingsPage({
   const session = await requireUser();
   const ws = await getBySlug(session.user.id, wsSlug);
   if (!ws) notFound();
-  const members = await listMembers(ws.workspaceId);
+  const canManage = ws.role === "owner" || ws.role === "admin";
+  const [members, addableUsers] = await Promise.all([
+    listMembers(ws.workspaceId),
+    canManage ? listAddableUsers(ws.workspaceId) : Promise.resolve([]),
+  ]);
 
   return (
     <PageShell>
@@ -46,6 +50,7 @@ export default async function WorkspaceSettingsPage({
           meId={session.user.id}
           myRole={ws.role}
           initialMembers={members}
+          initialAddableUsers={addableUsers}
         />
       </section>
 

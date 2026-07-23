@@ -112,20 +112,17 @@ export async function removeMemberAction(
   return { ok: true };
 }
 
-const EmailSchema = z.string().trim().toLowerCase().email("Введите корректный e-mail");
-
 export type AddMemberResult =
   | { ok: true; member: WorkspaceMember }
   | { ok: false; error: string };
 
 export async function addMemberAction(
   wsSlug: string,
-  email: string,
+  userId: string,
   role: string,
 ): Promise<AddMemberResult> {
-  const parsedEmail = EmailSchema.safeParse(email);
-  if (!parsedEmail.success) {
-    return { ok: false, error: parsedEmail.error.issues[0]?.message ?? "Неверный e-mail" };
+  if (!userId.trim()) {
+    return { ok: false, error: "Выберите пользователя" };
   }
   if (!(MEMBERSHIP_ROLES as readonly string[]).includes(role) || role === "owner") {
     return { ok: false, error: "Неизвестная роль" };
@@ -137,11 +134,7 @@ export async function addMemberAction(
     return { ok: false, error: "Недостаточно прав" };
   }
   try {
-    const newMember = await membershipSvc.addMemberByEmail(
-      ws.workspaceId,
-      parsedEmail.data,
-      role as MembershipRole,
-    );
+    const newMember = await membershipSvc.addMember(ws.workspaceId, userId, role as MembershipRole);
     revalidatePath(`/w/${wsSlug}/settings`);
     return { ok: true, member: newMember };
   } catch (e) {

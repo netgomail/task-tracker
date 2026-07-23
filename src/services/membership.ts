@@ -1,7 +1,7 @@
 import "server-only";
 
 import { headers } from "next/headers";
-import { and, asc } from "drizzle-orm";
+import { and, asc, notInArray } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
@@ -97,24 +97,41 @@ export async function isMember(workspaceId: string, userId: string): Promise<boo
   return Boolean(row);
 }
 
-export async function findUserByEmail(
-  email: string,
-): Promise<{ id: string; name: string; image: string | null } | null> {
-  const [row] = await db
-    .select({ id: user.id, name: user.name, image: user.image })
+export type AddableUser = {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+};
+
+/** Пользователи системы, которых ещё можно добавить в это пространство. */
+export async function listAddableUsers(workspaceId: string): Promise<AddableUser[]> {
+  const existing = await db
+    .select({ userId: member.userId })
+    .from(member)
+    .where(eq(member.organizationId, workspaceId));
+  const existingIds = existing.map((r) => r.userId);
+
+  const rows = await db
+    .select({ id: user.id, name: user.name, email: user.email, image: user.image })
     .from(user)
-    .where(eq(user.email, email))
-    .limit(1);
-  return row ? { ...row, image: row.image ?? null } : null;
+    .where(existingIds.length > 0 ? notInArray(user.id, existingIds) : undefined)
+    .orderBy(asc(user.name));
+
+  return rows.map((r) => ({ ...r, image: r.image ?? null }));
 }
 
-export async function addMemberByEmail(
+export async function addMember(
   workspaceId: string,
-  email: string,
+  userId: string,
   role: MembershipRole,
 ): Promise<WorkspaceMember> {
-  const target = await findUserByEmail(email);
-  if (!target) throw new Error("Пользователь с таким email не зарегистрирован");
+  const [target] = await db
+    .select({ id: user.id, name: user.name, image: user.image })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (!target) throw new Error("Пользователь не найден");
   if (await isMember(workspaceId, target.id)) {
     throw new Error("Этот пользователь уже состоит в пространстве");
   }
@@ -134,7 +151,7 @@ export async function addMemberByEmail(
     id: target.id,
     memberId: created.id,
     name: target.name,
-    image: target.image,
+    image: target.image ?? null,
     role,
   };
 }

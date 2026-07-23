@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { WorkspaceMember } from "@/services/membership";
+import type { AddableUser, WorkspaceMember } from "@/services/membership";
 import type { MembershipRole } from "@/domain/types";
 import {
   addMemberAction,
@@ -81,15 +81,18 @@ export function MembersList({
   meId,
   myRole,
   initialMembers,
+  initialAddableUsers,
 }: {
   wsSlug: string;
   meId: string;
   myRole: MembershipRole;
   initialMembers: WorkspaceMember[];
+  initialAddableUsers: AddableUser[];
 }) {
   const [members, setMembers] = useState(initialMembers);
   const [pending, startTransition] = useTransition();
-  const [email, setEmail] = useState("");
+  const [addableUsers, setAddableUsers] = useState(initialAddableUsers);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [newRole, setNewRole] = useState<MembershipRole>("member");
   const [addPending, startAddTransition] = useTransition();
 
@@ -97,14 +100,14 @@ export function MembersList({
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed) return;
+    if (!selectedUserId) return;
     startAddTransition(async () => {
-      const res = await addMemberAction(wsSlug, trimmed, newRole);
+      const res = await addMemberAction(wsSlug, selectedUserId, newRole);
       if (!res.ok) toast.error(res.error);
       else {
         setMembers((prev) => [...prev, res.member]);
-        setEmail("");
+        setAddableUsers((prev) => prev.filter((u) => u.id !== selectedUserId));
+        setSelectedUserId("");
         toast.success(`${res.member.name} добавлен в пространство`);
       }
     });
@@ -141,14 +144,23 @@ export function MembersList({
     <div className="flex flex-col gap-3">
       {canManage && (
         <form onSubmit={handleAdd} className="flex items-center gap-2">
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@example.com"
-            className="h-8 max-w-xs text-sm"
-            disabled={addPending}
-          />
+          <select
+            value={selectedUserId}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            disabled={addPending || addableUsers.length === 0}
+            className="h-8 max-w-xs flex-1 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">
+              {addableUsers.length === 0
+                ? "Все пользователи уже в пространстве"
+                : "Выберите пользователя…"}
+            </option>
+            {addableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
           <select
             value={newRole}
             onChange={(e) => setNewRole(e.target.value as MembershipRole)}
@@ -161,7 +173,7 @@ export function MembersList({
               </option>
             ))}
           </select>
-          <Button type="submit" size="sm" disabled={addPending || !email.trim()}>
+          <Button type="submit" size="sm" disabled={addPending || !selectedUserId}>
             <UserPlus className="size-3.5" />
             {addPending ? "Добавляем…" : "Добавить"}
           </Button>
