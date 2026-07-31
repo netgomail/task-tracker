@@ -39,3 +39,35 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - [Next step: Этап 6 — метки, фильтры, FTS5](next_step.md) — конкретный план следующей сессии и грабли из прошлых
 - [User collaboration style](user_style.md) — пишет и отвечает по-русски, любит подробное планирование с сохранением в файл и поэтапное выполнение
 - [Коммитить после каждого этапа/фикса](feedback_commits.md) — отдельный коммит на каждый закрытый этап PLAN.md и каждый bugfix
+
+## Обновление проекта на другой машине (Docker)
+
+Если проект развёрнут через `docker-compose.yml` (см. [DEPLOY-DOCKER.md](DEPLOY-DOCKER.md)),
+обновление до новой версии — это просто:
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
+
+Миграции БД применяются автоматически при старте контейнера (идемпотентно —
+уже применённые пропускаются), руками накатывать не нужно.
+
+**База данных не затрётся.** Postgres хранится в именованном Docker-volume
+`postgres_data`, который не связан с кодом приложения и переживает `build`,
+`up`, `down`, `restart` и пересборку образа — `git pull`/`docker compose build`
+его вообще не касаются. Стереть данные может только явный `docker compose
+down -v` или `docker volume rm` — обычным обновлением это сделать нельзя.
+
+Вложения задач (`./data/attachments`) — обычные файлы на хосте рядом с
+проектом, `git pull` их тоже не трогает.
+
+Перед серьёзным обновлением всё равно стоит сделать бэкап на всякий случай:
+
+```bash
+npm run db:backup-docker
+```
+
+Подробнее про бэкапы и восстановление — раздел «4. Бэкапы» в
+[DEPLOY-DOCKER.md](DEPLOY-DOCKER.md).
