@@ -289,6 +289,11 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
             </aside>
           </div>
         )}
+        {!loading && task && details && (
+          <div className="flex justify-end border-t border-border bg-muted/30 px-6 py-3">
+            <Button onClick={onClose}>Сохранить</Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
