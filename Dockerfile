@@ -36,6 +36,11 @@ ENV HOSTNAME=0.0.0.0
 RUN groupadd --system --gid 1001 nodejs \
  && useradd --system --uid 1001 --gid nodejs nextjs
 
+# gosu — чтобы entrypoint мог стартовать от root (починить права на смонтированный
+# том вложений), а сам процесс Node всё равно запустить от nextjs, не от root.
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+ && rm -rf /var/lib/apt/lists/*
+
 # Standalone-сервер Next.js + статика + public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -49,9 +54,13 @@ COPY docker-migrate.mjs ./docker-migrate.mjs
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
-# Каталог вложений — монтируется томом из docker-compose
+# Каталог вложений — монтируется томом из docker-compose. chown здесь работает
+# только для содержимого образа: если хост примонтирует поверх свою (root-owned)
+# директорию, права чинит entrypoint при старте контейнера (см. docker-entrypoint.sh).
 RUN mkdir -p /app/data/attachments && chown -R nextjs:nodejs /app/data
 
-USER nextjs
+# Контейнер стартует от root — это нужно entrypoint'у, чтобы chown'ить
+# смонтированный volume. Сам процесс Node всё равно запускается от nextjs
+# (через gosu в entrypoint), root тут не выполняет прикладной код.
 EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]
