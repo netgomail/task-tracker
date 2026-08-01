@@ -35,6 +35,17 @@ import {
   Heart,
   Bell,
   Pin,
+  Stamp,
+  FingerprintPattern,
+  KeyRound,
+  FileKey,
+  LockKeyhole,
+  FileLock2,
+  EyeOff,
+  Cctv,
+  Radar,
+  UserLock,
+  BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -76,6 +87,19 @@ export const LABEL_ICONS: Record<string, LucideIcon> = {
   Heart,
   Bell,
   Pin,
+  // Информационная безопасность: ЭЦП/сертификация, СКЗИ/ключи, ДСП/ограниченный
+  // доступ, мониторинг.
+  Stamp,
+  FingerprintPattern,
+  KeyRound,
+  FileKey,
+  LockKeyhole,
+  FileLock2,
+  EyeOff,
+  Cctv,
+  Radar,
+  UserLock,
+  BadgeCheck,
 };
 
 export const LABEL_ICON_NAMES = Object.keys(LABEL_ICONS);
