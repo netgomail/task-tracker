@@ -9,6 +9,7 @@ import {
   permanentlyDeleteTaskAction,
   restoreTaskAction,
 } from "@/actions/archive";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { colorHexOr } from "@/lib/colors";
 import { formatEventDate } from "@/lib/due-date";
@@ -37,7 +38,6 @@ export function ArchiveTable({
   canPermanentlyDelete: boolean;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function handleRestore(taskId: string) {
@@ -53,12 +53,16 @@ export function ArchiveTable({
     });
   }
 
-  function handleDelete(taskId: string) {
-    setBusyId(taskId);
+  async function handleDelete(r: Row) {
+    const ok = await confirmDialog({
+      title: "Удалить задачу навсегда?",
+      description: `«${r.title}» будет удалена безвозвратно, вместе с вложениями.`,
+    });
+    if (!ok) return;
+    setBusyId(r.id);
     startTransition(async () => {
-      const result = await permanentlyDeleteTaskAction(wsSlug, taskId);
+      const result = await permanentlyDeleteTaskAction(wsSlug, r.id);
       setBusyId(null);
-      setConfirmId(null);
       if (result.ok) {
         toast.success("Задача удалена");
       } else {
@@ -84,7 +88,6 @@ export function ArchiveTable({
         <tbody>
           {rows.map((r) => {
             const isBusy = busyId === r.id;
-            const isConfirm = confirmId === r.id;
             return (
               <tr key={r.id} className="border-b border-border last:border-0">
                 <td className="px-3 py-2">
@@ -130,7 +133,7 @@ export function ArchiveTable({
                       disabled={isBusy}
                       onClick={() => handleRestore(r.id)}
                     >
-                      {isBusy && !isConfirm ? (
+                      {isBusy ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <RotateCcw className="h-3.5 w-3.5" />
@@ -138,41 +141,15 @@ export function ArchiveTable({
                       Восстановить
                     </Button>
                     {canPermanentlyDelete && (
-                      isConfirm ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={isBusy}
-                            onClick={() => handleDelete(r.id)}
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                            Точно?
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setConfirmId(null)}
-                            disabled={isBusy}
-                          >
-                            Отмена
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setConfirmId(r.id)}
-                          disabled={isBusy}
-                          title="Удалить навсегда"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(r)}
+                        disabled={isBusy}
+                        title="Удалить навсегда"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     )}
                   </div>
                 </td>

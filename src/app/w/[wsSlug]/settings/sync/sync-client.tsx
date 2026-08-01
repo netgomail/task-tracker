@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -57,10 +58,13 @@ export function SyncTokens({ wsSlug, workspaceSlug, baseUrl, canManage, initialT
     });
   }
 
-  function revoke(id: string, tokenName: string) {
-    if (!confirm(`Отозвать токен «${tokenName}»? Плагин с ним перестанет синхронизироваться.`)) {
-      return;
-    }
+  async function revoke(id: string, tokenName: string) {
+    const ok = await confirmDialog({
+      title: `Отозвать токен «${tokenName}»?`,
+      description: "Плагин с этим токеном перестанет синхронизироваться.",
+      confirmLabel: "Отозвать",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await revokeSyncTokenAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);

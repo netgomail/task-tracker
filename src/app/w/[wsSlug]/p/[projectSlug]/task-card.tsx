@@ -184,9 +184,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         toast.success("Задача в архиве", {
           action: {
             label: "Открыть архив",
-            onClick: () => {
-              window.location.href = `/w/${wsSlug}/archive`;
-            },
+            onClick: () => router.push(`/w/${wsSlug}/archive`),
           },
         });
     });

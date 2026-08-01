@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
-import { MoreHorizontal, Trash2, Archive } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { MoreHorizontal, Trash2, Archive, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { confirmDialog } from "@/components/confirm-dialog";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { colorHex, isLabelColor } from "@/lib/colors";
 import { archiveProjectAction, deleteProjectAction } from "@/actions/projects";
+import { ProjectSettingsDialog } from "./project-settings-dialog";
 
 type Props = {
   wsSlug: string;
@@ -28,7 +30,9 @@ type Props = {
 };
 
 export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const bar = isLabelColor(color) ? colorHex(color) : "#64748b";
 
   function onArchive() {
@@ -39,9 +43,7 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
         toast.success(`Проект «${name}» в архиве`, {
           action: {
             label: "Открыть архив",
-            onClick: () => {
-              window.location.href = `/w/${wsSlug}/archive`;
-            },
+            onClick: () => router.push(`/w/${wsSlug}/archive`),
           },
         });
     });
@@ -87,6 +89,9 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <Settings className="size-4" /> Настройки
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={onArchive} disabled={pending}>
               <Archive className="size-4" /> В архив
             </DropdownMenuItem>
@@ -100,6 +105,12 @@ export function ProjectCard({ wsSlug, id, slug, name, color }: Props) {
       <p className="text-muted-foreground pointer-events-none relative z-20 truncate pl-2 text-xs">
         /{slug}
       </p>
+      <ProjectSettingsDialog
+        wsSlug={wsSlug}
+        projectSlug={settingsOpen ? slug : null}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+      />
     </Card>
   );
 }

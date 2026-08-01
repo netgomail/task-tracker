@@ -8,9 +8,11 @@ import {
   permanentlyDeleteProjectAction,
   restoreProjectAction,
 } from "@/actions/archive";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { colorHexOr } from "@/lib/colors";
 import { formatEventDate } from "@/lib/due-date";
+import { pluralRu } from "@/lib/plural";
 
 type Row = {
   id: string;
@@ -31,7 +33,6 @@ export function ArchiveProjects({
   canPermanentlyDelete: boolean;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function handleRestore(projectId: string) {
@@ -44,12 +45,16 @@ export function ArchiveProjects({
     });
   }
 
-  function handleDelete(projectId: string) {
-    setBusyId(projectId);
+  async function handleDelete(r: Row) {
+    const ok = await confirmDialog({
+      title: "Удалить проект навсегда?",
+      description: `«${r.name}» (${r.taskCount} ${pluralRu(r.taskCount, "задача", "задачи", "задач")}) будет удалён безвозвратно, вместе с вложениями.`,
+    });
+    if (!ok) return;
+    setBusyId(r.id);
     startTransition(async () => {
-      const result = await permanentlyDeleteProjectAction(wsSlug, projectId);
+      const result = await permanentlyDeleteProjectAction(wsSlug, r.id);
       setBusyId(null);
-      setConfirmId(null);
       if (result.ok) toast.success("Проект удалён");
       else toast.error(result.error);
     });
@@ -59,7 +64,6 @@ export function ArchiveProjects({
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((r) => {
         const isBusy = busyId === r.id;
-        const isConfirm = confirmId === r.id;
         return (
           <div
             key={r.id}
@@ -83,49 +87,24 @@ export function ArchiveProjects({
                 disabled={isBusy}
                 onClick={() => handleRestore(r.id)}
               >
-                {isBusy && !isConfirm ? (
+                {isBusy ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <RotateCcw className="h-3.5 w-3.5" />
                 )}
                 Восстановить
               </Button>
-              {canPermanentlyDelete &&
-                (isConfirm ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBusy}
-                      onClick={() => handleDelete(r.id)}
-                    >
-                      {isBusy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                      Точно?
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setConfirmId(null)}
-                      disabled={isBusy}
-                    >
-                      Отмена
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmId(r.id)}
-                    disabled={isBusy}
-                    title="Удалить навсегда"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                ))}
+              {canPermanentlyDelete && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDelete(r)}
+                  disabled={isBusy}
+                  title="Удалить навсегда"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </div>
         );
@@ -133,4 +112,3 @@ export function ArchiveProjects({
     </div>
   );
 }
-

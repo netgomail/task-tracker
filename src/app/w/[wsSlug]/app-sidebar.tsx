@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Archive as ArchiveIcon,
   BarChart3,
@@ -55,6 +55,16 @@ function wsColor(name: string): string {
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffff;
   return WS_PALETTE[Math.abs(h) % WS_PALETTE.length];
 }
+
+// Пункты нижней навигации — рендерятся и в свёрнутом, и в развёрнутом режиме.
+const NAV_ITEMS = [
+  { segment: "readiness", label: "Готовность", Icon: Gauge },
+  { segment: "registry", label: "Реестр задач", Icon: Table2 },
+  { segment: "reports", label: "Отчёты", Icon: BarChart3 },
+  { segment: "settings/templates", label: "Шаблоны", Icon: FileText },
+  { segment: "settings/labels", label: "Метки", Icon: Tag },
+  { segment: "settings", label: "Настройки", Icon: Settings },
+] as const;
 
 export interface WsWithProjects {
   ws: Workspace;
@@ -132,48 +142,16 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
               </span>
             )}
           </Link>
-          <Link
-            href={`/w/${wsSlug}/readiness`}
-            title="Готовность комплектов"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Gauge className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/registry`}
-            title="Реестр задач"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Table2 className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/reports`}
-            title="Отчёты"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <BarChart3 className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings/templates`}
-            title="Шаблоны"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <FileText className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings/labels`}
-            title="Метки"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Tag className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings`}
-            title="Настройки"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Settings className="h-4 w-4" />
-          </Link>
+          {NAV_ITEMS.map(({ segment, label, Icon }) => (
+            <Link
+              key={segment}
+              href={`/w/${wsSlug}/${segment}`}
+              title={label}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <Icon className="h-4 w-4" />
+            </Link>
+          ))}
         </div>
       </aside>
     );
@@ -299,48 +277,16 @@ export function AppSidebar({ wsSlug, wsItems, archivedCount }: AppSidebarProps) 
               </span>
             )}
           </Link>
-          <Link
-            href={`/w/${wsSlug}/readiness`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Gauge className="h-4 w-4" />
-            <span>Готовность</span>
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/registry`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Table2 className="h-4 w-4" />
-            <span>Реестр задач</span>
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/reports`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span>Отчёты</span>
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings/templates`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <FileText className="h-4 w-4" />
-            <span>Шаблоны</span>
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings/labels`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Tag className="h-4 w-4" />
-            <span>Метки</span>
-          </Link>
-          <Link
-            href={`/w/${wsSlug}/settings`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Settings className="h-4 w-4" />
-            <span>Настройки</span>
-          </Link>
+          {NAV_ITEMS.map(({ segment, label, Icon }) => (
+            <Link
+              key={segment}
+              href={`/w/${wsSlug}/${segment}`}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
+            </Link>
+          ))}
         </div>
       </aside>
 
@@ -401,6 +347,7 @@ function ProjectRow({
   active: boolean;
   onOpenSettings: () => void;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function onArchive() {
@@ -411,9 +358,7 @@ function ProjectRow({
         toast.success(`Проект «${name}» в архиве`, {
           action: {
             label: "Открыть архив",
-            onClick: () => {
-              window.location.href = `/w/${wsSlug}/archive`;
-            },
+            onClick: () => router.push(`/w/${wsSlug}/archive`),
           },
         });
     });
