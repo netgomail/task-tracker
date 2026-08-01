@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/rbac";
+import { isInlineSafeMime } from "@/lib/limits";
 import { storage } from "@/lib/storage";
 import { db } from "@/db";
 import { attachments } from "@/db/schema/attachments";
@@ -10,8 +11,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function encodeContentDisposition(filename: string, inline: boolean): string {
-  // RFC 5987: filename* для unicode + ASCII-фолбэк через простой '_'
-  const asciiFallback = filename.replace(/[^\x20-\x7e]/g, "_");
+  // RFC 5987: filename* для unicode + ASCII-фолбэк через простой '_'.
+  // Кавычки и бэкслеши тоже заменяем — иначе имя вида `a"; filename="b.html`
+  // ломает разбор заголовка.
+  const asciiFallback = filename.replace(/[^\x20-\x7e]|["\\]/g, "_");
   const encoded = encodeURIComponent(filename);
   return `${inline ? "inline" : "attachment"}; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
@@ -50,12 +53,11 @@ export async function GET(
     return new Response("File missing on disk", { status: 410 });
   }
 
-  // Картинки/PDF/текст показываем inline (для превью в карточке).
-  // Остальное — как download, чтобы не сюрпризить пользователя.
-  const inline =
-    row.mimeType.startsWith("image/") ||
-    row.mimeType === "application/pdf" ||
-    row.mimeType.startsWith("text/");
+  // Inline только растровые картинки и PDF (превью в карточке). Всё
+  // остальное — download: text/*, svg и пр. браузер мог бы исполнить
+  // на нашем origin. CSP sandbox ниже — вторая линия обороны: matcher
+  // в proxy.ts исключает /api, глобальные заголовки сюда не доезжают.
+  const inline = isInlineSafeMime(row.mimeType);
 
   const url = new URL(req.url);
   const forceDownload = url.searchParams.get("download") === "1";
@@ -65,6 +67,8 @@ export async function GET(
       "Content-Type": row.mimeType,
       "Content-Length": String(row.sizeBytes),
       "Content-Disposition": encodeContentDisposition(row.filename, inline && !forceDownload),
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "X-Content-Type-Options": "nosniff",
       // Приватный кэш: одна персона может перечитать, но прокси не кладут.
       "Cache-Control": "private, max-age=60",
     },

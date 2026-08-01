@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 
 import { getSession } from "@/lib/rbac";
 import { ATTACHMENT_LIMITS } from "@/lib/limits";
+import { checkRateLimit } from "@/lib/rate-limit";
 import * as activity from "@/services/activity";
 import * as attachments from "@/services/attachments";
 import { isMember } from "@/services/membership";
@@ -32,6 +33,21 @@ export async function POST(req: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return new Response("Unauthorized", { status: 401 });
 
+  const rate = checkRateLimit(`upload:${session.user.id}`, 30, 60 * 1000);
+  if (!rate.allowed) {
+    return new Response("Слишком много загрузок, попробуйте позже", {
+      status: 429,
+      headers: { "Retry-After": String(rate.retryAfterSeconds) },
+    });
+  }
+
+  // Отказ ДО req.formData(): она буферизует весь запрос в память, и без
+  // этой проверки несколько параллельных гигабайтных POST кладут процесс.
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (contentLength > ATTACHMENT_LIMITS.maxFileBytes + 64 * 1024) {
+    return new Response(ERROR_MESSAGES.too_large.text, { status: ERROR_MESSAGES.too_large.status });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();
@@ -61,8 +77,8 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // Pre-check размера до буферизации (formData уже всё в память загрузила,
-  // но это ранний дешёвый отказ для очень больших файлов).
+  // Точная проверка заявленного размера файла (Content-Length отсёк
+  // только заведомо огромные запросы целиком).
   if (file.size > ATTACHMENT_LIMITS.maxFileBytes) {
     return new Response(ERROR_MESSAGES.too_large.text, { status: ERROR_MESSAGES.too_large.status });
   }

@@ -9,7 +9,7 @@ import { attachments } from "@/db/schema/attachments";
 import { user } from "@/db/schema/auth";
 import { tasks } from "@/db/schema/tasks";
 import { newId } from "@/lib/ids";
-import { ATTACHMENT_LIMITS, isAllowedMime } from "@/lib/limits";
+import { ATTACHMENT_LIMITS, isAllowedMime, isExtensionConsistent } from "@/lib/limits";
 import { storage } from "@/lib/storage";
 
 export type AttachmentRow = {
@@ -94,8 +94,11 @@ export async function upload(
     return { ok: false, error: "task_not_found" };
   }
 
-  // 2. MIME-allowlist
-  if (!isAllowedMime(input.mimeType)) return { ok: false, error: "mime_not_allowed" };
+  // 2. MIME-allowlist + сверка с расширением: MIME заявляет клиент,
+  // «payload.html + text/plain» не должен пройти.
+  if (!isAllowedMime(input.mimeType) || !isExtensionConsistent(input.filename, input.mimeType)) {
+    return { ok: false, error: "mime_not_allowed" };
+  }
 
   // 3. Размер файла
   if (input.data.length > ATTACHMENT_LIMITS.maxFileBytes) {
