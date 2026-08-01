@@ -1,6 +1,6 @@
 # Security — Task Tracker
 
-> Последнее обновление: 2026-08-01 (аудит: вложения, rate-limit, RBAC, регистрация)
+> Последнее обновление: 2026-08-02 (better-auth/next обновлены; CI-аудит с allowlist)
 
 ---
 
@@ -47,7 +47,7 @@
 |---|---|---|---|
 | 3.1 | Убрать отладочные `console.log` с session.user.id из продакшена | ✅ Реализовано | `src/app/w/[wsSlug]/p/[projectSlug]/page.tsx` |
 | 3.2 | Отказ в правах виден пользователю (toast «Недостаточно прав» вместо 500) | ✅ Реализовано (`authorizeWorkspace` возвращает `{ ok:false }`) | `src/actions/_shared.ts` |
-| 3.3 | `npm audit` — мониторинг зависимостей в CI | ✅ Реализовано (push/PR/cron по пн) | `.github/workflows/audit.yml` |
+| 3.3 | `npm audit` — мониторинг зависимостей в CI, high/critical блокируют, кроме allowlist (см. CVE ниже) | ✅ Реализовано (push/PR/cron по пн) | `.github/workflows/audit.yml` |
 
 ---
 
@@ -57,7 +57,8 @@
 |---|---|---|---|
 | CVE-2025-29927 | Bypass middleware через `x-middleware-subrequest` (Next.js 11–15) | ✅ Не затронуты (v16.2.6), блокируем для защиты в глубину | Блокировка в `proxy.ts` |
 | CVE-2025-55182 | RCE в React Server Components Flight protocol | ✅ Не затронуты (React 19.2.4, фикс вышел в 19.1.0) | — |
-| postcss XSS | Moderate в bundled postcss внутри next | ⚠️ Принято (фикс требует downgrade Next.js) | Мониторинг обновлений Next.js |
+| better-auth XSS/account takeover (GHSA-86j7-9j95-vpqj, GHSA-qq9h-g4jm-xgf3) | High: stored XSS через redirect_uri в oidc-provider/mcp; захват аккаунта через magic-link/OTP | ✅ Исправлено — обновлён до `^1.6.25` | `package.json` |
+| postcss/sharp внутри next (GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849, GHSA-f88m-g3jw-g9cj) | High: path traversal в postcss, CVE в libvips через sharp | ⚠️ Принято — обе вшиты в собственный `package.json` пакета `next`; `16.2.12` уже последняя стабильная версия, фикс появится только с апстримом Next.js. В CI-аудите (`.github/workflows/audit.yml`) явно занесены в allowlist по имени пакета — новая CVE именно в `next` (не через эти два пакета) allowlist не пройдёт | Мониторинг релизов Next.js |
 
 ---
 
