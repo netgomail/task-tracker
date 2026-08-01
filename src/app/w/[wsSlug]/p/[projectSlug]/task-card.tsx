@@ -465,10 +465,10 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
         {task.reviewAt != null && isDueOverdue(task.reviewAt) && (
           <span
             className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-1.5 py-0.5 text-rose-600 dark:text-rose-400"
-            title="Срок пересмотра прошёл"
+            title="Дата напоминания прошла"
           >
             <RefreshCw className="size-3" />
-            пересмотр
+            напоминание
           </span>
         )}
         {task.assignee && (

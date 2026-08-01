@@ -39,14 +39,14 @@ export function SetLauncher({ wsSlug, sets }: { wsSlug: string; sets: SetSummary
         toast.error(res.error);
         return;
       }
-      toast.success("Комплект создан");
+      toast.success("Проект создан");
       setOpen(false);
       router.push(`/w/${wsSlug}/p/${res.projectSlug}`);
     });
   }
 
   async function del(id: string, name: string) {
-    if (!(await confirmDialog({ title: "Удалить шаблон комплекта?", description: `«${name}»` }))) return;
+    if (!(await confirmDialog({ title: "Удалить шаблон набора?", description: `«${name}»` }))) return;
     start(async () => {
       const res = await deleteSetAction(wsSlug, id);
       if (!res.ok) toast.error(res.error);
@@ -59,17 +59,17 @@ export function SetLauncher({ wsSlug, sets }: { wsSlug: string; sets: SetSummary
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-1.5">
           <Layers className="size-4" />
-          Создать из комплекта
+          Создать из набора
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogTitle>Комплекты документов</DialogTitle>
+        <DialogTitle>Наборы задач</DialogTitle>
         <DialogDescription>
-          Разверните готовый набор документов темы одним кликом — со связями между ними.
+          Разверните готовый набор задач проекта одним кликом — со связями между ними.
         </DialogDescription>
         {sets.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Шаблонов комплектов пока нет. Соберите тему и сохраните её как комплект из меню проекта.
+            Шаблонов наборов пока нет. Соберите проект и сохраните его как набор из меню проекта.
           </p>
         ) : (
           <ul className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto py-2">
@@ -85,7 +85,7 @@ export function SetLauncher({ wsSlug, sets }: { wsSlug: string; sets: SetSummary
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{s.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {s.itemCount} {pluralRu(s.itemCount, "документ", "документа", "документов")}
+                    {s.itemCount} {pluralRu(s.itemCount, "задача", "задачи", "задач")}
                     {s.description ? ` · ${s.description}` : ""}
                   </div>
                 </div>

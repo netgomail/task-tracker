@@ -119,8 +119,8 @@ const TYPE_LABELS: Record<string, string> = {
   "label.attach": "добавил(а) метку",
   "label.detach": "снял(а) метку",
   "task.assignee": "сменил(а) исполнителя",
-  "task.review": "обновил(а) срок пересмотра",
-  "link.create": "связал(а) документ",
+  "task.review": "изменил(а) напоминание",
+  "link.create": "связал(а) задачу",
   "link.delete": "убрал(а) связь",
 };
 
@@ -898,7 +898,7 @@ function LinkPicker({
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Найти документ по названию…"
+        placeholder="Найти задачу по названию…"
         className="h-8 text-sm"
       />
       {query.trim() && (
@@ -1430,7 +1430,7 @@ function Sidebar({
           className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
         />
       </SidebarBlock>
-      <SidebarBlock title="Срок пересмотра">
+      <SidebarBlock title="Напоминание">
         <input
           type="datetime-local"
           value={toLocalDatetime(task.reviewAt)}

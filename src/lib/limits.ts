@@ -20,7 +20,7 @@ const MIME_ALLOWLIST = new Set<string>([
   "application/zip",
   "application/json",
   "application/x-zip-compressed",
-  // Office-документы (Word/Excel/PowerPoint) — для ОРД, журналов, инструкций.
+  // Office-документы (Word/Excel/PowerPoint).
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",

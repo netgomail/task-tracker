@@ -39,7 +39,7 @@ export function formatDue(iso: string): { label: string; overdue: boolean; dueSo
   return { label, overdue: diffDays < 0, dueSoon: diffDays === 0 || diffDays === 1 };
 }
 
-/** Числовая дата dd.mm.yyyy — реестр и CSV-экспорт. Пустая строка для null. */
+/** Числовая дата dd.mm.yyyy — таблица задач и CSV-экспорт. Пустая строка для null. */
 export function formatNumericDate(iso: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(LOCALE, {

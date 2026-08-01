@@ -93,7 +93,7 @@ export async function listForTask(
 export type LinkAggregate = { done: number; total: number };
 
 /**
- * Батч-агрегат связей для карточек доски: сколько связанных документов у задачи
+ * Батч-агрегат связей для карточек доски: сколько связанных задач у задачи
  * и сколько из них завершено (completedAt). Считает связи в обе стороны.
  */
 export async function linkAggregates(

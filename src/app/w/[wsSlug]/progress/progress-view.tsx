@@ -53,7 +53,7 @@ export function ProgressView({
         <Stat label="Готовность" value={`${overallPct}%`} tone="blue" />
         <Stat label="Задач" value={String(totals.total)} tone="slate" />
         <Stat label="Не начато" value={String(totals.notStarted)} tone="amber" />
-        <Stat label="Просрочен пересмотр" value={String(totals.overdue)} tone="rose" />
+        <Stat label="Просрочено напоминание" value={String(totals.overdue)} tone="rose" />
       </div>
 
       <div className="rounded-lg border border-border p-4">
@@ -147,7 +147,7 @@ function ProjectCard({ wsSlug, project }: { wsSlug: string; project: ProjectProg
         </span>
         {project.overdueReview > 0 && (
           <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-            <Clock className="size-3.5" /> Просрочен пересмотр: {project.overdueReview}
+            <Clock className="size-3.5" /> Просрочено напоминание: {project.overdueReview}
           </span>
         )}
       </div>

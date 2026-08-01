@@ -64,8 +64,8 @@ export async function getBySlug(
 export type ProjectProgress = { done: number; total: number };
 
 /**
- * Готовность комплекта (проекта-темы): доля завершённых документов среди
- * корневых, неархивных задач. Считается без учёта фильтров доски.
+ * Прогресс проекта: доля завершённых среди корневых, неархивных задач.
+ * Считается без учёта фильтров доски.
  */
 export async function progress(projectId: string): Promise<ProjectProgress> {
   const [row] = await db

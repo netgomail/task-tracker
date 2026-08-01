@@ -63,7 +63,7 @@ export default async function WorkspaceSettingsPage({
           >
             Синхронизация с Obsidian
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              Токены для плагина: статусы, стадии и связи документов ОРД
+              Токены для плагина: статусы, колонки и связи задач
             </span>
           </Link>
         </div>

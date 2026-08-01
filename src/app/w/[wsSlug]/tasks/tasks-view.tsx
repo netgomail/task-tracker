@@ -19,12 +19,12 @@ function buildCsv(rows: TaskListRow[]): string {
     "Проект",
     "Задача",
     "Метки",
-    "Стадия",
+    "Статус",
     "Приоритет",
     "Исполнитель",
     "Срок",
-    "Пересмотр",
-    "Статус",
+    "Напоминание",
+    "Готово",
   ];
   const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines = rows.map((r) =>
@@ -72,7 +72,7 @@ export function TasksView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `реестр-задач-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `задачи-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -117,10 +117,10 @@ export function TasksView({
               <th className="px-3 py-2 font-medium">Проект</th>
               <th className="px-3 py-2 font-medium">Задача</th>
               <th className="px-3 py-2 font-medium">Метки</th>
-              <th className="px-3 py-2 font-medium">Стадия</th>
+              <th className="px-3 py-2 font-medium">Статус</th>
               <th className="px-3 py-2 font-medium">Исполнитель</th>
               <th className="px-3 py-2 font-medium">Срок</th>
-              <th className="px-3 py-2 font-medium">Пересмотр</th>
+              <th className="px-3 py-2 font-medium">Напоминание</th>
             </tr>
           </thead>
           <tbody>

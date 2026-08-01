@@ -44,7 +44,7 @@ export function TemplatesTabs({
           <Count n={templates.length} />
         </TabButton>
         <TabButton active={tab === "sets"} onClick={() => setTab("sets")} Icon={Layers}>
-          Комплекты тем
+          Наборы задач
           <Count n={sets.length} />
         </TabButton>
       </div>

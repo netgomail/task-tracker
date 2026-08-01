@@ -80,8 +80,8 @@ export function SyncTokens({ wsSlug, workspaceSlug, baseUrl, canManage, initialT
         <Field label="URL сервера" value={baseUrl} />
         <Field label="Пространство (workspace)" value={workspaceSlug} />
         <p className="text-xs text-muted-foreground">
-          В каждой заметке-документе ОРД укажите свойство{" "}
-          <code className="rounded bg-muted px-1 py-0.5">theme</code> — slug темы (проекта).
+          В каждой заметке-задаче укажите свойство{" "}
+          <code className="rounded bg-muted px-1 py-0.5">theme</code> — slug проекта.
         </p>
       </section>
 

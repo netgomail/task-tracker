@@ -38,7 +38,7 @@ export function SaveAsSetButton({
         toast.error(res.error);
         return;
       }
-      toast.success("Комплект сохранён как шаблон");
+      toast.success("Набор сохранён как шаблон");
       setOpen(false);
     });
   }
@@ -46,15 +46,15 @@ export function SaveAsSetButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5" title="Сохранить тему как шаблон комплекта">
+        <Button variant="outline" size="sm" className="gap-1.5" title="Сохранить проект как шаблон набора">
           <Layers className="size-3.5" />
-          В комплект
+          В набор
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogTitle>Сохранить как комплект</DialogTitle>
+        <DialogTitle>Сохранить как набор</DialogTitle>
         <DialogDescription>
-          Сохранит документы темы и связи между ними как шаблон комплекта — его можно будет развернуть заново для новой ИСПДн или темы.
+          Сохранит задачи проекта и связи между ними как шаблон набора — его можно будет развернуть заново как новый проект.
         </DialogDescription>
         <Input
           autoFocus
@@ -66,7 +66,7 @@ export function SaveAsSetButton({
               save();
             }
           }}
-          placeholder="Название комплекта"
+          placeholder="Название набора"
         />
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
