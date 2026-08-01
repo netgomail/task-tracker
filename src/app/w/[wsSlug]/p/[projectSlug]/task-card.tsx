@@ -52,7 +52,7 @@ import {
   type LabelColorSlug,
 } from "@/lib/colors";
 import { cn } from "@/lib/utils";
-import { dueDiffDays } from "@/lib/due-date";
+import { formatDue, isDueOverdue } from "@/lib/due-date";
 import {
   archiveTaskAction,
   createSubtaskAction,
@@ -76,24 +76,6 @@ type Props = {
   projectSlug: string;
   task: BoardTask;
 };
-
-function isPast(iso: string | null): boolean {
-  return iso != null && new Date(iso).getTime() < Date.now();
-}
-
-function formatDue(iso: string): { label: string; overdue: boolean; dueSoon: boolean } {
-  const diffDays = dueDiffDays(iso);
-  let label: string;
-  if (diffDays === 0) label = "Сегодня";
-  else if (diffDays === 1) label = "Завтра";
-  else if (diffDays === -1) label = "Вчера";
-  else
-    label = new Date(iso).toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "short",
-    });
-  return { label, overdue: diffDays < 0, dueSoon: diffDays === 0 || diffDays === 1 };
-}
 
 export function TaskCard({ wsSlug, projectSlug, task }: Props) {
   const router = useRouter();
@@ -507,7 +489,7 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
             {due.label}
           </span>
         )}
-        {isPast(task.reviewAt) && (
+        {task.reviewAt != null && isDueOverdue(task.reviewAt) && (
           <span
             className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-1.5 py-0.5 text-rose-600 dark:text-rose-400"
             title="Срок пересмотра прошёл"

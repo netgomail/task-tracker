@@ -10,6 +10,7 @@ import {
 } from "@/actions/archive";
 import { Button } from "@/components/ui/button";
 import { LABEL_COLORS } from "@/lib/colors";
+import { formatEventDate } from "@/lib/due-date";
 
 type Row = {
   id: string;
@@ -75,7 +76,7 @@ export function ArchiveProjects({
             </div>
             <p className="text-xs text-muted-foreground">
               {r.taskCount === 0 ? "Без задач" : `Задач: ${r.taskCount}`} ·{" "}
-              {formatDate(r.archivedAt)}
+              {formatEventDate(r.archivedAt)}
             </p>
             <div className="mt-1 flex flex-wrap gap-1">
               <Button
@@ -135,16 +136,3 @@ export function ArchiveProjects({
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const day = 24 * 60 * 60 * 1000;
-  if (diffMs < day) {
-    return d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
-  }
-  if (diffMs < 7 * day) {
-    return d.toLocaleDateString("ru", { weekday: "short" });
-  }
-  return d.toLocaleDateString("ru", { day: "2-digit", month: "short", year: "numeric" });
-}

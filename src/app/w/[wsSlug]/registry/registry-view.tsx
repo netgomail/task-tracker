@@ -7,23 +7,13 @@ import { Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { isDueOverdue } from "@/lib/due-date";
+import { formatNumericDate, isDueOverdue } from "@/lib/due-date";
 import { LabelBadge } from "@/components/label-badge";
 import type { LabelRow } from "@/services/labels";
 import type { RegistryRow } from "@/services/registry";
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
 function statusLabel(r: RegistryRow): string {
   return r.completedAt ? "Готово" : r.stage;
-}
-
-function isOverdue(iso: string | null): boolean {
-  return iso != null && new Date(iso).getTime() < Date.now();
 }
 
 function buildCsv(rows: RegistryRow[]): string {
@@ -47,8 +37,8 @@ function buildCsv(rows: RegistryRow[]): string {
       r.stage,
       r.priority,
       r.assignee ?? "",
-      fmtDate(r.dueAt),
-      fmtDate(r.reviewAt),
+      formatNumericDate(r.dueAt),
+      formatNumericDate(r.reviewAt),
       r.completedAt ? "Готово" : "В работе",
     ]
       .map((c) => esc(String(c)))
@@ -166,10 +156,10 @@ export function RegistryView({
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{r.assignee ?? "—"}</td>
                   <td className={cn("px-3 py-2", r.dueAt != null && isDueOverdue(r.dueAt) && !r.completedAt && "text-red-600 dark:text-red-400")}>
-                    {fmtDate(r.dueAt) || "—"}
+                    {formatNumericDate(r.dueAt) || "—"}
                   </td>
-                  <td className={cn("px-3 py-2", isOverdue(r.reviewAt) && "text-rose-600 dark:text-rose-400")}>
-                    {fmtDate(r.reviewAt) || "—"}
+                  <td className={cn("px-3 py-2", r.reviewAt != null && isDueOverdue(r.reviewAt) && "text-rose-600 dark:text-rose-400")}>
+                    {formatNumericDate(r.reviewAt) || "—"}
                   </td>
                 </tr>
               );

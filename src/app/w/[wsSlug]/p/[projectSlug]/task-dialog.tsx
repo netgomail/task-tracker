@@ -36,6 +36,7 @@ import {
 import type { LabelRow } from "@/services/labels";
 import type { WorkspaceMember } from "@/services/membership";
 import { cn } from "@/lib/utils";
+import { isDueOverdue } from "@/lib/due-date";
 import { relativeTime } from "@/lib/relative-time";
 import {
   TASK_LINK_TYPES,
@@ -140,7 +141,8 @@ function fromLocalDatetime(value: string): string {
 }
 
 function isPast(iso: string | null): boolean {
-  return iso != null && new Date(iso).getTime() < Date.now();
+  // Day-based, как на карточке и в реестре: «просрочено» = календарный день прошёл.
+  return iso != null && isDueOverdue(iso);
 }
 
 export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {

@@ -11,6 +11,7 @@ import {
 } from "@/actions/archive";
 import { Button } from "@/components/ui/button";
 import { LABEL_COLORS } from "@/lib/colors";
+import { formatEventDate } from "@/lib/due-date";
 
 type Row = {
   id: string;
@@ -117,7 +118,7 @@ export function ArchiveTable({
                   {r.archivedBy ?? "—"}
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {formatDate(r.archivedAt)}
+                  {formatEventDate(r.archivedAt)}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1">
@@ -182,16 +183,3 @@ export function ArchiveTable({
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const day = 24 * 60 * 60 * 1000;
-  if (diffMs < day) {
-    return d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
-  }
-  if (diffMs < 7 * day) {
-    return d.toLocaleDateString("ru", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-  }
-  return d.toLocaleDateString("ru", { day: "2-digit", month: "short", year: "numeric" });
-}

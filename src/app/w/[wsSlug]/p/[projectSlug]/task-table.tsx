@@ -7,7 +7,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { colorHex, isDefaultColor, isLabelColor } from "@/lib/colors";
-import { isDueOverdue } from "@/lib/due-date";
+import { formatDue, formatEventDate, isDueOverdue } from "@/lib/due-date";
 import { PRIORITY_TONE_CLASSES, TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import type { TaskPriority } from "@/domain/types";
 import type { WorkspaceMember } from "@/services/membership";
@@ -338,35 +338,23 @@ function TaskRow({
           <span
             className={cn(
               "text-xs",
-              isOverdue ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground",
+              isOverdue
+                ? "font-medium text-red-600 dark:text-red-400"
+                : formatDue(task.dueAt).dueSoon && !task.completedAt
+                  ? "font-medium text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground",
             )}
           >
-            {formatDueDate(task.dueAt)}
+            {formatDue(task.dueAt).label}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
       <td className="px-3 py-2 text-xs text-muted-foreground">
-        {formatCreatedDate(task.createdAt)}
+        {formatEventDate(task.createdAt)}
       </td>
     </tr>
   );
 }
 
-function formatDueDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ru", { day: "2-digit", month: "short" });
-}
-
-function formatCreatedDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const day = 24 * 60 * 60 * 1000;
-  if (diff < day)
-    return d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
-  if (diff < 7 * day)
-    return d.toLocaleDateString("ru", { weekday: "short" });
-  return d.toLocaleDateString("ru", { day: "2-digit", month: "short" });
-}
