@@ -10,10 +10,12 @@ services:
       POSTGRES_DB: tasktracker
       # POSTGRES_PASSWORD берётся из .env.docker (см. env_file выше).
     # Публикуем на хост только для удобства — подключиться локальным psql/GUI
-    # клиентом. Само приложение ходит в Postgres по имени сервиса во внутренней
-    # docker-сети (см. DATABASE_URL в .env.docker.example), этот порт ему не нужен.
+    # клиентом или dev-сервером (localhost:5433). Само приложение ходит в
+    # Postgres по имени сервиса во внутренней docker-сети (см. DATABASE_URL в
+    # .env.docker.example). Привязка к 127.0.0.1 — чтобы порт с паролем из
+    # .env.docker не торчал в LAN.
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       # Именованный volume — Docker сам решает, где физически хранить данные;
       # portable между Linux/macOS/Windows, никаких абсолютных host-путей.
