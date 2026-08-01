@@ -9,6 +9,7 @@ import { countArchived } from "@/services/archive";
 import * as notificationsSvc from "@/services/notifications";
 import { listDueSoonForUser } from "@/services/tasks";
 import { AppSidebar, type WsWithProjects } from "./app-sidebar";
+import { Hotkeys } from "./hotkeys";
 import { DueSoonBadge } from "./due-soon-badge";
 import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
@@ -41,6 +42,7 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
+      <Hotkeys wsSlug={wsSlug} />
       {/* Global header */}
       <header className="border-border bg-background flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
