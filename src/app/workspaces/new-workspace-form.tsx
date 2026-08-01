@@ -6,7 +6,8 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createWorkspaceAction, type ActionResult } from "@/actions/workspaces";
+import { createWorkspaceAction } from "@/actions/workspaces";
+import type { ActionResult } from "@/actions/_shared";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

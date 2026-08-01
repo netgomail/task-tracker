@@ -8,8 +8,6 @@ import * as columns from "@/services/columns";
 import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 
-export type { ActionResult };
-
 const NameSchema = z.string().trim().min(1, "Введите название").max(60, "Слишком длинное");
 
 export async function createColumnAction(

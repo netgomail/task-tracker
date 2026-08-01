@@ -27,8 +27,6 @@ const NameSchema = z
   .max(80, "Слишком длинное")
   .transform(sanitizeText);
 
-export type { ActionResult };
-
 export async function createWorkspaceAction(_: unknown, formData: FormData): Promise<ActionResult> {
   await requireUser();
   const parsed = CreateSchema.safeParse({ name: formData.get("name") });

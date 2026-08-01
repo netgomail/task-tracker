@@ -8,8 +8,6 @@ import * as activity from "@/services/activity";
 import { notifyBoard } from "@/lib/realtime";
 import { TASK_LINK_TYPES, type TaskLinkType } from "@/domain/types";
 
-export type { ActionResult };
-
 /** Ревалидирует страницы и шлёт SSE-пинок для досок всех затронутых задач. */
 async function refreshTasks(wsSlug: string, workspaceId: string, taskIds: string[]) {
   const refs = await Promise.all(

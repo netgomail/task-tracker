@@ -7,8 +7,6 @@ import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as sets from "@/services/task-sets";
 
-export type { ActionResult };
-
 const NameSchema = z.string().trim().min(1, "Введите название").max(120, "Слишком длинное");
 
 export async function instantiateSetAction(

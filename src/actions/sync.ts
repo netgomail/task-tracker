@@ -10,8 +10,6 @@ export type CreateTokenResult =
   | { ok: true; secret: string }
   | { ok: false; error: string };
 
-export type { ActionResult };
-
 const NameSchema = z.string().trim().max(60, "Слишком длинное");
 
 /** Название по умолчанию, если пользователь не задал своё. */

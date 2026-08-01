@@ -12,8 +12,6 @@ import { tasks } from "@/db/schema/tasks";
 import { boards, projects } from "@/db/schema/projects";
 import { eq } from "drizzle-orm";
 
-export type { ActionResult };
-
 export async function deleteAttachmentAction(
   wsSlug: string,
   attachmentId: string,

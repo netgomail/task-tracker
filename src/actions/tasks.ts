@@ -19,8 +19,6 @@ import {
   type TaskType,
 } from "@/domain/types";
 
-export type { ActionResult };
-
 const TitleSchema = z
   .string()
   .trim()

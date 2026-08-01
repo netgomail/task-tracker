@@ -29,8 +29,6 @@ const DescriptionSchema = z
   .transform((v) => v.trim())
   .transform((v) => (v === "" ? null : sanitizeText(v)));
 
-export type { ActionResult };
-
 export type TemplateFormInput = {
   name: string;
   description?: string;

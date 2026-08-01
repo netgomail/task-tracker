@@ -19,8 +19,6 @@ import type { AutomationRow } from "@/domain/automations";
 
 const NameSchema = z.string().trim().min(1, "Введите название").max(80, "Слишком длинное");
 
-export type { ActionResult };
-
 export async function createProjectAction(wsSlug: string, formData: FormData): Promise<ActionResult> {
   const name = NameSchema.safeParse(formData.get("name"));
   if (!name.success) {

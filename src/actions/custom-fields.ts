@@ -14,8 +14,6 @@ import {
   FIELD_TYPES,
 } from "@/services/custom-fields";
 
-export type { ActionResult };
-
 const NameSchema = z
   .string()
   .trim()

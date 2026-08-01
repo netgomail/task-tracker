@@ -7,8 +7,6 @@ import { notifyBoard } from "@/lib/realtime";
 import * as activity from "@/services/activity";
 import * as archive from "@/services/archive";
 
-export type { ActionResult };
-
 export async function restoreTaskAction(
   wsSlug: string,
   taskId: string,

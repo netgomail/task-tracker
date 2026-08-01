@@ -6,8 +6,6 @@ import { RuleSchema, type Rule, type AutomationRow } from "@/domain/automations"
 import { authorizeProject, type ActionResult } from "@/actions/_shared";
 import * as automations from "@/services/automations";
 
-export type { ActionResult };
-
 function validateRule(input: unknown): { ok: true; rule: Rule } | { ok: false; error: string } {
   const parsed = RuleSchema.safeParse(input);
   if (!parsed.success) {

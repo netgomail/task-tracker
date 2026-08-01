@@ -8,8 +8,6 @@ import { sanitizeText } from "@/lib/sanitize";
 import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
 
-export type { ActionResult };
-
 const BodySchema = z
   .string()
   .trim()

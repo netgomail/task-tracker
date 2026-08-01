@@ -11,8 +11,6 @@ import { runAutomations } from "@/services/automations";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 
-export type { ActionResult };
-
 const NameSchema = z.string().trim().min(1, "Введите название").max(40, "Слишком длинное");
 
 function refreshLabels(wsSlug: string) {
