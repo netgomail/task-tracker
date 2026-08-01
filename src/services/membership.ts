@@ -88,6 +88,20 @@ export async function removeMember(workspaceId: string, memberId: string): Promi
     .where(and(eq(member.id, memberId), eq(member.organizationId, workspaceId)));
 }
 
+/** Роль пользователя в workspace по id (когда slug недоступен). */
+export async function getRole(
+  workspaceId: string,
+  userId: string,
+): Promise<MembershipRole | null> {
+  const [row] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, userId)))
+    .limit(1);
+  if (!row) return null;
+  return isKnownRole(row.role) ? row.role : "member";
+}
+
 export async function isMember(workspaceId: string, userId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: member.id })

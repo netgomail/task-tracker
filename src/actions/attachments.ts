@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { hasRole, requireUser } from "@/lib/rbac";
+import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
+import { hasRole } from "@/lib/rbac";
 import { notifyBoard } from "@/lib/realtime";
 import * as activity from "@/services/activity";
 import * as attachments from "@/services/attachments";
@@ -10,17 +11,16 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema/tasks";
 import { boards, projects } from "@/db/schema/projects";
 import { eq } from "drizzle-orm";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type { ActionResult };
 
 export async function deleteAttachmentAction(
   wsSlug: string,
   attachmentId: string,
 ): Promise<ActionResult> {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) return { ok: false, error: "Workspace not found" };
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
 
   const meta = await attachments.getMeta(ws.workspaceId, attachmentId);
   if (!meta) return { ok: false, error: "Файл не найден" };

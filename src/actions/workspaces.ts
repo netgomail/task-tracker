@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import { requireUser } from "@/lib/rbac";
-import { getBySlug } from "@/services/membership";
 import * as membershipSvc from "@/services/membership";
 import * as workspaces from "@/services/workspaces";
 import { sanitizeText } from "@/lib/sanitize";
@@ -27,9 +27,7 @@ const NameSchema = z
   .max(80, "Слишком длинное")
   .transform(sanitizeText);
 
-export type ActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type { ActionResult };
 
 export async function createWorkspaceAction(_: unknown, formData: FormData): Promise<ActionResult> {
   await requireUser();
@@ -43,10 +41,14 @@ export async function createWorkspaceAction(_: unknown, formData: FormData): Pro
 }
 
 export async function deleteWorkspaceAction(formData: FormData): Promise<ActionResult> {
-  await requireUser();
+  const session = await requireUser();
   const parsed = DeleteSchema.safeParse({ workspaceId: formData.get("workspaceId") });
   if (!parsed.success) {
     return { ok: false, error: "Неверный workspace" };
+  }
+  const role = await membershipSvc.getRole(parsed.data.workspaceId, session.user.id);
+  if (role !== "owner") {
+    return { ok: false, error: "Удалить пространство может только владелец" };
   }
   try {
     await workspaces.remove(parsed.data.workspaceId);
@@ -66,12 +68,9 @@ export async function renameWorkspaceAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const session = await requireUser();
-  const ws = await getBySlug(session.user.id, wsSlug);
-  if (!ws) return { ok: false, error: "Пространство не найдено" };
-  if (ws.role !== "owner" && ws.role !== "admin") {
-    return { ok: false, error: "Недостаточно прав" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await workspaces.rename(ws.workspaceId, parsed.data);
   revalidatePath(`/w/${wsSlug}`);
   revalidatePath(`/w/${wsSlug}/settings`);
@@ -86,12 +85,9 @@ export async function updateMemberRoleAction(
   if (!(MEMBERSHIP_ROLES as readonly string[]).includes(role)) {
     return { ok: false, error: "Неизвестная роль" };
   }
-  const session = await requireUser();
-  const ws = await getBySlug(session.user.id, wsSlug);
-  if (!ws) return { ok: false, error: "Пространство не найдено" };
-  if (ws.role !== "owner" && ws.role !== "admin") {
-    return { ok: false, error: "Недостаточно прав" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await membershipSvc.updateMemberRole(ws.workspaceId, memberId, role as MembershipRole);
   revalidatePath(`/w/${wsSlug}/settings`);
   return { ok: true };
@@ -101,12 +97,9 @@ export async function removeMemberAction(
   wsSlug: string,
   memberId: string,
 ): Promise<ActionResult> {
-  const session = await requireUser();
-  const ws = await getBySlug(session.user.id, wsSlug);
-  if (!ws) return { ok: false, error: "Пространство не найдено" };
-  if (ws.role !== "owner" && ws.role !== "admin") {
-    return { ok: false, error: "Недостаточно прав" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await membershipSvc.removeMember(ws.workspaceId, memberId);
   revalidatePath(`/w/${wsSlug}/settings`);
   return { ok: true };
@@ -127,12 +120,9 @@ export async function addMemberAction(
   if (!(MEMBERSHIP_ROLES as readonly string[]).includes(role) || role === "owner") {
     return { ok: false, error: "Неизвестная роль" };
   }
-  const session = await requireUser();
-  const ws = await getBySlug(session.user.id, wsSlug);
-  if (!ws) return { ok: false, error: "Пространство не найдено" };
-  if (ws.role !== "owner" && ws.role !== "admin") {
-    return { ok: false, error: "Недостаточно прав" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   try {
     const newMember = await membershipSvc.addMember(ws.workspaceId, userId, role as MembershipRole);
     revalidatePath(`/w/${wsSlug}/settings`);

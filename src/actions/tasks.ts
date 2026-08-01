@@ -3,12 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/rbac";
-import {
-  getBySlug as getWorkspaceBySlug,
-  isMember,
-} from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
+import { authorizeProject, type ActionResult } from "@/actions/_shared";
+import { isMember } from "@/services/membership";
 import * as tasks from "@/services/tasks";
 import * as activity from "@/services/activity";
 import * as notifications from "@/services/notifications";
@@ -23,9 +19,7 @@ import {
   type TaskType,
 } from "@/domain/types";
 
-export type ActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type { ActionResult };
 
 const TitleSchema = z
   .string()
@@ -35,15 +29,11 @@ const TitleSchema = z
   .transform(sanitizeText);
 
 async function authorize(wsSlug: string, projectSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) throw new Error("Project not found");
+  const auth = await authorizeProject(wsSlug, projectSlug);
   // Любое изменение задачи через refreshBoard→notifyBoard заодно разбудит
   // workspace-канал Obsidian-плагина (синхронизация статуса/стадии).
-  bindBoardWorkspace(project.boardId, ws.workspaceId);
-  return { session, ws, project };
+  if (auth.ok) bindBoardWorkspace(auth.project.boardId, auth.ws.workspaceId);
+  return auth;
 }
 
 function refreshBoard(wsSlug: string, projectSlug: string, boardId: string) {
@@ -62,7 +52,9 @@ export async function createTaskAction(
     return { ok: false, error: title.error.issues[0]?.message ?? "Неверное название" };
   }
   const rawAssigneeId = ((formData.get("assigneeId") as string | null) ?? "").trim() || null;
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   if (rawAssigneeId && !(await isMember(ws.workspaceId, rawAssigneeId))) {
     return { ok: false, error: "Пользователь не состоит в workspace" };
   }
@@ -111,7 +103,9 @@ export async function renameTaskAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.rename(ws.workspaceId, taskId, parsed.data);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -132,7 +126,9 @@ export async function setTaskColorAction(
   color: string,
 ): Promise<ActionResult> {
   if (!isLabelColor(color)) return { ok: false, error: "Неизвестный цвет" };
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setColor(ws.workspaceId, taskId, color as LabelColorSlug);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -155,7 +151,9 @@ export async function setTaskPriorityAction(
   if (!(TASK_PRIORITIES as readonly string[]).includes(priority)) {
     return { ok: false, error: "Неизвестный приоритет" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setPriority(ws.workspaceId, taskId, priority as TaskPriority);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -178,7 +176,9 @@ export async function setTaskTypeAction(
   if (!(TASK_TYPES as readonly string[]).includes(type)) {
     return { ok: false, error: "Неизвестный тип" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setType(ws.workspaceId, taskId, type as TaskType);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -197,7 +197,9 @@ export async function archiveTaskAction(
   projectSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.archive(ws.workspaceId, taskId);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -215,7 +217,9 @@ export async function deleteTaskAction(
   projectSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   // Record activity BEFORE deletion since the FK cascades activity_events too.
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -241,7 +245,9 @@ export async function moveTaskAction(
   // Перемещение — самый частый конкурентный экшен: ошибку (устаревшая доска,
   // чужое удаление) возвращаем как результат, а не роняем transition клиента.
   try {
-    const { session, ws, project } = await authorize(wsSlug, projectSlug);
+    const auth = await authorize(wsSlug, projectSlug);
+    if (!auth.ok) return auth;
+    const { session, ws, project } = auth;
     const before = await tasks.getOwnership(ws.workspaceId, taskId);
     const orderKey = await tasks.move(ws.workspaceId, taskId, toColumnId, beforeTaskId, afterTaskId);
     await activity.record({
@@ -288,7 +294,9 @@ export async function setTaskDescriptionAction(
   if (next && next.length > 10_000) {
     return { ok: false, error: "Описание слишком длинное" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setDescription(ws.workspaceId, taskId, next);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -312,7 +320,9 @@ export async function setTaskReviewAction(
     if (Number.isNaN(d.getTime())) return { ok: false, error: "Неверная дата" };
   }
   const next = reviewIso === "" ? null : new Date(reviewIso);
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setReviewAt(ws.workspaceId, taskId, next);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -341,7 +351,9 @@ export async function setTaskDueAction(
     if (Number.isNaN(d.getTime())) return { ok: false, error: "Неверная дата" };
   }
   const next = dueIso === "" ? null : new Date(dueIso);
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setDueAt(ws.workspaceId, taskId, next);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -362,7 +374,9 @@ export async function setTaskAssigneeAction(
   assigneeId: string,
 ): Promise<ActionResult> {
   const next = assigneeId.trim() === "" ? null : assigneeId.trim();
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   if (next && !(await isMember(ws.workspaceId, next))) {
     return { ok: false, error: "Пользователь не состоит в workspace" };
   }
@@ -394,7 +408,9 @@ export async function toggleTaskCompleteAction(
   taskId: string,
   completed: boolean,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   await tasks.setCompleted(ws.workspaceId, taskId, completed);
   await activity.record({
     workspaceId: ws.workspaceId,
@@ -429,7 +445,9 @@ export async function createSubtaskAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorize(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   const sub = await tasks.createSubtask(
     ws.workspaceId,
     parentTaskId,

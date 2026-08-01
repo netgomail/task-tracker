@@ -3,11 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/rbac";
+import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import { notifyBoard } from "@/lib/realtime";
 import { sanitizeText } from "@/lib/sanitize";
 import * as activity from "@/services/activity";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import * as templates from "@/services/templates";
 import { isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import {
@@ -30,14 +29,7 @@ const DescriptionSchema = z
   .transform((v) => v.trim())
   .transform((v) => (v === "" ? null : sanitizeText(v)));
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-async function authorize(wsSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  return { session, ws };
-}
+export type { ActionResult };
 
 export type TemplateFormInput = {
   name: string;
@@ -92,7 +84,9 @@ export async function createTemplateAction(
 ): Promise<ActionResult> {
   const parsed = validateForm(input);
   if ("error" in parsed) return { ok: false, error: parsed.error };
-  const { session, ws } = await authorize(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   await templates.create({
     workspaceId: ws.workspaceId,
     createdBy: session.user.id,
@@ -115,7 +109,9 @@ export async function updateTemplateAction(
 ): Promise<ActionResult> {
   const parsed = validateForm(input);
   if ("error" in parsed) return { ok: false, error: parsed.error };
-  const { ws } = await authorize(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await templates.update(ws.workspaceId, templateId, {
     name: parsed.name,
     description: parsed.description,
@@ -133,7 +129,9 @@ export async function deleteTemplateAction(
   wsSlug: string,
   templateId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await templates.remove(ws.workspaceId, templateId);
   revalidatePath(`/w/${wsSlug}/settings/templates`);
   return { ok: true };
@@ -145,7 +143,9 @@ export async function createTaskFromTemplateAction(
   columnId: string,
   templateId: string,
 ): Promise<ActionResult> {
-  const { session, ws } = await authorize(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   const result = await templates.createTaskFromTemplate({
     workspaceId: ws.workspaceId,
     createdBy: session.user.id,
@@ -174,7 +174,9 @@ export async function saveTaskAsTemplateAction(
   if (!parsedName.success) {
     return { ok: false, error: parsedName.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { session, ws } = await authorize(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   await templates.createTemplateFromTask({
     workspaceId: ws.workspaceId,
     createdBy: session.user.id,

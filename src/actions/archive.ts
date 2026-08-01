@@ -2,26 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 
-import { hasRole, requireUser } from "@/lib/rbac";
+import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import { notifyBoard } from "@/lib/realtime";
 import * as activity from "@/services/activity";
 import * as archive from "@/services/archive";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-async function authorizeWorkspace(wsSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  return { session, ws };
-}
+export type { ActionResult };
 
 export async function restoreTaskAction(
   wsSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { session, ws } = await authorizeWorkspace(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   const result = await archive.restoreTask(ws.workspaceId, taskId);
   if (!result) return { ok: false, error: "Задача не найдена" };
   await activity.record({
@@ -40,10 +34,9 @@ export async function permanentlyDeleteTaskAction(
   wsSlug: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { session, ws } = await authorizeWorkspace(wsSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Только администратор может удалять навсегда" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   // Activity-событие пишем ДО удаления — FK cascade снесёт activity_events с
   // данным task_id, но событие без task_id (только с payload) сохранится в
   // истории workspace.
@@ -66,7 +59,9 @@ export async function restoreProjectAction(
   wsSlug: string,
   projectId: string,
 ): Promise<ActionResult> {
-  const { session, ws } = await authorizeWorkspace(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   const result = await archive.restoreProject(ws.workspaceId, projectId);
   if (!result) return { ok: false, error: "Проект не найден" };
   await activity.record({
@@ -84,10 +79,9 @@ export async function permanentlyDeleteProjectAction(
   wsSlug: string,
   projectId: string,
 ): Promise<ActionResult> {
-  const { session, ws } = await authorizeWorkspace(wsSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Только администратор может удалять навсегда" };
-  }
+  const auth = await authorizeWorkspace(wsSlug, "admin");
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   await activity.record({
     workspaceId: ws.workspaceId,
     projectId: null,

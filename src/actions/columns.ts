@@ -3,27 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/rbac";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
+import { authorizeProject, type ActionResult } from "@/actions/_shared";
 import * as columns from "@/services/columns";
 import { DEFAULT_COLOR, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { notifyBoard } from "@/lib/realtime";
 
-export type ActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type { ActionResult };
 
 const NameSchema = z.string().trim().min(1, "Введите название").max(60, "Слишком длинное");
-
-async function authorize(wsSlug: string, projectSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) throw new Error("Project not found");
-  return { session, ws, project };
-}
 
 export async function createColumnAction(
   wsSlug: string,
@@ -39,7 +26,9 @@ export async function createColumnAction(
     typeof colorRaw === "string" && isLabelColor(colorRaw)
       ? (colorRaw as LabelColorSlug)
       : DEFAULT_COLOR;
-  const { ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   await columns.create({
     workspaceId: ws.workspaceId,
     boardId: project.boardId,
@@ -61,7 +50,9 @@ export async function renameColumnAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверное название" };
   }
-  const { ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   await columns.rename(ws.workspaceId, columnId, parsed.data);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   notifyBoard(project.boardId);
@@ -75,7 +66,9 @@ export async function setColumnColorAction(
   color: string,
 ): Promise<ActionResult> {
   if (!isLabelColor(color)) return { ok: false, error: "Неизвестный цвет" };
-  const { ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   await columns.setColor(ws.workspaceId, columnId, color);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   notifyBoard(project.boardId);
@@ -87,7 +80,9 @@ export async function deleteColumnAction(
   projectSlug: string,
   columnId: string,
 ): Promise<ActionResult> {
-  const { ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   await columns.remove(ws.workspaceId, columnId);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   notifyBoard(project.boardId);
@@ -101,7 +96,9 @@ export async function moveColumnAction(
   beforeKey: string | null,
   afterKey: string | null,
 ): Promise<ActionResult & { orderKey?: string }> {
-  const { ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   const orderKey = await columns.move(ws.workspaceId, columnId, beforeKey, afterKey);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   notifyBoard(project.boardId);

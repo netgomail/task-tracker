@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { hasRole, requireUser } from "@/lib/rbac";
+import { authorizeProject, type ActionResult } from "@/actions/_shared";
 import { notifyBoard } from "@/lib/realtime";
 import { sanitizeText } from "@/lib/sanitize";
 import * as activity from "@/services/activity";
@@ -13,10 +13,8 @@ import {
   type SelectOption,
   FIELD_TYPES,
 } from "@/services/custom-fields";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type { ActionResult };
 
 const NameSchema = z
   .string()
@@ -24,15 +22,6 @@ const NameSchema = z
   .min(1, "Введите название")
   .max(60, "Слишком длинное")
   .transform(sanitizeText);
-
-async function authorizeProject(wsSlug: string, projectSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) throw new Error("Project not found");
-  return { session, ws, project };
-}
 
 function validateOptions(raw: unknown): SelectOption[] {
   if (!Array.isArray(raw)) return [];
@@ -69,10 +58,9 @@ export async function createFieldAction(
   projectSlug: string,
   input: CreateFieldInput,
 ): Promise<ActionResult> {
-  const { ws, project } = await authorizeProject(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Поля проекта может править только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws, project } = auth;
   const name = NameSchema.safeParse(input.name);
   if (!name.success) return { ok: false, error: name.error.issues[0]?.message ?? "Неверное название" };
   if (!(FIELD_TYPES as readonly string[]).includes(input.type)) {
@@ -108,10 +96,9 @@ export async function updateFieldAction(
   fieldId: string,
   input: UpdateFieldInput,
 ): Promise<ActionResult> {
-  const { ws } = await authorizeProject(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Поля проекта может править только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   const patch: customFields.UpdateDefInput = {};
   if (input.name !== undefined) {
     const name = NameSchema.safeParse(input.name);
@@ -133,10 +120,9 @@ export async function deleteFieldAction(
   projectSlug: string,
   fieldId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorizeProject(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Поля проекта может править только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await customFields.removeDef(ws.workspaceId, fieldId);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}/settings`);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
@@ -149,10 +135,9 @@ export async function moveFieldAction(
   fieldId: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const { ws } = await authorizeProject(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Поля проекта может править только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await customFields.moveDef(ws.workspaceId, fieldId, direction);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}/settings`);
   return { ok: true };
@@ -173,7 +158,9 @@ export async function setFieldValueAction(
   fieldId: string,
   rawValue: string,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorizeProject(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   const result = await customFields.setValue(ws.workspaceId, taskId, fieldId, rawValue);
   if (!result.ok) return { ok: false, error: SET_VALUE_ERRORS[result.error] };
   await activity.record({

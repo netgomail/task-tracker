@@ -3,21 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { RuleSchema, type Rule, type AutomationRow } from "@/domain/automations";
-import { hasRole, requireUser } from "@/lib/rbac";
+import { authorizeProject, type ActionResult } from "@/actions/_shared";
 import * as automations from "@/services/automations";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-async function authorize(wsSlug: string, projectSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) throw new Error("Project not found");
-  return { session, ws, project };
-}
+export type { ActionResult };
 
 function validateRule(input: unknown): { ok: true; rule: Rule } | { ok: false; error: string } {
   const parsed = RuleSchema.safeParse(input);
@@ -40,8 +29,10 @@ export async function listAutomationsAction(
   | { ok: true; rules: SerializedAutomation[] }
   | { ok: false; error: string }
 > {
+  const auth = await authorizeProject(wsSlug, projectSlug, "viewer");
+  if (!auth.ok) return auth;
   try {
-    const { project } = await authorize(wsSlug, projectSlug);
+    const { project } = auth;
     const rules = await automations.listForProject(project.id);
     return {
       ok: true,
@@ -61,10 +52,9 @@ export async function createAutomationAction(
   projectSlug: string,
   rule: unknown,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Автоматизации может настраивать только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   const validated = validateRule(rule);
   if (!validated.ok) return validated;
   await automations.createRule({
@@ -83,10 +73,9 @@ export async function updateAutomationAction(
   ruleId: string,
   rule: unknown,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Автоматизации может настраивать только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   const validated = validateRule(rule);
   if (!validated.ok) return validated;
   await automations.updateRule(ws.workspaceId, ruleId, validated.rule);
@@ -100,10 +89,9 @@ export async function toggleAutomationAction(
   ruleId: string,
   enabled: boolean,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Автоматизации может настраивать только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await automations.setEnabled(ws.workspaceId, ruleId, enabled);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   return { ok: true };
@@ -114,10 +102,9 @@ export async function deleteAutomationAction(
   projectSlug: string,
   ruleId: string,
 ): Promise<ActionResult> {
-  const { ws } = await authorize(wsSlug, projectSlug);
-  if (!hasRole(ws.role, "admin")) {
-    return { ok: false, error: "Автоматизации может настраивать только админ" };
-  }
+  const auth = await authorizeProject(wsSlug, projectSlug, "admin");
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await automations.removeRule(ws.workspaceId, ruleId);
   revalidatePath(`/w/${wsSlug}/p/${projectSlug}`);
   return { ok: true };
@@ -135,8 +122,10 @@ export async function listAutomationRunsAction(
   projectSlug: string,
   ruleId: string,
 ): Promise<{ ok: true; runs: SerializedRun[] } | { ok: false; error: string }> {
+  const auth = await authorizeProject(wsSlug, projectSlug, "viewer");
+  if (!auth.ok) return auth;
   try {
-    const { ws } = await authorize(wsSlug, projectSlug);
+    const { ws } = auth;
     const runs = await automations.listRecentRuns(ws.workspaceId, ruleId);
     return {
       ok: true,

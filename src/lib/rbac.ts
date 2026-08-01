@@ -42,13 +42,6 @@ export async function requireUser(): Promise<AppSession> {
   return session;
 }
 
-export class ForbiddenError extends Error {
-  constructor(message = "Forbidden") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
 const ROLE_RANK: Record<MembershipRole, number> = {
   owner: 4,
   admin: 3,
@@ -56,18 +49,11 @@ const ROLE_RANK: Record<MembershipRole, number> = {
   viewer: 1,
 };
 
+/**
+ * Ролевая проверка. Мутации из server actions идут через
+ * actions/_shared.authorizeWorkspace, где минимальная роль — "member":
+ * роль viewer («Наблюдатель») read-only.
+ */
 export function hasRole(actual: MembershipRole, atLeast: MembershipRole): boolean {
   return ROLE_RANK[actual] >= ROLE_RANK[atLeast];
-}
-
-/**
- * Throws ForbiddenError when the user's role in the workspace does not meet
- * the required minimum. To be wired up once memberships are queried via services.
- */
-export function requireRole(actual: MembershipRole | undefined, atLeast: MembershipRole): void {
-  if (!actual || !hasRole(actual, atLeast)) {
-    const err = new ForbiddenError(`Required role: ${atLeast}, got: ${actual ?? "none"}`);
-    console.warn("[security] ForbiddenError:", err.message);
-    throw err;
-  }
 }

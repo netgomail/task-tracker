@@ -1,8 +1,6 @@
 "use server";
 
-import { requireUser } from "@/lib/rbac";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
+import { authorizeProject } from "@/actions/_shared";
 import * as tasks from "@/services/tasks";
 import * as taskLinks from "@/services/task-links";
 import * as comments from "@/services/comments";
@@ -93,11 +91,9 @@ export async function getTaskDetailsAction(
   taskId: string,
 ): Promise<TaskDetailsResult> {
   try {
-    const session = await requireUser();
-    const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-    if (!ws) return { ok: false, error: "Workspace not found" };
-    const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-    if (!project) return { ok: false, error: "Project not found" };
+    const auth = await authorizeProject(wsSlug, projectSlug, "viewer");
+    if (!auth.ok) return auth;
+    const { session, ws, project } = auth;
 
     const task = await tasks.getById(ws.workspaceId, taskId);
     if (!task) return { ok: false, error: "Задача не найдена" };

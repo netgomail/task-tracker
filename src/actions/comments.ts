@@ -3,16 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/rbac";
+import { authorizeProject, type ActionResult } from "@/actions/_shared";
 import { sanitizeText } from "@/lib/sanitize";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { getBySlug as getProjectBySlug } from "@/services/projects";
 import * as comments from "@/services/comments";
 import * as activity from "@/services/activity";
 
-export type ActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type { ActionResult };
 
 const BodySchema = z
   .string()
@@ -20,15 +16,6 @@ const BodySchema = z
   .min(1, "Введите комментарий")
   .max(5000, "Слишком длинный комментарий")
   .transform(sanitizeText);
-
-async function authorize(wsSlug: string, projectSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  const project = await getProjectBySlug(ws.workspaceId, projectSlug);
-  if (!project) throw new Error("Project not found");
-  return { session, ws, project };
-}
 
 export async function createCommentAction(
   wsSlug: string,
@@ -40,7 +27,9 @@ export async function createCommentAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверный комментарий" };
   }
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   const created = await comments.create(
     ws.workspaceId,
     taskId,
@@ -69,7 +58,9 @@ export async function updateCommentAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Неверный комментарий" };
   }
-  const { session, ws } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   try {
     await comments.update(ws.workspaceId, commentId, session.user.id, parsed.data);
   } catch (e) {
@@ -85,7 +76,9 @@ export async function deleteCommentAction(
   commentId: string,
   taskId: string,
 ): Promise<ActionResult> {
-  const { session, ws, project } = await authorize(wsSlug, projectSlug);
+  const auth = await authorizeProject(wsSlug, projectSlug);
+  if (!auth.ok) return auth;
+  const { session, ws, project } = auth;
   try {
     await comments.softDelete(ws.workspaceId, commentId, session.user.id);
   } catch (e) {

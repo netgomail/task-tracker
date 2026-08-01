@@ -2,21 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireUser } from "@/lib/rbac";
-import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
+import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import * as taskLinks from "@/services/task-links";
 import * as activity from "@/services/activity";
 import { notifyBoard } from "@/lib/realtime";
 import { TASK_LINK_TYPES, type TaskLinkType } from "@/domain/types";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-async function authorizeWorkspace(wsSlug: string) {
-  const session = await requireUser();
-  const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
-  if (!ws) throw new Error("Workspace not found");
-  return { session, ws };
-}
+export type { ActionResult };
 
 /** Ревалидирует страницы и шлёт SSE-пинок для досок всех затронутых задач. */
 async function refreshTasks(wsSlug: string, workspaceId: string, taskIds: string[]) {
@@ -47,7 +39,9 @@ export async function createLinkAction(
   if (!(TASK_LINK_TYPES as readonly string[]).includes(type)) {
     return { ok: false, error: "Неизвестный тип связи" };
   }
-  const { session, ws } = await authorizeWorkspace(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { session, ws } = auth;
   try {
     await taskLinks.create(ws.workspaceId, sourceTaskId, targetTaskId, type as TaskLinkType, session.user.id);
   } catch (e) {
@@ -70,8 +64,9 @@ export async function searchLinkableAction(
   query: string,
   excludeTaskId: string,
 ): Promise<{ ok: true; results: taskLinks.LinkableTask[] } | { ok: false; error: string }> {
-  const { ws } = await authorizeWorkspace(wsSlug);
-  const results = await taskLinks.searchLinkable(ws.workspaceId, query, excludeTaskId);
+  const auth = await authorizeWorkspace(wsSlug, "viewer");
+  if (!auth.ok) return auth;
+  const results = await taskLinks.searchLinkable(auth.ws.workspaceId, query, excludeTaskId);
   return { ok: true, results };
 }
 
@@ -80,7 +75,9 @@ export async function deleteLinkAction(
   linkId: string,
   affectedTaskIds: string[],
 ): Promise<ActionResult> {
-  const { ws } = await authorizeWorkspace(wsSlug);
+  const auth = await authorizeWorkspace(wsSlug);
+  if (!auth.ok) return auth;
+  const { ws } = auth;
   await taskLinks.remove(ws.workspaceId, linkId);
   await refreshTasks(wsSlug, ws.workspaceId, affectedTaskIds);
   return { ok: true };
