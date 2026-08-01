@@ -29,6 +29,11 @@ export function colorHex(slug: LabelColorSlug): string {
   return COLOR_MAP.get(slug)!.hex;
 }
 
+/** Hex по slug из БД (string): неизвестный цвет — нейтральный fallback. */
+export function colorHexOr(slug: string, fallback = "#94a3b8"): string {
+  return isLabelColor(slug) ? colorHex(slug) : fallback;
+}
+
 /**
  * "slate" — это «без цвета» / дефолт: рендерим как белый фон + нейтральный
  * бордер. При выборе любого другого цвета колонка/карточка получает тинт.

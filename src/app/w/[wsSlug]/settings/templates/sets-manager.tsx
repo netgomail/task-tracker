@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { pluralRu } from "@/lib/plural";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { Layers, Rocket, Trash2 } from "lucide-react";
 
@@ -87,7 +88,7 @@ export function SetsManager({ wsSlug, sets }: { wsSlug: string; sets: SetView[] 
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{s.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {s.itemCount} {pluralDocs(s.itemCount)}
+                  {s.itemCount} {pluralRu(s.itemCount, "документ", "документа", "документов")}
                   {s.description ? ` · ${s.description}` : ""}
                 </div>
               </div>
@@ -117,10 +118,4 @@ export function SetsManager({ wsSlug, sets }: { wsSlug: string; sets: SetView[] 
   );
 }
 
-function pluralDocs(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return "документ";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "документа";
-  return "документов";
-}
+

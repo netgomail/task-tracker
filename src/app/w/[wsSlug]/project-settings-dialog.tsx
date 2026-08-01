@@ -18,10 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ColorPicker } from "@/components/color-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { LABEL_COLORS, type LabelColorSlug } from "@/lib/colors";
+import type { LabelColorSlug } from "@/lib/colors";
 import type { FieldDef } from "@/domain/custom-fields";
 
 import { AutomationsEditor } from "./p/[projectSlug]/automations-editor";
@@ -242,23 +243,12 @@ function GeneralTab({
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-medium text-muted-foreground">Цвет</span>
-        <div className="flex flex-wrap gap-1">
-          {LABEL_COLORS.map((c) => (
-            <button
-              key={c.slug}
-              type="button"
-              disabled={!canEdit || pending}
-              onClick={() => pickColor(c.slug as LabelColorSlug)}
-              title={c.label}
-              className={cn(
-                "size-7 rounded-md border-2 transition-transform",
-                settings.color === c.slug ? "border-foreground scale-110" : "border-transparent",
-                (!canEdit || pending) && "cursor-not-allowed opacity-60",
-              )}
-              style={{ background: c.hex }}
-            />
-          ))}
-        </div>
+        <ColorPicker
+          value={settings.color}
+          onPick={pickColor}
+          disabled={!canEdit || pending}
+          size="xl"
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">

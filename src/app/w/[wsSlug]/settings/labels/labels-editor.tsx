@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
             Новая метка
           </label>
           <div className="flex items-center gap-2">
-            <ColorPicker value={color} onChange={setColor} disabled={pending} />
+            <ColorPickerPopover value={color} onChange={setColor} disabled={pending} />
             <IconPicker value={icon} color={color} onChange={setIcon} disabled={pending} />
             <Input
               id="label-name"
@@ -104,7 +105,7 @@ export function LabelsEditor({ wsSlug, initialLabels }: Props) {
   );
 }
 
-function ColorPicker({
+function ColorPickerPopover({
   value,
   onChange,
   disabled,
@@ -131,24 +132,7 @@ function ColorPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2">
-        <div className="flex flex-wrap gap-1.5">
-          {LABEL_COLORS.map((c) => (
-            <button
-              key={c.slug}
-              type="button"
-              onClick={() => onChange(c.slug)}
-              className={cn(
-                "flex size-5 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110",
-                value === c.slug && "ring-2 ring-foreground/70",
-              )}
-              style={{ background: c.hex }}
-              aria-label={c.label}
-              title={c.label}
-            >
-              {value === c.slug && <Check className="size-3 text-white drop-shadow" />}
-            </button>
-          ))}
-        </div>
+        <ColorPicker value={value} onPick={onChange} />
       </PopoverContent>
     </Popover>
   );
@@ -271,7 +255,7 @@ function LabelRowView({ wsSlug, label }: { wsSlug: string; label: LabelRow }) {
 
   return (
     <li className="flex items-center gap-2 px-3 py-2">
-      <ColorPicker value={label.color} onChange={changeColor} disabled={pending} />
+      <ColorPickerPopover value={label.color} onChange={changeColor} disabled={pending} />
       <IconPicker value={label.icon} color={label.color} onChange={changeIcon} disabled={pending} />
       {editing ? (
         <Input

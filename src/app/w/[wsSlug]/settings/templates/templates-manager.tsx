@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 
 import {
@@ -22,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { LABEL_COLORS, type LabelColorSlug, colorHex, isLabelColor } from "@/lib/colors";
+import { type LabelColorSlug, colorHex, isLabelColor } from "@/lib/colors";
 import { TASK_PRIORITIES, TASK_TYPES, type TaskPriority, type TaskType } from "@/domain/types";
 import { TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import type { LabelRow } from "@/services/labels";
@@ -352,22 +353,12 @@ function TemplateForm({
         </Field>
 
         <Field label="Цвет">
-          <div className="flex flex-wrap gap-1">
-            {LABEL_COLORS.map((c) => (
-              <button
-                key={c.slug}
-                type="button"
-                onClick={() => patch("color", c.slug as LabelColorSlug)}
-                disabled={disabled}
-                title={c.label}
-                className={cn(
-                  "size-6 rounded-md border-2 transition-transform",
-                  draft.color === c.slug ? "border-foreground scale-110" : "border-transparent",
-                )}
-                style={{ background: c.hex }}
-              />
-            ))}
-          </div>
+          <ColorPicker
+            value={draft.color}
+            onPick={(slug) => patch("color", slug)}
+            disabled={disabled}
+            size="lg"
+          />
         </Field>
       </div>
 

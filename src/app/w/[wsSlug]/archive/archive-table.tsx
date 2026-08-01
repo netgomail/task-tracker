@@ -10,7 +10,7 @@ import {
   restoreTaskAction,
 } from "@/actions/archive";
 import { Button } from "@/components/ui/button";
-import { LABEL_COLORS } from "@/lib/colors";
+import { colorHexOr } from "@/lib/colors";
 import { formatEventDate } from "@/lib/due-date";
 import { TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
 import type { TaskPriority, TaskType } from "@/domain/types";
@@ -26,8 +26,6 @@ type Row = {
   archivedAt: string;
   archivedBy: string | null;
 };
-
-const COLOR_HEX = new Map<string, string>(LABEL_COLORS.map((c) => [c.slug, c.hex]));
 
 export function ArchiveTable({
   wsSlug,
@@ -93,7 +91,7 @@ export function ArchiveTable({
                   <div className="flex items-center gap-2">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: COLOR_HEX.get(r.projectColor) ?? "#94a3b8" }}
+                      style={{ background: colorHexOr(r.projectColor) }}
                     />
                     <Link
                       href={`/w/${wsSlug}/p/${r.projectSlug}?task=${r.id}`}

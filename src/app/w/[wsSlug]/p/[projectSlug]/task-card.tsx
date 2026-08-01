@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Archive,
   CalendarClock,
-  Check,
   ChevronDown,
   FileText,
   GitBranchPlus,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -42,15 +42,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  LABEL_COLORS,
-  colorHex,
-  colorSwatchHex,
-  colorSwatchLabel,
-  isDefaultColor,
-  isLabelColor,
-  type LabelColorSlug,
-} from "@/lib/colors";
+import { colorHex, isDefaultColor, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import { formatDue, isDueOverdue } from "@/lib/due-date";
 import {
@@ -367,31 +359,14 @@ export function TaskCard({ wsSlug, projectSlug, task }: Props) {
               })}
             </div>
             <DropdownMenuLabel className="text-muted-foreground text-xs">Цвет</DropdownMenuLabel>
-            <div className="flex flex-wrap gap-1.5 px-1 pb-2">
-              {LABEL_COLORS.map((c) => (
-                <button
-                  key={c.slug}
-                  type="button"
-                  onClick={() => onColorPick(c.slug)}
-                  disabled={pending}
-                  className={cn(
-                    "flex size-4 items-center justify-center rounded-full ring-1 ring-black/10 transition ring-inset hover:scale-110 disabled:opacity-50",
-                    task.color === c.slug && "ring-foreground/70 ring-2",
-                  )}
-                  aria-label={colorSwatchLabel(c.slug)}
-                  title={colorSwatchLabel(c.slug)}
-                  style={{ background: colorSwatchHex(c.slug) }}
-                >
-                  {task.color === c.slug && (
-                    <Check
-                      className={cn(
-                        "size-2.5 drop-shadow",
-                        isDefaultColor(c.slug) ? "text-zinc-900" : "text-white",
-                      )}
-                    />
-                  )}
-                </button>
-              ))}
+            <div className="px-1 pb-2">
+              <ColorPicker
+                value={task.color}
+                onPick={onColorPick}
+                disabled={pending}
+                size="sm"
+                blankDefault
+              />
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={openDialog}>Открыть</DropdownMenuItem>

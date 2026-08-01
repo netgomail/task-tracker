@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { Check, Link2, NotebookText, Pencil, Plus, Trash2, X } from "lucide-react";
 
@@ -26,13 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  LABEL_COLORS,
-  colorSwatchHex,
-  colorSwatchLabel,
-  isDefaultColor,
-  type LabelColorSlug,
-} from "@/lib/colors";
+import type { LabelColorSlug } from "@/lib/colors";
 import type { LabelRow } from "@/services/labels";
 import type { WorkspaceMember } from "@/services/membership";
 import { cn } from "@/lib/utils";
@@ -1424,32 +1419,7 @@ function Sidebar({
         </div>
       </SidebarBlock>
       <SidebarBlock title="Цвет">
-        <div className="flex flex-wrap gap-1.5">
-          {LABEL_COLORS.map((c) => (
-            <button
-              key={c.slug}
-              type="button"
-              onClick={() => setColor(c.slug)}
-              disabled={pending}
-              className={cn(
-                "flex size-4 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110 disabled:opacity-50",
-                task.color === c.slug && "ring-2 ring-foreground/70",
-              )}
-              style={{ background: colorSwatchHex(c.slug) }}
-              aria-label={colorSwatchLabel(c.slug)}
-              title={colorSwatchLabel(c.slug)}
-            >
-              {task.color === c.slug && (
-                <Check
-                  className={cn(
-                    "size-2.5 drop-shadow",
-                    isDefaultColor(c.slug) ? "text-zinc-900" : "text-white",
-                  )}
-                />
-              )}
-            </button>
-          ))}
-        </div>
+        <ColorPicker value={task.color} onPick={setColor} disabled={pending} size="sm" blankDefault />
       </SidebarBlock>
       <SidebarBlock title="Дедлайн">
         <input

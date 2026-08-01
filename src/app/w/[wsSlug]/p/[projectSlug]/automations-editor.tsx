@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { History, Pencil, Plus, Power, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 
 import {
@@ -25,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { LABEL_COLORS, colorHex, isLabelColor } from "@/lib/colors";
+import { colorHex, isLabelColor } from "@/lib/colors";
 import {
   ACTION_LABEL,
   ACTION_TYPES,
@@ -637,24 +638,11 @@ function ActionParamsPicker({
       );
     case "set_color":
       return (
-        <div className="flex flex-wrap gap-0.5">
-          {LABEL_COLORS.map((c) => (
-            <button
-              key={c.slug}
-              type="button"
-              disabled={disabled}
-              onClick={() =>
-                onChange({ type: "set_color", params: { color: c.slug } })
-              }
-              className={cn(
-                "size-5 rounded border-2",
-                action.params.color === c.slug ? "border-foreground" : "border-transparent",
-              )}
-              style={{ background: c.hex }}
-              title={c.label}
-            />
-          ))}
-        </div>
+        <ColorPicker
+          value={action.params.color}
+          onPick={(slug) => onChange({ type: "set_color", params: { color: slug } })}
+          disabled={disabled}
+        />
       );
     case "add_label":
       return (

@@ -9,7 +9,7 @@ import {
   restoreProjectAction,
 } from "@/actions/archive";
 import { Button } from "@/components/ui/button";
-import { LABEL_COLORS } from "@/lib/colors";
+import { colorHexOr } from "@/lib/colors";
 import { formatEventDate } from "@/lib/due-date";
 
 type Row = {
@@ -20,8 +20,6 @@ type Row = {
   taskCount: number;
   archivedAt: string;
 };
-
-const COLOR_HEX = new Map<string, string>(LABEL_COLORS.map((c) => [c.slug, c.hex]));
 
 export function ArchiveProjects({
   wsSlug,
@@ -70,7 +68,7 @@ export function ArchiveProjects({
             <div className="flex items-center gap-2">
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
-                style={{ background: COLOR_HEX.get(r.color) ?? "#94a3b8" }}
+                style={{ background: colorHexOr(r.color) }}
               />
               <span className="truncate font-medium">{r.name}</span>
             </div>

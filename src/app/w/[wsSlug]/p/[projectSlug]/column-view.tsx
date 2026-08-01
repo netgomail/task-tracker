@@ -8,9 +8,10 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GripVertical, MoreHorizontal, Trash2, Check } from "lucide-react";
+import { GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ColorPicker } from "@/components/color-picker";
 import { confirmDialog } from "@/components/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
@@ -22,15 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  LABEL_COLORS,
-  colorHex,
-  colorSwatchHex,
-  colorSwatchLabel,
-  isDefaultColor,
-  isLabelColor,
-  type LabelColorSlug,
-} from "@/lib/colors";
+import { colorHex, isDefaultColor, isLabelColor, type LabelColorSlug } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
   deleteColumnAction,
@@ -247,32 +240,5 @@ function ColorDots({
   onPick: (slug: LabelColorSlug) => void;
   disabled: boolean;
 }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {LABEL_COLORS.map((c) => (
-        <button
-          key={c.slug}
-          type="button"
-          disabled={disabled}
-          onClick={() => onPick(c.slug)}
-          className={cn(
-            "flex size-4 items-center justify-center rounded-full ring-1 ring-inset ring-black/10 transition hover:scale-110 disabled:opacity-50",
-            current === c.slug && "ring-2 ring-foreground/70",
-          )}
-          aria-label={colorSwatchLabel(c.slug)}
-          title={colorSwatchLabel(c.slug)}
-          style={{ background: colorSwatchHex(c.slug) }}
-        >
-          {current === c.slug && (
-            <Check
-              className={cn(
-                "size-2.5 drop-shadow",
-                isDefaultColor(c.slug) ? "text-zinc-900" : "text-white",
-              )}
-            />
-          )}
-        </button>
-      ))}
-    </div>
-  );
+  return <ColorPicker value={current} onPick={onPick} disabled={disabled} size="sm" blankDefault />;
 }
