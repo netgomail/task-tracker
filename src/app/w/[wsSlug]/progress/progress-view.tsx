@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ThemeReadiness } from "@/services/readiness";
 
-export function ReadinessView({
+export function ProgressView({
   wsSlug,
   themes,
 }: {

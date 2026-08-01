@@ -45,7 +45,7 @@ function buildCsv(rows: RegistryRow[]): string {
   return [header.map(esc).join(";"), ...lines].join("\r\n");
 }
 
-export function RegistryView({
+export function TasksView({
   wsSlug,
   rows,
   labels,

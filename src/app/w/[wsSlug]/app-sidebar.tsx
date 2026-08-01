@@ -58,8 +58,8 @@ function wsColor(name: string): string {
 
 // Пункты нижней навигации — рендерятся и в свёрнутом, и в развёрнутом режиме.
 const NAV_ITEMS = [
-  { segment: "readiness", label: "Готовность", Icon: Gauge },
-  { segment: "registry", label: "Реестр задач", Icon: Table2 },
+  { segment: "progress", label: "Прогресс", Icon: Gauge },
+  { segment: "tasks", label: "Все задачи", Icon: Table2 },
   { segment: "reports", label: "Отчёты", Icon: BarChart3 },
   { segment: "settings/templates", label: "Шаблоны", Icon: FileText },
   { segment: "settings/labels", label: "Метки", Icon: Tag },

@@ -6,11 +6,11 @@ import { listRegistry } from "@/services/registry";
 import { listForWorkspace as listLabels } from "@/services/labels";
 
 import { PageShell } from "../page-shell";
-import { RegistryView } from "./registry-view";
+import { TasksView } from "./tasks-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function RegistryPage({
+export default async function AllTasksPage({
   params,
 }: {
   params: Promise<{ wsSlug: string }>;
@@ -29,14 +29,14 @@ export default async function RegistryPage({
     <PageShell>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Реестр задач
+          Задачи
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight">Сводный реестр</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Все задачи</h1>
         <p className="text-sm text-muted-foreground">
-          Все задачи по проектам — со стадией, метками, исполнителем и сроками. Экспорт в CSV.
+          Все задачи по проектам — со статусом, метками, исполнителем и сроками. Экспорт в CSV.
         </p>
       </div>
-      <RegistryView wsSlug={wsSlug} rows={rows} labels={labels} />
+      <TasksView wsSlug={wsSlug} rows={rows} labels={labels} />
     </PageShell>
   );
 }
