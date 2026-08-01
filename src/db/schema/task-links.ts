@@ -7,16 +7,16 @@ import { tasks } from "./tasks";
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
 /**
- * Связи между документами (комплектность ОРД).
+ * Типизированные связи между задачами.
  *
  *   source --type--> target
- *   requires    — source требует разработки target (приказ → инструкция)
- *   approves    — source утверждает target (приказ утверждает положение)
+ *   requires    — source требует выполнения target
+ *   approves    — source утверждает target
  *   complements — source дополняется target (см. также)
  *   relates     — нейтральная связь
  *
  * Направление значимо: на карточке target показываем обратную формулировку
- * («требуется для…», «утверждается приказом…»).
+ * («требуется для…», «утверждается…»).
  */
 export const taskLinks = pgTable(
   "task_links",

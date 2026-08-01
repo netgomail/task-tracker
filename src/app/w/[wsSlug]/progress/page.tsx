@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { themesReadiness } from "@/services/readiness";
+import { projectsProgress } from "@/services/progress";
 
 import { PageShell } from "../page-shell";
 import { ProgressView } from "./progress-view";
@@ -19,7 +19,7 @@ export default async function ProgressPage({
   const ws = await getWorkspaceBySlug(session.user.id, wsSlug);
   if (!ws) notFound();
 
-  const themes = await themesReadiness(ws.workspaceId);
+  const projects = await projectsProgress(ws.workspaceId);
 
   return (
     <PageShell>
@@ -32,7 +32,7 @@ export default async function ProgressPage({
           Прогресс по каждому проекту и список незавершённых задач, к которым ещё не приступили.
         </p>
       </div>
-      <ProgressView wsSlug={wsSlug} themes={themes} />
+      <ProgressView wsSlug={wsSlug} projects={projects} />
     </PageShell>
   );
 }

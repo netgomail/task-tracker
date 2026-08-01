@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/rbac";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
-import { listRegistry } from "@/services/registry";
+import { listAllTasks } from "@/services/task-list";
 import { listForWorkspace as listLabels } from "@/services/labels";
 
 import { PageShell } from "../page-shell";
@@ -21,7 +21,7 @@ export default async function AllTasksPage({
   if (!ws) notFound();
 
   const [rows, labels] = await Promise.all([
-    listRegistry(ws.workspaceId),
+    listAllTasks(ws.workspaceId),
     listLabels(ws.workspaceId),
   ]);
 

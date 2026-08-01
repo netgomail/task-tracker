@@ -17,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { colorHex, isLabelColor } from "@/lib/colors";
-import { deleteSetAction, instantiateSetAction } from "@/actions/document-sets";
+import { deleteSetAction, instantiateSetAction } from "@/actions/task-sets";
 
 export type SetSummary = {
   id: string;

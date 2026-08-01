@@ -10,7 +10,7 @@ import { Layers, Rocket, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { colorHex, isLabelColor } from "@/lib/colors";
-import { deleteSetAction, instantiateSetAction } from "@/actions/document-sets";
+import { deleteSetAction, instantiateSetAction } from "@/actions/task-sets";
 
 export type SetView = {
   id: string;

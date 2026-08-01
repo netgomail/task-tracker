@@ -10,13 +10,13 @@ import { asPriority } from "@/domain/type-guards";
 import type { TaskPriority } from "@/domain/types";
 import { listForTasks as listLabelsForTasks, type LabelRow } from "@/services/labels";
 
-export type RegistryRow = {
+export type TaskListRow = {
   id: string;
   projectSlug: string;
-  theme: string;
+  projectName: string;
   title: string;
   labels: LabelRow[];
-  stage: string;
+  status: string;
   priority: TaskPriority;
   assignee: string | null;
   dueAt: string | null;
@@ -25,17 +25,17 @@ export type RegistryRow = {
 };
 
 /**
- * Плоский реестр всех документов ОРД воркспейса (cross-project): корневые,
- * неархивные задачи со стадией (колонкой), темой и исполнителем.
+ * Плоский список всех задач воркспейса (cross-project): корневые,
+ * неархивные задачи со статусом (колонкой), проектом и исполнителем.
  */
-export async function listRegistry(workspaceId: string): Promise<RegistryRow[]> {
+export async function listAllTasks(workspaceId: string): Promise<TaskListRow[]> {
   const rows = await db
     .select({
       id: tasks.id,
       projectSlug: projects.slug,
-      theme: projects.name,
+      projectName: projects.name,
       title: tasks.title,
-      stage: columns.name,
+      status: columns.name,
       priority: tasks.priority,
       assignee: user.name,
       dueAt: tasks.dueAt,
@@ -67,10 +67,10 @@ export async function listRegistry(workspaceId: string): Promise<RegistryRow[]> 
   return rows.map((r) => ({
     id: r.id,
     projectSlug: r.projectSlug,
-    theme: r.theme,
+    projectName: r.projectName,
     title: r.title,
     labels: labelMap.get(r.id) ?? [],
-    stage: r.stage,
+    status: r.status,
     priority: asPriority(r.priority),
     assignee: r.assignee ?? null,
     dueAt: r.dueAt ? r.dueAt.toISOString() : null,

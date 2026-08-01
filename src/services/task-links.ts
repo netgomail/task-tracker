@@ -17,8 +17,8 @@ function asTaskType(value: string): TaskType {
   return (TASK_TYPES as readonly string[]).includes(value) ? (value as TaskType) : "task";
 }
 
-/** Связанный документ — сосед задачи по комплекту, со стадией и темой. */
-export type LinkedDocument = {
+/** Связанная задача — сосед по связям, со статусом (колонкой) и проектом. */
+export type LinkedTask = {
   linkId: string;
   direction: "outgoing" | "incoming";
   type: TaskLinkType;
@@ -35,12 +35,12 @@ export type LinkedDocument = {
 
 /**
  * Все связи задачи в обе стороны: outgoing (source = задача) и incoming
- * (target = задача). Для каждого соседа подтягиваем стадию (колонку) и тему.
+ * (target = задача). Для каждого соседа подтягиваем колонку и проект.
  */
 export async function listForTask(
   workspaceId: string,
   taskId: string,
-): Promise<LinkedDocument[]> {
+): Promise<LinkedTask[]> {
   const rows = await db
     .select({
       linkId: taskLinks.id,
@@ -132,7 +132,7 @@ export async function linkAggregates(
   };
   const wanted = new Set(taskIds);
   for (const r of rows) {
-    // Каждая связь начисляется владельцу один раз; «готовность» — у соседа.
+    // Каждая связь начисляется владельцу один раз; статус завершённости — у соседа.
     if (wanted.has(r.sourceId)) bump(r.sourceId, r.targetCompleted != null);
     if (wanted.has(r.targetId)) bump(r.targetId, r.sourceCompleted != null);
   }
@@ -147,7 +147,7 @@ export type LinkableTask = {
 };
 
 /**
- * Кросс-проектный поиск документов для связывания: по подстроке названия,
+ * Кросс-проектный поиск задач для связывания: по подстроке названия,
  * только корневые задачи (не подзадачи), не архив, исключая текущую.
  */
 export async function searchLinkable(
@@ -202,7 +202,7 @@ export async function create(
   createdBy: string,
 ): Promise<void> {
   if (!isLinkType(type)) throw new Error("Unknown link type");
-  if (sourceTaskId === targetTaskId) throw new Error("Нельзя связать документ с самим собой");
+  if (sourceTaskId === targetTaskId) throw new Error("Нельзя связать задачу с самой собой");
   const [src, tgt] = await Promise.all([workspaceOf(sourceTaskId), workspaceOf(targetTaskId)]);
   if (src !== workspaceId || tgt !== workspaceId) throw new Error("Task not in workspace");
   await db
@@ -227,7 +227,7 @@ async function touchTasks(ids: string[]): Promise<void> {
   await db.update(tasks).set({ updatedAt: new Date() }).where(inArray(tasks.id, ids));
 }
 
-/** Доска и slug темы для задачи — чтобы ревалидировать/нотифицировать обе стороны связи. */
+/** Доска и slug проекта для задачи — чтобы ревалидировать/нотифицировать обе стороны связи. */
 export async function boardRefForTask(
   workspaceId: string,
   taskId: string,

@@ -1,5 +1,11 @@
 import "server-only";
 
+// ВНИМАНИЕ: этот модуль — wire-контракт Obsidian-плагина (obsidian-plugin/).
+// Поля `theme` (= проект), frontmatter-свойства «Тема»/«Пересмотр»/«Стадия»,
+// коды ошибок theme_required/theme_not_found и структура /api/obsidian/*
+// зафиксированы плагином. НЕ переименовывать без синхронного релиза плагина;
+// в остальном коде приложения используется терминология «проект»/«статус».
+
 import { and, asc, eq, gt, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { db, type DB } from "@/db";

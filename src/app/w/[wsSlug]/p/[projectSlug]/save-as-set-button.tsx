@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { saveProjectAsSetAction } from "@/actions/document-sets";
+import { saveProjectAsSetAction } from "@/actions/task-sets";
 
 export function SaveAsSetButton({
   wsSlug,

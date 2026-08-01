@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/rbac";
 import { getBySlug } from "@/services/membership";
 import { listForWorkspace } from "@/services/projects";
-import { listForWorkspace as listSets } from "@/services/document-sets";
+import { listForWorkspace as listSets } from "@/services/task-sets";
 
 import { NewProjectForm } from "./new-project-form";
 import { PageShell } from "./page-shell";

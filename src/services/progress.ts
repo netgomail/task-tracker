@@ -5,11 +5,12 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks } from "@/db/schema/tasks";
 import { boards, columns, projects } from "@/db/schema/projects";
+import { isDueOverdue } from "@/lib/due-date";
 const NOT_STARTED_COLUMN = "Не начато";
 
-export type ReadinessGap = { id: string; title: string };
+export type ProgressGap = { id: string; title: string };
 
-export type ThemeReadiness = {
+export type ProjectProgress = {
   projectId: string;
   slug: string;
   name: string;
@@ -20,14 +21,14 @@ export type ThemeReadiness = {
   notStarted: number;
   progressPct: number;
   overdueReview: number;
-  gaps: ReadinessGap[];
+  gaps: ProgressGap[];
 };
 
 /**
- * Готовность каждой темы (проекта): разбивка документов по стадиям и список
- * пробелов (ещё не начатых). Считает только корневые, неархивные задачи.
+ * Прогресс каждого проекта: разбивка задач по статусам и список ещё не
+ * начатых. Считает только корневые, неархивные задачи.
  */
-export async function themesReadiness(workspaceId: string): Promise<ThemeReadiness[]> {
+export async function projectsProgress(workspaceId: string): Promise<ProjectProgress[]> {
   const rows = await db
     .select({
       projectId: projects.id,
@@ -50,13 +51,12 @@ export async function themesReadiness(workspaceId: string): Promise<ThemeReadine
     .where(and(eq(projects.workspaceId, workspaceId), isNull(projects.archivedAt)))
     .orderBy(asc(projects.createdAt), asc(tasks.orderKey));
 
-  const byProject = new Map<string, ThemeReadiness>();
-  const now = Date.now();
+  const byProject = new Map<string, ProjectProgress>();
 
   for (const r of rows) {
-    let theme = byProject.get(r.projectId);
-    if (!theme) {
-      theme = {
+    let project = byProject.get(r.projectId);
+    if (!project) {
+      project = {
         projectId: r.projectId,
         slug: r.slug,
         name: r.name,
@@ -69,18 +69,19 @@ export async function themesReadiness(workspaceId: string): Promise<ThemeReadine
         overdueReview: 0,
         gaps: [],
       };
-      byProject.set(r.projectId, theme);
+      byProject.set(r.projectId, project);
     }
-    if (!r.taskId) continue; // проект без документов
-    theme.total += 1;
+    if (!r.taskId) continue; // проект без задач
+    project.total += 1;
     if (r.completedAt) {
-      theme.done += 1;
-      if (r.reviewAt && r.reviewAt.getTime() < now) theme.overdueReview += 1;
+      project.done += 1;
+      // day-based, как и везде (см. lib/due-date.ts)
+      if (r.reviewAt && isDueOverdue(r.reviewAt.toISOString())) project.overdueReview += 1;
     } else if (r.columnName === NOT_STARTED_COLUMN) {
-      theme.notStarted += 1;
-      theme.gaps.push({ id: r.taskId, title: r.title ?? "" });
+      project.notStarted += 1;
+      project.gaps.push({ id: r.taskId, title: r.title ?? "" });
     } else {
-      theme.inProgress += 1;
+      project.inProgress += 1;
     }
   }
 

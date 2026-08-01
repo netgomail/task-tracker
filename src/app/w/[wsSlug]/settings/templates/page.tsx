@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/rbac";
 import { listForWorkspace as listLabelsForWorkspace } from "@/services/labels";
 import { getBySlug as getWorkspaceBySlug } from "@/services/membership";
 import { listForWorkspace as listTemplatesForWorkspace } from "@/services/templates";
-import { listForWorkspace as listSetsForWorkspace } from "@/services/document-sets";
+import { listForWorkspace as listSetsForWorkspace } from "@/services/task-sets";
 
 import { PageShell } from "../../page-shell";
 import { TemplatesTabs } from "./templates-tabs";

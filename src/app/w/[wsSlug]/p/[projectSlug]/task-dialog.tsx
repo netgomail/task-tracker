@@ -219,7 +219,7 @@ export function TaskDialog({ wsSlug, projectSlug, taskId, onClose }: Props) {
                 onRefresh={refresh}
               />
               <Separator className="my-4" />
-              <DocumentSet
+              <TaskLinksSection
                 wsSlug={wsSlug}
                 taskId={task.id}
                 links={details.links}
@@ -696,7 +696,7 @@ function SubtaskItem({
 }
 
 
-function DocumentSet({
+function TaskLinksSection({
   wsSlug,
   taskId,
   links,

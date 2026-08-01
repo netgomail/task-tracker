@@ -13,18 +13,18 @@ import {
 } from "recharts";
 
 import { cn } from "@/lib/utils";
-import type { ThemeReadiness } from "@/services/readiness";
+import type { ProjectProgress } from "@/services/progress";
 
 export function ProgressView({
   wsSlug,
-  themes,
+  projects,
 }: {
   wsSlug: string;
-  themes: ThemeReadiness[];
+  projects: ProjectProgress[];
 }) {
-  const withDocs = themes.filter((t) => t.total > 0);
+  const withTasks = projects.filter((t) => t.total > 0);
 
-  if (withDocs.length === 0) {
+  if (withTasks.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
         Пока нет проектов с задачами. Создайте проект на главной странице.
@@ -32,7 +32,7 @@ export function ProgressView({
     );
   }
 
-  const totals = withDocs.reduce(
+  const totals = withTasks.reduce(
     (acc, t) => {
       acc.total += t.total;
       acc.done += t.done;
@@ -44,7 +44,7 @@ export function ProgressView({
   );
   const overallPct = totals.total > 0 ? Math.round((totals.done / totals.total) * 100) : 0;
 
-  const chartData = withDocs.map((t) => ({ name: t.name, pct: t.progressPct }));
+  const chartData = withTasks.map((t) => ({ name: t.name, pct: t.progressPct }));
   const chartHeight = Math.max(160, chartData.length * 34);
 
   return (
@@ -82,8 +82,8 @@ export function ProgressView({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        {withDocs.map((t) => (
-          <ThemeCard key={t.projectId} wsSlug={wsSlug} theme={t} />
+        {withTasks.map((t) => (
+          <ProjectCard key={t.projectId} wsSlug={wsSlug} project={t} />
         ))}
       </div>
     </div>
@@ -113,53 +113,53 @@ function Stat({
   );
 }
 
-function ThemeCard({ wsSlug, theme }: { wsSlug: string; theme: ThemeReadiness }) {
+function ProjectCard({ wsSlug, project }: { wsSlug: string; project: ProjectProgress }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between gap-2">
         <Link
-          href={`/w/${wsSlug}/p/${theme.slug}`}
+          href={`/w/${wsSlug}/p/${project.slug}`}
           className="truncate font-medium hover:underline"
         >
-          {theme.name}
+          {project.name}
         </Link>
         <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-          {theme.done}/{theme.total} · {theme.progressPct}%
+          {project.done}/{project.total} · {project.progressPct}%
         </span>
       </div>
 
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={theme.progressPct === 100 ? "h-full bg-green-500" : "h-full bg-blue-500"}
-          style={{ width: `${theme.progressPct}%` }}
+          className={project.progressPct === 100 ? "h-full bg-green-500" : "h-full bg-blue-500"}
+          style={{ width: `${project.progressPct}%` }}
         />
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs">
         <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-          <CheckCircle2 className="size-3.5" /> Готово: {theme.done}
+          <CheckCircle2 className="size-3.5" /> Готово: {project.done}
         </span>
         <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
-          <Clock className="size-3.5" /> В работе: {theme.inProgress}
+          <Clock className="size-3.5" /> В работе: {project.inProgress}
         </span>
         <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="size-3.5" /> Не начато: {theme.notStarted}
+          <AlertTriangle className="size-3.5" /> Не начато: {project.notStarted}
         </span>
-        {theme.overdueReview > 0 && (
+        {project.overdueReview > 0 && (
           <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-            <Clock className="size-3.5" /> Просрочен пересмотр: {theme.overdueReview}
+            <Clock className="size-3.5" /> Просрочен пересмотр: {project.overdueReview}
           </span>
         )}
       </div>
 
-      {theme.gaps.length > 0 && (
+      {project.gaps.length > 0 && (
         <div className="flex flex-col gap-1 border-t border-border pt-2">
           <div className="text-xs font-medium text-muted-foreground">Что делать дальше:</div>
           <ul className="flex flex-col gap-1">
-            {theme.gaps.slice(0, 6).map((g) => (
+            {project.gaps.slice(0, 6).map((g) => (
               <li key={g.id}>
                 <Link
-                  href={`/w/${wsSlug}/p/${theme.slug}?task=${g.id}`}
+                  href={`/w/${wsSlug}/p/${project.slug}?task=${g.id}`}
                   className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-accent"
                 >
                   <FileText className="size-3.5 shrink-0 text-muted-foreground" />
@@ -167,9 +167,9 @@ function ThemeCard({ wsSlug, theme }: { wsSlug: string; theme: ThemeReadiness })
                 </Link>
               </li>
             ))}
-            {theme.gaps.length > 6 && (
+            {project.gaps.length > 6 && (
               <li className="px-1 text-xs text-muted-foreground">
-                …и ещё {theme.gaps.length - 6}
+                …и ещё {project.gaps.length - 6}
               </li>
             )}
           </ul>

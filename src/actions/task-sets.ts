@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { authorizeWorkspace, type ActionResult } from "@/actions/_shared";
 import { getBySlug as getProjectBySlug } from "@/services/projects";
-import * as sets from "@/services/document-sets";
+import * as sets from "@/services/task-sets";
 
 export type { ActionResult };
 
@@ -20,7 +20,7 @@ export async function instantiateSetAction(
   if (!auth.ok) return auth;
   const { session, ws } = auth;
   const res = await sets.instantiate(ws.workspaceId, templateId, session.user.id, nameOverride);
-  if (!res) return { ok: false, error: "Шаблон комплекта не найден" };
+  if (!res) return { ok: false, error: "Шаблон набора не найден" };
   revalidatePath(`/w/${wsSlug}`);
   return { ok: true, projectSlug: res.projectSlug };
 }

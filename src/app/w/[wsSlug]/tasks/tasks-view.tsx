@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 import { formatNumericDate, isDueOverdue } from "@/lib/due-date";
 import { LabelBadge } from "@/components/label-badge";
 import type { LabelRow } from "@/services/labels";
-import type { RegistryRow } from "@/services/registry";
+import type { TaskListRow } from "@/services/task-list";
 import { TASK_PRIORITY_META } from "@/lib/task-meta";
 import type { TaskPriority } from "@/domain/types";
 
-function buildCsv(rows: RegistryRow[]): string {
+function buildCsv(rows: TaskListRow[]): string {
   const header = [
     "Проект",
     "Задача",
@@ -29,10 +29,10 @@ function buildCsv(rows: RegistryRow[]): string {
   const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines = rows.map((r) =>
     [
-      r.theme,
+      r.projectName,
       r.title,
       r.labels.map((l) => l.name).join(", "),
-      r.stage,
+      r.status,
       TASK_PRIORITY_META[r.priority as TaskPriority]?.label ?? r.priority,
       r.assignee ?? "",
       formatNumericDate(r.dueAt),
@@ -51,7 +51,7 @@ export function TasksView({
   labels,
 }: {
   wsSlug: string;
-  rows: RegistryRow[];
+  rows: TaskListRow[];
   labels: LabelRow[];
 }) {
   const [q, setQ] = useState("");
@@ -61,7 +61,7 @@ export function TasksView({
     const needle = q.trim().toLowerCase();
     return rows.filter((r) => {
       if (labelFilter && !r.labels.some((l) => l.id === labelFilter)) return false;
-      if (needle && !`${r.title} ${r.theme}`.toLowerCase().includes(needle)) return false;
+      if (needle && !`${r.title} ${r.projectName}`.toLowerCase().includes(needle)) return false;
       return true;
     });
   }, [rows, q, labelFilter]);
@@ -127,7 +127,7 @@ export function TasksView({
             {filtered.map((r) => {
               return (
                 <tr key={r.id} className="border-t border-border hover:bg-accent/40">
-                  <td className="px-3 py-2 text-muted-foreground">{r.theme}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.projectName}</td>
                   <td className="px-3 py-2">
                     <Link
                       href={`/w/${wsSlug}/p/${r.projectSlug}?task=${r.id}`}
@@ -145,7 +145,7 @@ export function TasksView({
                   </td>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5">
-                      {r.stage}
+                      {r.status}
                       {r.completedAt && (
                         <span
                           className="text-green-600 dark:text-green-400"

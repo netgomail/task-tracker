@@ -22,7 +22,7 @@ import {
 } from "@/domain/types";
 import { DEFAULT_COLOR, type LabelColorSlug } from "@/lib/colors";
 
-/** Документ комплекта в шаблоне. `key` — локальный идентификатор для связей. */
+/** Задача в шаблоне набора. `key` — локальный идентификатор для связей. */
 export type SetItem = {
   key: string;
   title: string;
@@ -30,7 +30,7 @@ export type SetItem = {
   priority?: TaskPriority;
   color?: string;
   description?: string;
-  /** Имена меток (напр. тип документа) — навешиваются при разворачивании. */
+  /** Имена меток — навешиваются при разворачивании. */
   labels?: string[];
 };
 
@@ -40,7 +40,7 @@ export type SetLink = {
   type: TaskLinkType;
 };
 
-export type DocumentSetSummary = {
+export type TaskSetSummary = {
   id: string;
   name: string;
   description: string | null;
@@ -97,7 +97,7 @@ function parseLinks(raw: string | null): SetLink[] {
   }
 }
 
-export async function listForWorkspace(workspaceId: string): Promise<DocumentSetSummary[]> {
+export async function listForWorkspace(workspaceId: string): Promise<TaskSetSummary[]> {
   const rows = await db
     .select({
       id: documentSetTemplates.id,
@@ -152,9 +152,8 @@ export async function remove(workspaceId: string, templateId: string): Promise<v
 }
 
 /**
- * Снимок текущего проекта-темы как шаблон комплекта: корневые задачи →
- * items, связи между ними → links. Позволяет переиспользовать собранный
- * комплект для новых ИСПДн/тем.
+ * Снимок текущего проекта как шаблон набора: корневые задачи → items,
+ * связи между ними → links. Позволяет разворачивать такой же проект заново.
  */
 export async function createFromProject(
   workspaceId: string,
@@ -223,8 +222,8 @@ export async function createFromProject(
 }
 
 /**
- * Разворачивает комплект в новый проект-тему: создаёт проект (с лайфцикл-
- * колонками), кладёт все документы в первую колонку и проставляет связи.
+ * Разворачивает набор в новый проект: создаёт проект (с дефолтными
+ * колонками), кладёт все задачи в первую колонку и проставляет связи.
  */
 export async function instantiate(
   workspaceId: string,
@@ -251,7 +250,7 @@ export async function instantiate(
     createdBy,
   });
 
-  // Первая колонка лайфцикла («Не начато»).
+  // Первая колонка («Не начато»).
   const [firstColumn] = await db
     .select({ id: columns.id })
     .from(columns)
@@ -288,7 +287,7 @@ export async function instantiate(
     );
   }
 
-  // Метки документов: find-or-create по имени в воркспейсе, затем навесить.
+  // Метки задач: find-or-create по имени в воркспейсе, затем навесить.
   const allNames = [...new Set(items.flatMap((it) => it.labels ?? []))];
   if (allNames.length > 0) {
     const nameToLabelId = new Map<string, string>();

@@ -55,8 +55,9 @@ export const taskTemplatesRelations = relations(taskTemplates, ({ one }) => ({
 }));
 
 /**
- * Шаблон комплекта ОРД — набор документов одной темы со связями между ними.
- * «Создать комплект по теме» разворачивает items в задачи, а links — в task_links.
+ * Шаблон набора задач — снимок проекта со связями между задачами.
+ * Разворачивание создаёт проект: items → задачи, links → task_links.
+ * (Имя таблицы историческое, менять — миграция без выгоды.)
  */
 export const documentSetTemplates = pgTable(
   "document_set_templates",
@@ -68,9 +69,9 @@ export const documentSetTemplates = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     color: text("color").notNull().default("slate"),
-    /** JSON: [{ key, title, type, priority?, color?, description? }] — документы комплекта. */
+    /** JSON: [{ key, title, type, priority?, color?, description? }] — задачи набора. */
     items: text("items").notNull(),
-    /** JSON: [{ sourceKey, targetKey, type }] — связи между документами по их key. */
+    /** JSON: [{ sourceKey, targetKey, type }] — связи между задачами по их key. */
     links: text("links"),
     createdBy: text("created_by")
       .notNull()
