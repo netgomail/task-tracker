@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { LABEL_COLORS } from "@/lib/colors";
 import { formatEventDate } from "@/lib/due-date";
+import { TASK_PRIORITY_META, TASK_TYPE_META } from "@/lib/task-meta";
+import type { TaskPriority, TaskType } from "@/domain/types";
 
 type Row = {
   id: string;
@@ -23,13 +25,6 @@ type Row = {
   projectColor: string;
   archivedAt: string;
   archivedBy: string | null;
-};
-
-const PRIORITY_LABEL: Record<string, string> = {
-  low: "Низкий",
-  normal: "Обычный",
-  high: "Высокий",
-  urgent: "Срочный",
 };
 
 const COLOR_HEX = new Map<string, string>(LABEL_COLORS.map((c) => [c.slug, c.hex]));
@@ -80,6 +75,7 @@ export function ArchiveTable({
         <thead>
           <tr className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
             <th className="px-3 py-2 font-medium">Задача</th>
+            <th className="px-3 py-2 font-medium">Тип</th>
             <th className="px-3 py-2 font-medium">Проект</th>
             <th className="px-3 py-2 font-medium">Приоритет</th>
             <th className="px-3 py-2 font-medium">Архивировал</th>
@@ -99,8 +95,16 @@ export function ArchiveTable({
                       className="h-2 w-2 shrink-0 rounded-full"
                       style={{ background: COLOR_HEX.get(r.projectColor) ?? "#94a3b8" }}
                     />
-                    <span className="font-medium">{r.title}</span>
+                    <Link
+                      href={`/w/${wsSlug}/p/${r.projectSlug}?task=${r.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {r.title}
+                    </Link>
                   </div>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {TASK_TYPE_META[r.type as TaskType]?.label ?? r.type}
                 </td>
                 <td className="px-3 py-2">
                   <Link
@@ -112,7 +116,7 @@ export function ArchiveTable({
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {PRIORITY_LABEL[r.priority] ?? r.priority}
+                  {TASK_PRIORITY_META[r.priority as TaskPriority]?.label ?? r.priority}
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {r.archivedBy ?? "—"}

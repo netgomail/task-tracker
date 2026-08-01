@@ -11,10 +11,8 @@ import { formatNumericDate, isDueOverdue } from "@/lib/due-date";
 import { LabelBadge } from "@/components/label-badge";
 import type { LabelRow } from "@/services/labels";
 import type { RegistryRow } from "@/services/registry";
-
-function statusLabel(r: RegistryRow): string {
-  return r.completedAt ? "Готово" : r.stage;
-}
+import { TASK_PRIORITY_META } from "@/lib/task-meta";
+import type { TaskPriority } from "@/domain/types";
 
 function buildCsv(rows: RegistryRow[]): string {
   const header = [
@@ -35,7 +33,7 @@ function buildCsv(rows: RegistryRow[]): string {
       r.title,
       r.labels.map((l) => l.name).join(", "),
       r.stage,
-      r.priority,
+      TASK_PRIORITY_META[r.priority as TaskPriority]?.label ?? r.priority,
       r.assignee ?? "",
       formatNumericDate(r.dueAt),
       formatNumericDate(r.reviewAt),
@@ -146,12 +144,16 @@ export function RegistryView({
                     </div>
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={cn(
-                        r.completedAt && "text-green-600 dark:text-green-400",
+                    <span className="inline-flex items-center gap-1.5">
+                      {r.stage}
+                      {r.completedAt && (
+                        <span
+                          className="text-green-600 dark:text-green-400"
+                          title="Готово"
+                        >
+                          ✓
+                        </span>
                       )}
-                    >
-                      {statusLabel(r)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{r.assignee ?? "—"}</td>
