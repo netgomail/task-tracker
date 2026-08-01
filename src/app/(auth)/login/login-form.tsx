@@ -20,7 +20,7 @@ const LoginSchema = z.object({
 
 type LoginInput = z.infer<typeof LoginSchema>;
 
-export function LoginForm() {
+export function LoginForm({ registrationEnabled }: { registrationEnabled: boolean }) {
   const router = useRouter();
   const search = useSearchParams();
   const nextPath = search.get("next") ?? "/workspaces";
@@ -86,12 +86,14 @@ export function LoginForm() {
           {pending ? "Входим…" : "Войти"}
         </Button>
       </form>
-      <p className="text-sm text-muted-foreground">
-        Нет аккаунта?{" "}
-        <Link href="/register" className="font-medium text-foreground hover:underline">
-          Зарегистрироваться
-        </Link>
-      </p>
+      {registrationEnabled && (
+        <p className="text-sm text-muted-foreground">
+          Нет аккаунта?{" "}
+          <Link href="/register" className="font-medium text-foreground hover:underline">
+            Зарегистрироваться
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

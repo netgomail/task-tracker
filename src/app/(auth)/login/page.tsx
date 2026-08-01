@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
+import { env } from "@/lib/env";
 import { getSession } from "@/lib/rbac";
 
 import { LoginForm } from "./login-form";
@@ -13,7 +14,7 @@ export default async function LoginPage() {
 
   return (
     <Suspense>
-      <LoginForm />
+      <LoginForm registrationEnabled={!env.DISABLE_REGISTRATION} />
     </Suspense>
   );
 }

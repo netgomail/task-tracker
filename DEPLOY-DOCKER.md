@@ -23,6 +23,10 @@ cp .env.docker.example .env.docker
 - `BETTER_AUTH_SECRET` — `openssl rand -base64 32`.
 - `BETTER_AUTH_URL` — `http://localhost:3000` для локального запуска, либо
   `http://<IP-или-домен-машины>:3000`, если открываешь с другого устройства в сети.
+- `DISABLE_REGISTRATION=1` — закрыть самостоятельную регистрацию после того,
+  как завёл нужные аккаунты (рекомендуется).
+- `TRUSTED_PROXY=1` — только если перед приложением стоит reverse-proxy
+  (nginx/Caddy), перезаписывающий `X-Forwarded-For`.
 
 ## 2. Собрать и запустить
 

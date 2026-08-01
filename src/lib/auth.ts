@@ -22,6 +22,9 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     minPasswordLength: 8,
+    // Серверная блокировка sign-up: страница /register — только витрина,
+    // настоящая защита здесь.
+    disableSignUp: env.DISABLE_REGISTRATION,
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 days
