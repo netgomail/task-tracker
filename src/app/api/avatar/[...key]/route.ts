@@ -25,7 +25,16 @@ export async function GET(
   if (!session) return new Response("Unauthorized", { status: 401 });
 
   const { key } = await params;
-  if (key[0] !== AVATAR_STORAGE_NAMESPACE) return new Response("Not found", { status: 404 });
+  // Строго namespace/userId/uuid.ext: без dot-сегментов и слэшей внутри
+  // сегмента ключ не может выйти из каталога аватаров и дотянуться до
+  // чужих вложений (проверка членства здесь не выполняется).
+  if (
+    key.length !== 3 ||
+    key[0] !== AVATAR_STORAGE_NAMESPACE ||
+    key.slice(1).some((seg) => !/^[\w][\w.-]*$/.test(seg) || seg.includes(".."))
+  ) {
+    return new Response("Not found", { status: 404 });
+  }
 
   const storageKey = key.join("/");
   const ext = storageKey.split(".").pop() ?? "";

@@ -15,15 +15,30 @@ async function withRateLimit(request: NextRequest, method: "GET" | "POST") {
 
   if (needsLimit) {
     const ip = getClientIp(request);
-    const result = checkRateLimit(`auth:${ip}`);
+    // Без доверенного прокси все клиенты выглядят одним IP («direct»),
+    // поэтому жёсткий лимит вешаем на пару ip+email, а на IP — только
+    // широкий колпак от распределённого перебора.
+    const email = await request
+      .clone()
+      .json()
+      .then((body: unknown) =>
+        body && typeof body === "object" && "email" in body && typeof body.email === "string"
+          ? body.email.toLowerCase().trim()
+          : "",
+      )
+      .catch(() => "");
 
-    if (!result.allowed) {
+    const perTarget = checkRateLimit(`auth:${ip}:${email}`, 5);
+    const perIp = checkRateLimit(`auth:${ip}`, 30);
+    const blocked = !perTarget.allowed ? perTarget : !perIp.allowed ? perIp : null;
+
+    if (blocked && !blocked.allowed) {
       return NextResponse.json(
         { error: "Слишком много попыток. Повторите позже." },
         {
           status: 429,
           headers: {
-            "Retry-After": String(result.retryAfterSeconds),
+            "Retry-After": String(blocked.retryAfterSeconds),
             "X-RateLimit-Limit": "5",
           },
         },

@@ -6,6 +6,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { newId } from "@/lib/ids";
+import { member } from "@/db/schema/auth";
 import { syncTokens } from "@/db/schema/sync";
 
 /** Контекст, который несёт валидный токен синхронизации. */
@@ -75,7 +76,8 @@ export async function revoke(workspaceId: string, tokenId: string): Promise<void
 
 /**
  * Проверяет секрет: ищет неотозванный токен по хэшу, обновляет lastUsedAt.
- * null — токен неизвестен или отозван.
+ * null — токен неизвестен, отозван, либо его владелец больше не состоит
+ * в workspace (токен ушедшего участника умирает вместе с членством).
  */
 export async function verify(secret: string): Promise<SyncContext | null> {
   if (!secret.startsWith(PREFIX)) return null;
@@ -86,6 +88,10 @@ export async function verify(secret: string): Promise<SyncContext | null> {
       workspaceId: syncTokens.workspaceId,
     })
     .from(syncTokens)
+    .innerJoin(
+      member,
+      and(eq(member.userId, syncTokens.userId), eq(member.organizationId, syncTokens.workspaceId)),
+    )
     .where(and(eq(syncTokens.tokenHash, hashToken(secret)), isNull(syncTokens.revokedAt)))
     .limit(1);
   if (!row) return null;

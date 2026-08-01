@@ -6,6 +6,8 @@
  * Алгоритм: sliding window — считаем попытки за последние `windowMs` мс.
  */
 
+import { env } from "@/lib/env";
+
 type Entry = {
   attempts: number;
   windowStart: number;
@@ -62,12 +64,17 @@ export function checkRateLimit(
 
 /**
  * Извлекает IP из заголовков Next.js Request (Edge / Node.js).
- * Учитывает reverse-proxy (x-forwarded-for).
+ * X-Forwarded-For / X-Real-IP ставит клиент, поэтому доверяем им только
+ * при TRUSTED_PROXY=1 (когда перед приложением стоит reverse-proxy,
+ * перезаписывающий эти заголовки). Иначе любой брутфорс обнулял бы
+ * лимит одним рандомным заголовком.
  */
 export function getClientIp(request: Request): string {
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "unknown";
+  if (env.TRUSTED_PROXY) {
+    const xff = request.headers.get("x-forwarded-for");
+    if (xff) return xff.split(",")[0].trim();
+    const realIp = request.headers.get("x-real-ip");
+    if (realIp) return realIp.trim();
+  }
+  return "direct";
 }
